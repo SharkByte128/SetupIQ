@@ -1,17 +1,17 @@
 ﻿import { useState } from "react";
 import { SyncIndicator } from "./components/SyncIndicator.js";
 import { UserMenu } from "./components/UserMenu.js";
-import { SetupsPage } from "./components/SetupsPage.js";
+import { GaragePage } from "./components/GaragePage.js";
 import { RunsPage } from "./components/RunsPage.js";
 import { ScalesPage } from "./components/ScalesPage.js";
 import { TimingPage } from "./components/TimingPage.js";
 import { TracksPage } from "./components/TracksPage.js";
 import { InstallPrompt } from "./components/InstallPrompt.js";
 
-type Tab = "setups" | "runs" | "scales" | "timing" | "tracks";
+type Tab = "garage" | "runs" | "scales" | "timing" | "tracks";
 
 function App() {
-  const [tab, setTab] = useState<Tab>("setups");
+  const [tab, setTab] = useState<Tab>("garage");
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
@@ -24,7 +24,7 @@ function App() {
       </header>
 
       <main className="flex-1 overflow-y-auto">
-        {tab === "setups" && <SetupsPage />}
+        {tab === "garage" && <GaragePage />}
         {tab === "runs" && <RunsPage />}
         {tab === "scales" && <ScalesPage />}
         {tab === "timing" && <TimingPage />}
@@ -32,7 +32,7 @@ function App() {
       </main>
 
       <nav className="border-t border-neutral-800 px-4 py-3 flex justify-around text-xs">
-        {(["setups", "runs", "tracks", "scales", "timing"] as const).map((t) => (
+        {(["garage", "runs", "tracks", "scales", "timing"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}

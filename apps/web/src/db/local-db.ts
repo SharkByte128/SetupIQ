@@ -130,6 +130,14 @@ export interface SyncMeta {
   value: string;
 }
 
+export interface LocalCarImage {
+  id: string;
+  carId: string;
+  blob: Blob;
+  name: string;
+  createdAt: string;
+}
+
 class SetupIQDatabase extends Dexie {
   setupSnapshots!: Table<LocalSetupSnapshot, string>;
   runSessions!: Table<LocalRunSession, string>;
@@ -138,6 +146,7 @@ class SetupIQDatabase extends Dexie {
   components!: Table<LocalComponent, string>;
   measurements!: Table<LocalMeasurement, string>;
   recommendations!: Table<LocalRecommendation, string>;
+  carImages!: Table<LocalCarImage, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -161,6 +170,18 @@ class SetupIQDatabase extends Dexie {
       components: "id, userId, type, _dirty",
       measurements: "id, setupId, runSessionId, _dirty",
       recommendations: "id, sessionId, status, _dirty",
+      syncMeta: "key",
+    });
+
+    this.version(3).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId",
       syncMeta: "key",
     });
   }

@@ -15,9 +15,13 @@ type View =
 // Default to first car (MR-03 RWD)
 const defaultCar = allCars[0];
 
-export function SetupsPage() {
+interface SetupsPageProps {
+  forcedCarId?: string;
+}
+
+export function SetupsPage({ forcedCarId }: SetupsPageProps) {
   const [view, setView] = useState<View>({ kind: "list" });
-  const [selectedCarId, setSelectedCarId] = useState(defaultCar.id);
+  const [selectedCarId, setSelectedCarId] = useState(forcedCarId ?? defaultCar.id);
   const car = allCars.find((c) => c.id === selectedCarId) ?? defaultCar;
 
   const { setups, loading, createSetup, updateSetup, cloneSetup, deleteSetup } = useSetups(car.id);
@@ -57,8 +61,8 @@ export function SetupsPage() {
 
   return (
     <div className="px-4 py-4">
-      {/* Car selector (if > 1 car available) */}
-      {allCars.length > 1 && view.kind === "list" && (
+      {/* Car selector (if > 1 car available and not forced from garage) */}
+      {!forcedCarId && allCars.length > 1 && view.kind === "list" && (
         <div className="mb-4">
           <select
             value={selectedCarId}
