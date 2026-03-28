@@ -16,7 +16,12 @@ ENV VITE_API_URL=$VITE_API_URL
 COPY apps/web/ apps/web/
 RUN npm run build --workspace=apps/web
 
-# ── Serve with Caddy ──────────────────────────────────────
+# ── Build Caddy with Cloudflare DNS plugin ────────────────
+FROM caddy:2-builder-alpine AS caddy-builder
+RUN xcaddy build --with github.com/caddy-dns/cloudflare
+
+# ── Serve with custom Caddy ───────────────────────────────
 FROM caddy:2-alpine
+COPY --from=caddy-builder /usr/bin/caddy /usr/bin/caddy
 COPY --from=build /app/apps/web/dist /srv
 COPY Caddyfile /etc/caddy/Caddyfile

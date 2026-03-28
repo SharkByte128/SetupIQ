@@ -59,6 +59,7 @@ services:
         condition: service_healthy
     environment:
       SITE_DOMAIN: "${SITE_DOMAIN:-dev.setupiq.app}"
+      CLOUDFLARE_API_TOKEN: "${CLOUDFLARE_API_TOKEN:-}"
     ports:
       - "80:80"
       - "443:443"

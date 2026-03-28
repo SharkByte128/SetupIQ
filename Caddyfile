@@ -1,6 +1,8 @@
 {$SITE_DOMAIN:localhost} {
-	# LAN internal TLS — Caddy self-signs if no ACME is reachable
-	tls internal
+	# Auto-renewing Let's Encrypt cert via Cloudflare DNS challenge
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+	}
 
 	# API routes — proxy to Fastify as-is (no prefix stripping)
 	handle /api/* {
