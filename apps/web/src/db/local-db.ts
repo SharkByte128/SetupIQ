@@ -138,6 +138,31 @@ export interface LocalCarImage {
   createdAt: string;
 }
 
+export interface LocalRaceResult {
+  id: string;
+  userId: string;
+  carId: string;
+  trackId?: string;
+  eventName: string;
+  community?: string;
+  className: string;
+  roundType: string; // "practice" | "qualifying" | "main" | "custom"
+  roundNumber?: number;
+  date: string;
+  position: number;
+  totalEntries?: number;
+  totalLaps: number;
+  totalTimeMs: number;
+  fastLapMs: number;
+  avgLapMs?: number;
+  laps: { lapNumber: number; timeMs: number }[];
+  sourceUrl?: string;
+  setupSnapshotId?: string;
+  notes?: string;
+  createdAt: string;
+  _dirty: 0 | 1;
+}
+
 class SetupIQDatabase extends Dexie {
   setupSnapshots!: Table<LocalSetupSnapshot, string>;
   runSessions!: Table<LocalRunSession, string>;
@@ -147,6 +172,7 @@ class SetupIQDatabase extends Dexie {
   measurements!: Table<LocalMeasurement, string>;
   recommendations!: Table<LocalRecommendation, string>;
   carImages!: Table<LocalCarImage, string>;
+  raceResults!: Table<LocalRaceResult, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -182,6 +208,19 @@ class SetupIQDatabase extends Dexie {
       measurements: "id, setupId, runSessionId, _dirty",
       recommendations: "id, sessionId, status, _dirty",
       carImages: "id, carId",
+      syncMeta: "key",
+    });
+
+    this.version(4).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId",
+      raceResults: "id, userId, carId, date, className, _dirty",
       syncMeta: "key",
     });
   }

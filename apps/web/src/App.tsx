@@ -6,9 +6,10 @@ import { RunsPage } from "./components/RunsPage.js";
 import { ScalesPage } from "./components/ScalesPage.js";
 import { TimingPage } from "./components/TimingPage.js";
 import { TracksPage } from "./components/TracksPage.js";
+import { RacesPage } from "./components/RacesPage.js";
 import { InstallPrompt } from "./components/InstallPrompt.js";
 
-type Tab = "garage" | "runs" | "scales" | "timing" | "tracks";
+type Tab = "garage" | "races" | "runs" | "scales" | "timing" | "tracks";
 
 const iconProps = { width: 18, height: 18, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
@@ -16,6 +17,8 @@ function TabIcon({ name }: { name: Tab }) {
   switch (name) {
     case "garage":
       return (<svg {...iconProps} viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12H3z" /><rect x="9" y="13" width="6" height="8" rx="1" /></svg>);
+    case "races":
+      return (<svg {...iconProps} viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 22V9" /><path d="M14 22V9" /><path d="M8 2h8l-1 7H9L8 2z" /></svg>);
     case "runs":
       return (<svg {...iconProps} viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>);
     case "tracks":
@@ -42,6 +45,7 @@ function App() {
 
       <main className="flex-1 overflow-y-auto">
         {tab === "garage" && <GaragePage />}
+        {tab === "races" && <RacesPage />}
         {tab === "runs" && <RunsPage />}
         {tab === "scales" && <ScalesPage />}
         {tab === "timing" && <TimingPage />}
@@ -49,7 +53,7 @@ function App() {
       </main>
 
       <nav className="border-t border-neutral-800 px-2 py-2 flex justify-around text-xs">
-        {(["garage", "runs", "tracks", "scales", "timing"] as const).map((t) => (
+        {(["garage", "races", "runs", "tracks", "scales", "timing"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}

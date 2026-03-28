@@ -8,6 +8,7 @@ import { registerAuth } from "./auth/oauth.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerSyncRoutes } from "./sync/routes.js";
 import { registerRecommendationRoutes } from "./recommendations/routes.js";
+import { registerNltRoutes } from "./nlt/routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3001;
@@ -26,6 +27,7 @@ async function start(): Promise<void> {
   await registerAuthRoutes(app);
   await registerSyncRoutes(app);
   await registerRecommendationRoutes(app);
+  await registerNltRoutes(app);
 
   // Serve /docs folder as static files
   // In Docker: /app/docs; in dev: relative to source

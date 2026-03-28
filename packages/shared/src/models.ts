@@ -282,3 +282,40 @@ export interface RecommendationContext {
   }>;
   cornerWeights?: CornerWeights;
 }
+
+// ─── Race Results ─────────────────────────────────────────────
+
+export type RaceRoundType = "practice" | "qualifying" | "main" | "custom";
+
+export interface RaceLap {
+  lapNumber: number;
+  timeMs: number;
+}
+
+export interface RaceResult {
+  id: UUID;
+  userId: UUID;
+  carId: UUID;
+  trackId?: UUID;
+  /** Display name of the event or race day */
+  eventName: string;
+  /** NLT community / club name */
+  community?: string;
+  /** Class name as shown on the timing system */
+  className: string;
+  roundType: RaceRoundType;
+  roundNumber?: number;
+  date: ISODateString;
+  position: number;
+  totalEntries?: number;
+  totalLaps: number;
+  totalTimeMs: number;
+  fastLapMs: number;
+  avgLapMs?: number;
+  laps: RaceLap[];
+  /** NLT race URL for reference */
+  sourceUrl?: string;
+  setupSnapshotId?: UUID;
+  notes?: string;
+  createdAt: ISODateString;
+}
