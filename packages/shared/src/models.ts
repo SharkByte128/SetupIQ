@@ -226,3 +226,59 @@ export interface SyncMeta {
   syncStatus: SyncStatus;
   dirty: boolean;
 }
+
+// ─── Recommendations ──────────────────────────────────────────
+
+export type RecommendationStatus = "pending" | "accepted" | "rejected" | "tried";
+export type RecommendationSource = "rule" | "llm";
+export type RecommendationPriority = "high" | "medium" | "low";
+
+export interface SetupChange {
+  capabilityId: string;
+  capabilityName: string;
+  currentValue: string | number | boolean;
+  suggestedValue: string | number | boolean;
+}
+
+export interface Recommendation {
+  id: UUID;
+  sessionId: UUID;
+  source: RecommendationSource;
+  priority: RecommendationPriority;
+  title: string;
+  reasoning: string;
+  changes: SetupChange[];
+  status: RecommendationStatus;
+  outcome?: {
+    improved: boolean;
+    notes?: string;
+    resultSessionId?: UUID;
+  };
+  createdAt: ISODateString;
+}
+
+export interface RecommendationContext {
+  car: {
+    id: string;
+    name: string;
+    driveType: string;
+  };
+  currentSetup: SetupEntry[];
+  recentSessions: Array<{
+    sessionId: UUID;
+    feedback: DriverFeedback | undefined;
+    lapStats?: {
+      bestMs: number;
+      avgMs: number;
+      stdDevMs: number;
+      lapCount: number;
+    };
+  }>;
+  previousRecommendations: Array<{
+    title: string;
+    changes: SetupChange[];
+    status: RecommendationStatus;
+    outcome?: Recommendation["outcome"];
+  }>;
+  cornerWeights?: CornerWeights;
+}

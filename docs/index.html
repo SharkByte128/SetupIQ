@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+  <title>SetupIQ Docs</title>
+  <meta name="description" content="SetupIQ — RC 1:28 Scale Racing Setup Documentation" />
+  <!-- Docsify theme: dark -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple-dark.min.css" />
+  <style>
+    :root {
+      --base-background-color: #0a0a0a;
+      --sidebar-background: #171717;
+      --sidebar-border-color: #262626;
+      --sidebar-nav-link-color--active: #60a5fa;
+      --sidebar-nav-link-font-weight--active: 600;
+      --heading-color: #e5e5e5;
+      --base-color: #d4d4d4;
+      --link-color: #60a5fa;
+      --code-inline-background: #262626;
+      --code-inline-color: #e5e5e5;
+      --blockquote-border-color: #3b82f6;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+      name: 'SetupIQ Docs',
+      repo: '',
+      loadSidebar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      search: {
+        placeholder: 'Search docs…',
+        noData: 'No results',
+        depth: 3,
+      },
+    };
+  </script>
+  <!-- Docsify core -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+  <!-- Plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+</body>
+</html>

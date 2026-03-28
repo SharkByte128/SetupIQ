@@ -17,6 +17,7 @@
     "@fastify/cors": "^11.0.0",
     "@fastify/jwt": "^10.0.0",
     "@fastify/oauth2": "^8.2.0",
+    "@fastify/static": "^9.0.0",
     "@setupiq/shared": "*",
     "drizzle-orm": "^0.44.0",
     "fastify": "^5.3.0",
