@@ -5,7 +5,7 @@ import { localDb } from "./local-db.js";
  * Keyed by a "seeded" flag in syncMeta to avoid re-seeding.
  */
 export async function seedDefaults(): Promise<void> {
-  const seeded = await localDb.syncMeta.get("db-seeded");
+  const seeded = await localDb.syncMeta.get("db-seeded-v2");
   if (seeded) return;
 
   const now = new Date().toISOString();
@@ -30,5 +30,84 @@ export async function seedDefaults(): Promise<void> {
     _dirty: 0 as const,
   });
 
-  await localDb.syncMeta.put({ key: "db-seeded", value: now });
+  // ── MRX Master Edition — Baseline Setup (from AtomicMRXME.md) ──
+  await localDb.setupSnapshots.put({
+    id: "setup-mrx-me-baseline",
+    userId: "local",
+    carId: "car-mrx-me",
+    name: "MRX ME — Manual Baseline",
+    entries: [
+      { capabilityId: "chassis", value: "plastic" },
+      { capabilityId: "side-wing", value: "none" },
+      { capabilityId: "front-ride-height", value: 2.1 },
+      { capabilityId: "front-daa-spring", value: "super-soft-red" },
+      { capabilityId: "front-damper-grease", value: "atomic-25000" },
+      { capabilityId: "front-toe", value: 4 },
+      { capabilityId: "front-caster", value: "2" },
+      { capabilityId: "top-kingpin-shim", value: 0 },
+      { capabilityId: "bottom-kingpin-shim", value: 2 },
+      { capabilityId: "front-damper-shim", value: 1 },
+      { capabilityId: "front-knuckle", value: "aluminum-v2" },
+      { capabilityId: "rear-ride-height", value: 3.2 },
+      { capabilityId: "rear-spring-style", value: "horizontal" },
+      { capabilityId: "vertical-side-spring", value: "na" },
+      { capabilityId: "rear-top-spring", value: "medium-yellow" },
+      { capabilityId: "center-damper-grease", value: "atomic-25000" },
+      { capabilityId: "side-spring-damper-grease", value: "atomic-25000" },
+      { capabilityId: "center-damper", value: "standard" },
+      { capabilityId: "center-damper-mount", value: "standard" },
+      { capabilityId: "pinion-gear", value: "12" },
+      { capabilityId: "spur-gear", value: "53" },
+      { capabilityId: "diff-type", value: "gear-diff" },
+      { capabilityId: "diff-tension", value: "tight" },
+      { capabilityId: "front-tire", value: "marka-v5-front-25-11" },
+      { capabilityId: "rear-tire", value: "marka-mzr-v1rr15-14" },
+      { capabilityId: "front-wheel", value: "sh-jud-85-p1" },
+      { capabilityId: "rear-wheel", value: "sh-jud-11-p3" },
+      { capabilityId: "tire-glue", value: "none" },
+      { capabilityId: "motor", value: "PN Anima V4 2500kv" },
+      { capabilityId: "esc", value: "Hobbywing EZRun Mini28" },
+      { capabilityId: "servo", value: "AGFRC A06CLS v2" },
+      { capabilityId: "battery", value: "Silver Horse RC 450mAh 2S 7.4V 60C" },
+      { capabilityId: "radio", value: "Flysky Noble 4 Plus" },
+      { capabilityId: "receiver", value: "Micro 4-channel" },
+      { capabilityId: "transponder", value: "EasyLap Transponder" },
+      { capabilityId: "ballast-total", value: 0 },
+    ],
+    wheelTireSetups: [
+      {
+        position: "front",
+        side: "left",
+        wheelId: "wheel-sh-jud-85-p1",
+        tireId: "tire-marka-v5-front-25",
+      },
+      {
+        position: "front",
+        side: "right",
+        wheelId: "wheel-sh-jud-85-p1",
+        tireId: "tire-marka-v5-front-25",
+      },
+      {
+        position: "rear",
+        side: "left",
+        wheelId: "wheel-sh-jud-11-p3",
+        tireId: "tire-marka-mzr-v1rr15",
+      },
+      {
+        position: "rear",
+        side: "right",
+        wheelId: "wheel-sh-jud-11-p3",
+        tireId: "tire-marka-mzr-v1rr15",
+      },
+    ],
+    notes:
+      "Built per MRX Master Edition manual. Practice motor (non-handout). " +
+      "Silver Horse wheels — swap to PN Delrin for PNWC. " +
+      "Ball diff: tighten fully, back off 1/8 to 1/4 turn.",
+    createdAt: now,
+    updatedAt: now,
+    _dirty: 0 as const,
+  });
+
+  await localDb.syncMeta.put({ key: "db-seeded-v2", value: now });
 }
