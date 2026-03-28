@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: setupiq
+      POSTGRES_PASSWORD: setupiq
+      POSTGRES_DB: setupiq
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U setupiq"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://setupiq:setupiq@postgres:5432/setupiq
+      PORT: "3001"
+      HOST: "0.0.0.0"
+      CORS_ORIGIN: "http://localhost:5173"
+    ports:
+      - "3001:3001"
+
+volumes:
+  pgdata:
