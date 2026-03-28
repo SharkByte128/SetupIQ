@@ -1,0 +1,32 @@
+{$SITE_DOMAIN:localhost} {
+	# LAN internal TLS — Caddy self-signs if no ACME is reachable
+	tls internal
+
+	# API routes — proxy to Fastify as-is (no prefix stripping)
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+
+	# Auth routes
+	handle /auth/* {
+		reverse_proxy api:3001
+	}
+
+	# Docs (served by Fastify @fastify/static)
+	handle /docs/* {
+		reverse_proxy api:3001
+	}
+
+	# Health endpoint
+	handle /health {
+		reverse_proxy api:3001
+	}
+
+	# SPA — serve static files, fallback to index.html
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+		encode gzip
+	}
+}

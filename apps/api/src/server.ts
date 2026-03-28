@@ -28,8 +28,10 @@ async function start(): Promise<void> {
   await registerRecommendationRoutes(app);
 
   // Serve /docs folder as static files
+  // In Docker: /app/docs; in dev: relative to source
+  const docsRoot = process.env.DOCS_ROOT || path.resolve(__dirname, "../../../docs");
   await app.register(fastifyStatic, {
-    root: path.resolve(__dirname, "../../../docs"),
+    root: docsRoot,
     prefix: "/docs/",
     decorateReply: false,
   });

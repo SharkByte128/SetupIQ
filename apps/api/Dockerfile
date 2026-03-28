@@ -11,6 +11,7 @@ COPY packages/shared/ packages/shared/
 RUN npm run build --workspace=packages/shared
 
 COPY apps/api/ apps/api/
+COPY docs/ docs/
 RUN npm run build --workspace=apps/api
 
 FROM node:24-alpine
@@ -21,6 +22,7 @@ COPY --from=base /app/packages/shared/dist ./packages/shared/dist
 COPY --from=base /app/packages/shared/package.json ./packages/shared/
 COPY --from=base /app/apps/api/dist ./apps/api/dist
 COPY --from=base /app/apps/api/package.json ./apps/api/
+COPY --from=base /app/docs ./docs
 COPY --from=base /app/package.json ./
 
 EXPOSE 3001

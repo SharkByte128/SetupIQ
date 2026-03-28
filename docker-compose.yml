@@ -28,7 +28,7 @@ services:
       DATABASE_URL: postgres://setupiq:${POSTGRES_PASSWORD:-setupiq}@postgres:5432/setupiq
       PORT: "3001"
       HOST: "0.0.0.0"
-      CORS_ORIGIN: "${CORS_ORIGIN:-http://localhost:5173}"
+      CORS_ORIGIN: "${CORS_ORIGIN:-https://dev.setupiq.app}"
       JWT_SECRET: "${JWT_SECRET:-change-me-in-production}"
       OLLAMA_URL: "${OLLAMA_URL:-}"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3}"
@@ -37,8 +37,9 @@ services:
       GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
       MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID:-}"
       MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET:-}"
-    ports:
-      - "${API_PORT:-3001}:3001"
+      DOCS_ROOT: "/app/docs"
+    expose:
+      - "3001"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
       interval: 10s
@@ -46,5 +47,26 @@ services:
       retries: 3
       start_period: 15s
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: "${VITE_API_URL:-}"
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      SITE_DOMAIN: "${SITE_DOMAIN:-dev.setupiq.app}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
