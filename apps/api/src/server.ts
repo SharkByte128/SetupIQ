@@ -1,6 +1,9 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
+import { registerAuth } from "./auth/oauth.js";
+import { registerAuthRoutes } from "./auth/routes.js";
+import { registerSyncRoutes } from "./sync/routes.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -14,6 +17,9 @@ async function start(): Promise<void> {
   });
 
   await app.register(cookie);
+  await registerAuth(app);
+  await registerAuthRoutes(app);
+  await registerSyncRoutes(app);
 
   app.get("/health", async () => ({ status: "ok", timestamp: new Date().toISOString() }));
 
