@@ -1190,6 +1190,7 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [filesFound, setFilesFound] = useState(0);
 
   const handleGenerate = async () => {
     if (!chassis.trim()) return;
@@ -1252,8 +1253,58 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
     }));
 
     await localDb.parts.bulkAdd(parts);
+
+    // Attempt to fetch images and PDFs in the background
+    let filesAttached = 0;
+    for (let i = 0; i < toSave.length; i++) {
+      const suggested = toSave[i];
+      const partId = parts[i].id;
+
+      if (suggested.imageUrl) {
+        try {
+          const resp = await fetch(suggested.imageUrl, { mode: "cors" });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            if (blob.type.startsWith("image/")) {
+              const resized = await resizeImage(new File([blob], "image.webp", { type: blob.type }), 800);
+              await localDb.partFiles.add({
+                id: uuid(),
+                partId,
+                blob: resized,
+                name: `${suggested.name}.webp`,
+                mimeType: "image/webp",
+                createdAt: now,
+              });
+              filesAttached++;
+            }
+          }
+        } catch { /* CORS or network - skip silently */ }
+      }
+
+      if (suggested.pdfUrl) {
+        try {
+          const resp = await fetch(suggested.pdfUrl, { mode: "cors" });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            if (blob.type === "application/pdf" || suggested.pdfUrl.endsWith(".pdf")) {
+              await localDb.partFiles.add({
+                id: uuid(),
+                partId,
+                blob,
+                name: `${suggested.name}.pdf`,
+                mimeType: "application/pdf",
+                createdAt: now,
+              });
+              filesAttached++;
+            }
+          }
+        } catch { /* CORS or network - skip silently */ }
+      }
+    }
+
     setSaving(false);
     setSavedCount(parts.length);
+    setFilesFound(filesAttached);
   };
 
   const getVendorName = (id: string) => getVendorById(id)?.name ?? id;
@@ -1346,6 +1397,8 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
                     <div className="text-xs text-neutral-400 mt-0.5">
                       {getVendorName(part.vendorId)} · {getCategoryName(part.categoryId)}
                       {part.sku && ` · ${part.sku}`}
+                      {part.imageUrl && " 🖼️"}
+                      {part.pdfUrl && " 📄"}
                     </div>
                     {part.notes && (
                       <div className="text-xs text-neutral-500 mt-1">{part.notes}</div>
@@ -1362,7 +1415,7 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
               disabled={selected.size === 0 || saving}
               className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
             >
-              {saving ? "Saving..." : `Add ${selected.size} Parts`}
+              {saving ? "Saving & fetching files..." : `Add ${selected.size} Parts`}
             </button>
             <button
               onClick={onDone}
@@ -1381,9 +1434,19 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
           <div className="text-lg font-semibold text-white mb-1">
             {savedCount} parts added!
           </div>
-          <p className="text-sm text-neutral-400 mb-6">
+          <p className="text-sm text-neutral-400 mb-1">
             Browse your vendors to see them
           </p>
+          {filesFound > 0 && (
+            <p className="text-sm text-purple-400 mb-6">
+              📎 {filesFound} image{filesFound !== 1 ? "s" : ""} / doc{filesFound !== 1 ? "s" : ""} attached
+            </p>
+          )}
+          {filesFound === 0 && (
+            <p className="text-xs text-neutral-500 mb-6">
+              No downloadable images or docs found
+            </p>
+          )}
           <button
             onClick={onDone}
             className="bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors"

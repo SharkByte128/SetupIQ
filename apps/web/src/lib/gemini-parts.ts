@@ -143,6 +143,8 @@ export interface SuggestedPart {
   compatibleChassisIds: string[];
   attributes: Record<string, string | number>;
   notes?: string;
+  imageUrl?: string;
+  pdfUrl?: string;
 }
 
 const SUGGEST_SYSTEM_PROMPT = `You are an expert on 1:28-scale RC car parts (Mini-Z, Atomic RC, PN Racing, NEXX Racing, Reflex Racing, GL Racing, Silver Horse, etc.).
@@ -158,6 +160,8 @@ Each part object must have:
 - "attributes": Object with category-specific fields. Known keys:
 ${partCategories.map((c) => `  ${c.id}: ${c.attributes.map((a) => a.key).join(", ")}`).join("\n")}
 - "notes": Brief info about the part (optional)
+- "imageUrl": Direct URL to a product image (jpg/png/webp) on the vendor's official site if known (optional)
+- "pdfUrl": Direct URL to a product PDF / spec sheet / instruction manual on the vendor's official site if known (optional)
 
 Include parts across all relevant categories: springs, motors, motor mounts, tires, diffs, kingpins, batteries, knuckles, chassis upgrades, etc.
 Aim for 20-40 parts covering a good variety.
@@ -250,6 +254,8 @@ export async function suggestPartsForChassis(
           : [],
         attributes: attrs,
         notes: raw.notes || undefined,
+        imageUrl: typeof raw.imageUrl === "string" && raw.imageUrl.startsWith("https://") ? raw.imageUrl : undefined,
+        pdfUrl: typeof raw.pdfUrl === "string" && raw.pdfUrl.startsWith("https://") ? raw.pdfUrl : undefined,
       });
     }
 
