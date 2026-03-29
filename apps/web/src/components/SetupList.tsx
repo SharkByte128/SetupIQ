@@ -4,7 +4,7 @@ interface Props {
   setups: SetupSnapshot[];
   loading: boolean;
   onSelect: (setup: SetupSnapshot) => void;
-  onNew: () => void;
+  onNew?: () => void;
 }
 
 export function SetupList({ setups, loading, onSelect, onNew }: Props) {
@@ -16,12 +16,14 @@ export function SetupList({ setups, loading, onSelect, onNew }: Props) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-neutral-200">Setups</h2>
-        <button
-          onClick={onNew}
-          className="rounded-md bg-blue-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-blue-500 transition-colors"
-        >
-          + New Setup
-        </button>
+        {onNew && (
+          <button
+            onClick={onNew}
+            className="rounded-md bg-blue-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-blue-500 transition-colors"
+          >
+            + New Setup
+          </button>
+        )}
       </div>
 
       {setups.length === 0 ? (

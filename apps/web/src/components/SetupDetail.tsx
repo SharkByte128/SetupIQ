@@ -8,8 +8,8 @@ interface Props {
   setup: SetupSnapshot;
   car: CarDefinition;
   allSetups: SetupSnapshot[];
-  onClone: () => void;
-  onDelete: () => void;
+  onClone?: () => void;
+  onDelete?: () => void;
   onBack: () => void;
   onAutoSave?: (patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "notes">>) => void;
 }
@@ -153,7 +153,7 @@ export function SetupDetail({ setup, car, allSetups, onClone, onDelete, onBack, 
 
       {/* Action buttons */}
       <div className="flex gap-2 text-xs">
-        <button onClick={onClone} className="rounded bg-neutral-800 text-neutral-300 px-2.5 py-1 hover:bg-neutral-700">Clone</button>
+        {onClone && <button onClick={onClone} className="rounded bg-neutral-800 text-neutral-300 px-2.5 py-1 hover:bg-neutral-700">Clone</button>}
         {adminMode && (
           <>
             <button
@@ -162,9 +162,9 @@ export function SetupDetail({ setup, car, allSetups, onClone, onDelete, onBack, 
             >
               Export CSV
             </button>
-            <button onClick={onDelete} className="rounded bg-red-900 text-red-300 px-2.5 py-1 hover:bg-red-800">
+            {onDelete && <button onClick={onDelete} className="rounded bg-red-900 text-red-300 px-2.5 py-1 hover:bg-red-800">
               Delete
-            </button>
+            </button>}
           </>
         )}
       </div>

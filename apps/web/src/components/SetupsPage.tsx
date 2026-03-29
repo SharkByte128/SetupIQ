@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { allCars } from "@setupiq/shared";
 import type { SetupSnapshot, SetupEntry, WheelTireSetup } from "@setupiq/shared";
 import { useSetups } from "../hooks/use-setups.js";
+import { useHideDemoData, useIsDemoDataOwner, isPredefinedCar } from "../hooks/use-demo-filter.js";
 import { SetupList } from "./SetupList.js";
 import { SetupEditor } from "./SetupEditor.js";
 import { SetupDetail } from "./SetupDetail.js";
@@ -23,8 +24,13 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
   const [view, setView] = useState<View>({ kind: "list" });
   const [selectedCarId, setSelectedCarId] = useState(forcedCarId ?? defaultCar.id);
   const car = allCars.find((c) => c.id === selectedCarId) ?? defaultCar;
+  const hideDemoData = useHideDemoData();
 
-  const { setups, loading, createSetup, updateSetup, cloneSetup, deleteSetup } = useSetups(car.id);
+  const { setups, loading, createSetup, updateSetup, cloneSetup, deleteSetup } = useSetups(car.id, hideDemoData);
+  const isDemoOwner = useIsDemoDataOwner();
+
+  // Demo/predefined car setups are read-only unless user is sharkbyte128
+  const readOnly = isPredefinedCar(car.id) && !isDemoOwner;
 
   const handleSaveNew = useCallback(
     async (name: string, entries: SetupEntry[], wts: WheelTireSetup[], notes?: string) => {
@@ -97,7 +103,7 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
             setups={setups}
             loading={loading}
             onSelect={(s) => setView({ kind: "detail", setup: s })}
-            onNew={() => setView({ kind: "new" })}
+            onNew={readOnly ? undefined : () => setView({ kind: "new" })}
           />
         </>
       )}
@@ -130,10 +136,10 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
           setup={view.setup}
           car={car}
           allSetups={setups}
-          onClone={() => handleClone(view.setup)}
-          onDelete={() => handleDelete(view.setup.id)}
+          onClone={readOnly ? undefined : () => handleClone(view.setup)}
+          onDelete={readOnly ? undefined : () => handleDelete(view.setup.id)}
           onBack={() => setView({ kind: "list" })}
-          onAutoSave={(patch) => handleAutoSave(view.setup.id, patch)}
+          onAutoSave={readOnly ? undefined : (patch) => handleAutoSave(view.setup.id, patch)}
         />
       )}
     </div>

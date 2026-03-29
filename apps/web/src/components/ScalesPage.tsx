@@ -2,6 +2,7 @@ import { useState } from "react";
 import { v4 as uuid } from "uuid";
 import { useScale, useMeasurements } from "../hooks/use-scale.js";
 import { useSetups } from "../hooks/use-setups.js";
+import { useHideDemoData } from "../hooks/use-demo-filter.js";
 import { localDb as db } from "../db/local-db.js";
 import { allCars } from "@setupiq/shared";
 import type { Measurement } from "@setupiq/shared";
@@ -10,7 +11,8 @@ const defaultCar = allCars[0];
 
 export function ScalesPage() {
   const { connectionState, liveReading, connect, disconnect, captureMeasurement } = useScale();
-  const { setups } = useSetups(defaultCar.id);
+  const hideDemoData = useHideDemoData();
+  const { setups } = useSetups(defaultCar.id, hideDemoData);
   const { measurements, reload } = useMeasurements();
   const [selectedSetupId, setSelectedSetupId] = useState<string>("");
 

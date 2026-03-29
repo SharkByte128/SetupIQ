@@ -3,8 +3,9 @@ import { v4 as uuid } from "uuid";
 import { localDb as db } from "../db/local-db.js";
 import type { LocalSetupSnapshot } from "../db/local-db.js";
 import type { SetupSnapshot, SetupEntry, WheelTireSetup, CarDefinition } from "@setupiq/shared";
+import { isDemoRecord } from "./use-demo-filter.js";
 
-export function useSetups(carId?: string) {
+export function useSetups(carId?: string, hideDemoData = false) {
   const [setups, setSetups] = useState<SetupSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,10 +17,13 @@ export function useSetups(carId?: string) {
     } else {
       rows = await db.setupSnapshots.reverse().sortBy("updatedAt");
     }
+    if (hideDemoData) {
+      rows = rows.filter((r) => !isDemoRecord(r));
+    }
     // Cast the loosely-typed local records to the strict shared types
     setSetups(rows as unknown as SetupSnapshot[]);
     setLoading(false);
-  }, [carId]);
+  }, [carId, hideDemoData]);
 
   useEffect(() => {
     reload();

@@ -7,6 +7,7 @@ import { CarDetailPage } from "./CarDetailPage.js";
 import { PartsBinPage } from "./PartsBinPage.js";
 import { AddCarPage } from "./AddCarPage.js";
 import { resizeImage } from "../lib/resize-image.js";
+import { useHideDemoData } from "../hooks/use-demo-filter.js";
 import { v4 as uuid } from "uuid";
 
 type GarageView = "cars" | "setups" | "parts" | "addCar" | "editCar";
@@ -23,13 +24,14 @@ export function GaragePage() {
   const [images, setImages] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetCarId, setUploadTargetCarId] = useState<string | null>(null);
+  const hideDemoData = useHideDemoData();
 
   // Live-query custom cars from Dexie
   const customCars = useLiveQuery(() => localDb.customCars.toArray()) ?? [];
 
   // Merge predefined + custom into unified list
   const garageCars: GarageCar[] = [
-    ...allCars.map((car): GarageCar => ({ kind: "predefined", car })),
+    ...(hideDemoData ? [] : allCars.map((car): GarageCar => ({ kind: "predefined", car }))),
     ...customCars.map((car): GarageCar => ({ kind: "custom", car })),
   ];
 

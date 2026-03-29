@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useTracks } from "../hooks/use-tracks.js";
+import { useHideDemoData, useIsDemoDataOwner, isDemoRecord } from "../hooks/use-demo-filter.js";
 import { localDb, type LocalTrackFile } from "../db/local-db.js";
 import type { SurfaceType } from "@setupiq/shared";
 
@@ -19,13 +20,16 @@ const surfaceTypes: { value: SurfaceType; label: string }[] = [
 
 export function TracksPage() {
   const [view, setView] = useState<View>({ kind: "list" });
+  const hideDemoData = useHideDemoData();
+  const isDemoOwner = useIsDemoDataOwner();
   const { tracks, loading, saving, createTrack, updateTrack, deleteTrack } =
-    useTracks();
+    useTracks(hideDemoData);
 
   if (view.kind === "edit") {
     const existing = view.trackId
       ? tracks.find((t) => t.id === view.trackId)
       : undefined;
+    const readOnly = existing ? isDemoRecord(existing) && !isDemoOwner : false;
 
     return (
       <TrackForm
@@ -48,7 +52,7 @@ export function TracksPage() {
             : undefined
         }
         saving={saving}
-        onSave={async (data) => {
+        onSave={readOnly ? undefined : async (data) => {
           if (view.trackId) {
             await updateTrack(view.trackId, data);
           } else {
@@ -69,6 +73,7 @@ export function TracksPage() {
         }}
         onCancel={() => setView({ kind: "list" })}
         onDelete={
+          readOnly ? undefined :
           view.trackId
             ? async () => {
                 // Delete layout photos too
@@ -323,7 +328,7 @@ function TrackForm({
   trackId?: string;
   existing?: Omit<TrackFormData, "_pendingPhoto" | "_pendingPhotoName">;
   saving: boolean;
-  onSave: (data: TrackFormData) => void;
+  onSave?: (data: TrackFormData) => void;
   onCancel: () => void;
   onDelete?: () => void;
 }) {
@@ -500,7 +505,7 @@ function TrackForm({
       </div>
 
       <div className="flex gap-2">
-        <button
+        {onSave && <button
           onClick={() =>
             name.trim() &&
             onSave({
@@ -523,7 +528,7 @@ function TrackForm({
           className="flex-1 rounded-md bg-blue-600 text-white px-3 py-2 text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
         >
           {saving ? "Saving…" : existing ? "Update" : "Create"}
-        </button>
+        </button>}
         {onDelete && (
           <button
             onClick={onDelete}

@@ -3,6 +3,7 @@ import type { RunSession, RunSegment, SetupSnapshot, LapTime } from "@setupiq/sh
 import { allCars } from "@setupiq/shared";
 import { useSetups } from "../hooks/use-setups.js";
 import { useRunSessions } from "../hooks/use-run-sessions.js";
+import { useHideDemoData } from "../hooks/use-demo-filter.js";
 import { DriverFeedbackForm } from "./DriverFeedbackForm.js";
 import { RecommendationsPanel } from "./RecommendationsPanel.js";
 import { exportSessionCsv, downloadCsv } from "../utils/export.js";
@@ -18,9 +19,10 @@ type View =
 
 export function RunsPage() {
   const [view, setView] = useState<View>({ kind: "list" });
-  const { setups } = useSetups(defaultCar.id);
+  const hideDemoData = useHideDemoData();
+  const { setups } = useSetups(defaultCar.id, hideDemoData);
   const { sessions, loading, startSession, addSegment, updateSegmentFeedback, updateSegmentLapTimes, endSession } =
-    useRunSessions(defaultCar.id);
+    useRunSessions(defaultCar.id, hideDemoData);
 
   const handleStartSession = useCallback(
     async (setupId: string) => {

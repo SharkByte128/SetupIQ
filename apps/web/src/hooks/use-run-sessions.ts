@@ -3,8 +3,9 @@ import { v4 as uuid } from "uuid";
 import { localDb as db } from "../db/local-db.js";
 import type { LocalRunSession, LocalRunSegment } from "../db/local-db.js";
 import type { RunSession, RunSegment, DriverFeedback, SetupEntry, LapTime } from "@setupiq/shared";
+import { isDemoRecord } from "./use-demo-filter.js";
 
-export function useRunSessions(carId?: string) {
+export function useRunSessions(carId?: string, hideDemoData = false) {
   const [sessions, setSessions] = useState<RunSession[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,6 +16,10 @@ export function useRunSessions(carId?: string) {
       rows = await db.runSessions.where("carId").equals(carId).reverse().sortBy("startedAt");
     } else {
       rows = await db.runSessions.reverse().sortBy("startedAt");
+    }
+
+    if (hideDemoData) {
+      rows = rows.filter((r) => !isDemoRecord(r));
     }
 
     // Attach segments to each session
@@ -28,7 +33,7 @@ export function useRunSessions(carId?: string) {
     }
     setSessions(results);
     setLoading(false);
-  }, [carId]);
+  }, [carId, hideDemoData]);
 
   useEffect(() => {
     reload();

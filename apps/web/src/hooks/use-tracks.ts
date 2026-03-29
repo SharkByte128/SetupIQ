@@ -2,12 +2,14 @@ import { useState, useCallback } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { localDb } from "../db/local-db.js";
 import type { Track, SurfaceType } from "@setupiq/shared";
+import { isDemoRecord } from "./use-demo-filter.js";
 
-export function useTracks() {
+export function useTracks(hideDemoData = false) {
   const [saving, setSaving] = useState(false);
 
-  const tracks = useLiveQuery(() => localDb.tracks.toArray()) ?? [];
-  const loading = tracks === undefined;
+  const allTracks = useLiveQuery(() => localDb.tracks.toArray()) ?? [];
+  const tracks = hideDemoData ? allTracks.filter((t) => !isDemoRecord(t)) : allTracks;
+  const loading = allTracks === undefined;
 
   const createTrack = useCallback(
     async (data: {

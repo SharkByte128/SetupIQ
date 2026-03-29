@@ -7,6 +7,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [geminiKey, setGeminiKey] = useState("");
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [hideDemoData, setHideDemoData] = useState(false);
 
   // Server sync state
   const [serverUrl, setServerUrl] = useState("");
@@ -21,6 +22,10 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     localDb.syncMeta.get("gemini_api_key").then((row) => {
       if (row?.value) setGeminiKey(row.value);
+    });
+
+    localDb.syncMeta.get("hide_demo_data").then((row) => {
+      if (row?.value === "true") setHideDemoData(true);
     });
 
     // Load existing sync config
@@ -52,6 +57,12 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const handleClear = async () => {
     await localDb.syncMeta.delete("gemini_api_key");
     setGeminiKey("");
+  };
+
+  const handleToggleDemoData = async () => {
+    const next = !hideDemoData;
+    setHideDemoData(next);
+    await localDb.syncMeta.put({ key: "hide_demo_data", value: next ? "true" : "false" });
   };
 
   const handleRegister = async () => {
@@ -163,6 +174,33 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
       {/* Racers Section */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
         <RacersManager />
+      </div>
+
+      {/* Demo Data Toggle */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🏗️</span>
+            <div>
+              <h3 className="font-medium text-sm">Hide Demo Data</h3>
+              <p className="text-xs text-neutral-500">
+                Hide built-in cars, sample setups, tracks &amp; sessions
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleDemoData}
+            className={`relative w-11 h-6 rounded-full transition-colors ${
+              hideDemoData ? "bg-blue-600" : "bg-neutral-700"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                hideDemoData ? "translate-x-5" : ""
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Server Sync Section */}
