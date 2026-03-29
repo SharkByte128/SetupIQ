@@ -1,19 +1,36 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { allCars } from "@setupiq/shared";
 import type { CarDefinition } from "@setupiq/shared";
-import { localDb, type LocalCarImage } from "../db/local-db.js";
+import { localDb, type LocalCarImage, type LocalCustomCar } from "../db/local-db.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { PartsBinPage } from "./PartsBinPage.js";
+import { AddCarPage } from "./AddCarPage.js";
 import { v4 as uuid } from "uuid";
 
-type GarageView = "cars" | "setups" | "parts";
+type GarageView = "cars" | "setups" | "parts" | "addCar" | "editCar";
+
+/** Unified shape for displaying both predefined and custom cars. */
+type GarageCar =
+  | { kind: "predefined"; car: CarDefinition }
+  | { kind: "custom"; car: LocalCustomCar };
 
 export function GaragePage() {
   const [garageView, setGarageView] = useState<GarageView>("cars");
   const [selectedCar, setSelectedCar] = useState<CarDefinition | null>(null);
+  const [editingCustomCar, setEditingCustomCar] = useState<LocalCustomCar | undefined>();
   const [images, setImages] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetCarId, setUploadTargetCarId] = useState<string | null>(null);
+
+  // Live-query custom cars from Dexie
+  const customCars = useLiveQuery(() => localDb.customCars.toArray()) ?? [];
+
+  // Merge predefined + custom into unified list
+  const garageCars: GarageCar[] = [
+    ...allCars.map((car): GarageCar => ({ kind: "predefined", car })),
+    ...customCars.map((car): GarageCar => ({ kind: "custom", car })),
+  ];
 
   // Load thumbnail URLs from IndexedDB
   useEffect(() => {
@@ -111,6 +128,27 @@ export function GaragePage() {
     );
   }
 
+  // Add / Edit Car views
+  if (garageView === "addCar" || garageView === "editCar") {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-4 pt-3 pb-2">
+          <button
+            onClick={() => { setGarageView("cars"); setEditingCustomCar(undefined); }}
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            ← Back to Garage
+          </button>
+        </div>
+        <AddCarPage
+          editCar={editingCustomCar}
+          onSaved={() => { setGarageView("cars"); setEditingCustomCar(undefined); }}
+          onCancel={() => { setGarageView("cars"); setEditingCustomCar(undefined); }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 py-4">
       <h2 className="text-xl font-semibold mb-4">Garage</h2>
@@ -131,49 +169,104 @@ export function GaragePage() {
       </button>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {allCars.map((car) => (
-          <div
-            key={car.id}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden flex flex-col"
-          >
-            {/* Thumbnail */}
-            <button
-              onClick={() => setSelectedCar(car)}
-              className="relative aspect-[4/3] bg-neutral-800 flex items-center justify-center overflow-hidden group"
+        {garageCars.map((gc) => {
+          const carId = gc.car.id;
+          const carName = gc.car.name;
+          const manufacturer = gc.car.manufacturer;
+          const scale = gc.car.scale;
+          const driveType = gc.car.driveType;
+
+          return (
+            <div
+              key={carId}
+              className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden flex flex-col"
             >
-              {images[car.id] ? (
-                <img
-                  src={images[car.id]}
-                  alt={car.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                />
-              ) : (
-                <div className="text-neutral-600 text-3xl">🏎️</div>
-              )}
-            </button>
-
-            {/* Info + actions */}
-            <div className="p-3 flex flex-col gap-2">
+              {/* Thumbnail */}
               <button
-                onClick={() => setSelectedCar(car)}
-                className="text-left"
-              >
-                <p className="font-medium text-sm leading-tight">{car.name}</p>
-                <p className="text-xs text-neutral-500">{car.manufacturer} · {car.scale} {car.driveType}</p>
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleUploadClick(car.id);
+                onClick={() => {
+                  if (gc.kind === "predefined") {
+                    setSelectedCar(gc.car);
+                  }
                 }}
-                className="text-xs text-blue-400 hover:text-blue-300 text-left"
+                className="relative aspect-[4/3] bg-neutral-800 flex items-center justify-center overflow-hidden group"
               >
-                {images[car.id] ? "Change photo" : "Add photo"}
+                {images[carId] ? (
+                  <img
+                    src={images[carId]}
+                    alt={carName}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <div className="text-neutral-600 text-3xl">🏎️</div>
+                )}
               </button>
+
+              {/* Info + actions */}
+              <div className="p-3 flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    if (gc.kind === "predefined") {
+                      setSelectedCar(gc.car);
+                    }
+                  }}
+                  className="text-left"
+                >
+                  <p className="font-medium text-sm leading-tight">{carName}</p>
+                  <p className="text-xs text-neutral-500">{manufacturer} · {scale} {driveType}</p>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUploadClick(carId);
+                    }}
+                    className="text-xs text-blue-400 hover:text-blue-300 text-left"
+                  >
+                    {images[carId] ? "Change photo" : "Add photo"}
+                  </button>
+                  {gc.kind === "custom" && (
+                    <>
+                      <span className="text-neutral-700">·</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingCustomCar(gc.car);
+                          setGarageView("editCar");
+                        }}
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        Edit
+                      </button>
+                      <span className="text-neutral-700">·</span>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await localDb.customCars.delete(gc.car.id);
+                          // Also remove image if exists
+                          const img = await localDb.carImages.where("carId").equals(gc.car.id).first();
+                          if (img) await localDb.carImages.delete(img.id);
+                        }}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+
+        {/* Add Car card */}
+        <button
+          onClick={() => setGarageView("addCar")}
+          className="bg-neutral-900 border border-dashed border-neutral-700 rounded-lg overflow-hidden flex flex-col items-center justify-center aspect-auto min-h-[160px] hover:border-neutral-500 transition-colors group"
+        >
+          <span className="text-3xl text-neutral-600 group-hover:text-neutral-400 transition-colors">+</span>
+          <span className="text-sm text-neutral-500 group-hover:text-neutral-300 mt-1 transition-colors">Add Car</span>
+        </button>
       </div>
 
       <input

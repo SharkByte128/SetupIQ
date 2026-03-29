@@ -178,6 +178,19 @@ export interface LocalPart {
   _dirty: 0 | 1;
 }
 
+export interface LocalCustomCar {
+  id: string;
+  userId: string;
+  name: string;
+  manufacturer: string;
+  scale: string;
+  driveType: "RWD" | "AWD" | "FWD";
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  _dirty: 0 | 1;
+}
+
 class SetupIQDatabase extends Dexie {
   setupSnapshots!: Table<LocalSetupSnapshot, string>;
   runSessions!: Table<LocalRunSession, string>;
@@ -189,6 +202,7 @@ class SetupIQDatabase extends Dexie {
   carImages!: Table<LocalCarImage, string>;
   raceResults!: Table<LocalRaceResult, string>;
   parts!: Table<LocalPart, string>;
+  customCars!: Table<LocalCustomCar, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -251,6 +265,21 @@ class SetupIQDatabase extends Dexie {
       carImages: "id, carId",
       raceResults: "id, userId, carId, date, className, _dirty",
       parts: "id, userId, vendorId, categoryId, _dirty",
+      syncMeta: "key",
+    });
+
+    this.version(6).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId",
+      raceResults: "id, userId, carId, date, className, _dirty",
+      parts: "id, userId, vendorId, categoryId, _dirty",
+      customCars: "id, userId, manufacturer, _dirty",
       syncMeta: "key",
     });
   }

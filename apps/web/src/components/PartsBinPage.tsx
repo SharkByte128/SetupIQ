@@ -84,6 +84,7 @@ type View =
   | { type: "categories"; vendor: Vendor }
   | { type: "parts"; vendor: Vendor; category: PartCategory }
   | { type: "add"; vendor: Vendor; category: PartCategory; editPart?: LocalPart }
+  | { type: "quickAdd" }
   | { type: "detail"; part: LocalPart };
 
 // ── Main Component ────────────────────────────────────────────
@@ -101,6 +102,9 @@ export function PartsBinPage() {
         break;
       case "add":
         setView({ type: "parts", vendor: view.vendor, category: view.category });
+        break;
+      case "quickAdd":
+        setView({ type: "vendors" });
         break;
       case "detail":
         {
@@ -127,7 +131,10 @@ export function PartsBinPage() {
       )}
 
       {view.type === "vendors" && (
-        <VendorGrid onSelect={(v) => setView({ type: "categories", vendor: v })} />
+        <VendorGrid
+          onSelect={(v) => setView({ type: "categories", vendor: v })}
+          onQuickAdd={() => setView({ type: "quickAdd" })}
+        />
       )}
       {view.type === "categories" && (
         <CategoryList
@@ -163,17 +170,33 @@ export function PartsBinPage() {
           }}
         />
       )}
+      {view.type === "quickAdd" && (
+        <QuickAddPart
+          onSaved={(p) => setView({ type: "detail", part: p })}
+          onCancel={goBack}
+        />
+      )}
     </div>
   );
 }
 
 // ── Vendor Grid ───────────────────────────────────────────────
 
-function VendorGrid({ onSelect }: { onSelect: (v: Vendor) => void }) {
+function VendorGrid({ onSelect, onQuickAdd }: { onSelect: (v: Vendor) => void; onQuickAdd: () => void }) {
   return (
     <>
-      <h2 className="text-xl font-semibold mb-4">Parts Bin</h2>
-      <p className="text-sm text-neutral-400 mb-4">Choose a vendor to browse or add parts</p>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-semibold">Parts Bin</h2>
+          <p className="text-sm text-neutral-400 mt-1">Choose a vendor to browse or add parts</p>
+        </div>
+        <button
+          onClick={onQuickAdd}
+          className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+        >
+          + Add Part
+        </button>
+      </div>
       <div className="grid grid-cols-3 gap-3">
         {vendors.map((v) => (
           <button
@@ -606,6 +629,233 @@ function PartDetail({
             <p className="text-sm text-neutral-300">{part.notes}</p>
           </div>
         )}
+      </div>
+    </>
+  );
+}
+
+// ── Quick Add Part (vendor + category pickers in one form) ────
+
+function QuickAddPart({
+  onSaved,
+  onCancel,
+}: {
+  onSaved: (p: LocalPart) => void;
+  onCancel: () => void;
+}) {
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<PartCategory | null>(null);
+  const [name, setName] = useState("");
+  const [sku, setSku] = useState("");
+  const [notes, setNotes] = useState("");
+  const [selectedChassis, setSelectedChassis] = useState<string[]>([]);
+  const [attrs, setAttrs] = useState<Record<string, string | number>>({});
+
+  const toggleChassis = (id: string) => {
+    setSelectedChassis((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
+
+  const setAttr = (key: string, value: string | number) => {
+    setAttrs((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Reset attrs when category changes
+  const handleCategoryChange = (cat: PartCategory | null) => {
+    setSelectedCategory(cat);
+    setAttrs({});
+  };
+
+  const handleSave = async () => {
+    if (!name.trim() || !selectedVendor || !selectedCategory) return;
+
+    const now = new Date().toISOString();
+    const part: LocalPart = {
+      id: uuid(),
+      userId: "local",
+      vendorId: selectedVendor.id,
+      categoryId: selectedCategory.id,
+      name: name.trim(),
+      sku: sku.trim() || undefined,
+      compatibleChassisIds: selectedChassis,
+      attributes: attrs,
+      notes: notes.trim() || undefined,
+      createdAt: now,
+      updatedAt: now,
+      _dirty: 1 as const,
+    };
+
+    await localDb.parts.put(part);
+    onSaved(part);
+  };
+
+  const inputClass =
+    "w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500";
+
+  return (
+    <>
+      <h2 className="text-lg font-semibold mb-4">Add Part</h2>
+
+      <div className="flex flex-col gap-4">
+        {/* Vendor picker */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-2 block">Vendor *</label>
+          <div className="grid grid-cols-3 gap-2">
+            {vendors.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setSelectedVendor(v)}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+                  selectedVendor?.id === v.id
+                    ? "bg-blue-600/20 border-blue-500"
+                    : "bg-neutral-900 border-neutral-800 hover:border-neutral-600"
+                }`}
+              >
+                <VendorLogo slug={v.slug} size={32} />
+                <span className="text-[10px] text-neutral-400">{v.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Category picker */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-2 block">Category *</label>
+          <div className="flex flex-wrap gap-2">
+            {partCategories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => handleCategoryChange(cat)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  selectedCategory?.id === cat.id
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                }`}
+              >
+                {cat.icon} {cat.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Name */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-1 block">Part Name *</label>
+          <input
+            className={inputClass}
+            placeholder="e.g. PN Racing 53T Spur Gear"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+
+        {/* SKU */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-1 block">SKU / Part Number</label>
+          <input
+            className={inputClass}
+            placeholder="e.g. MZW-38"
+            value={sku}
+            onChange={(e) => setSku(e.target.value)}
+          />
+        </div>
+
+        {/* Compatible Chassis */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-2 block">Compatible Chassis</label>
+          <div className="flex flex-wrap gap-2">
+            {chassisPlatforms.map((cp) => (
+              <button
+                key={cp.id}
+                onClick={() => toggleChassis(cp.id)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  selectedChassis.includes(cp.id)
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                }`}
+              >
+                {cp.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Category-specific attributes */}
+        {selectedCategory && selectedCategory.attributes.length > 0 && (
+          <div>
+            <label className="text-xs text-neutral-400 mb-2 block">Specifications</label>
+            <div className="flex flex-col gap-3">
+              {selectedCategory.attributes.map((attr) => (
+                <div key={attr.key}>
+                  <label className="text-xs text-neutral-500 mb-1 block">
+                    {attr.label}
+                    {attr.required && " *"}
+                  </label>
+                  {attr.type === "pick" && attr.options ? (
+                    <select
+                      className={inputClass}
+                      value={(attrs[attr.key] as string) ?? ""}
+                      onChange={(e) => setAttr(attr.key, e.target.value)}
+                    >
+                      <option value="">Select...</option>
+                      {attr.options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : attr.type === "number" ? (
+                    <input
+                      type="number"
+                      className={inputClass}
+                      placeholder={attr.unit ? `(${attr.unit})` : ""}
+                      value={attrs[attr.key] ?? ""}
+                      onChange={(e) =>
+                        setAttr(attr.key, e.target.value ? Number(e.target.value) : "")
+                      }
+                    />
+                  ) : (
+                    <input
+                      className={inputClass}
+                      placeholder={attr.label}
+                      value={(attrs[attr.key] as string) ?? ""}
+                      onChange={(e) => setAttr(attr.key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-1 block">Notes</label>
+          <textarea
+            className={inputClass + " min-h-[60px] resize-y"}
+            placeholder="Any additional notes..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={handleSave}
+            disabled={!name.trim() || !selectedVendor || !selectedCategory}
+            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
+          >
+            Add Part
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </>
   );
