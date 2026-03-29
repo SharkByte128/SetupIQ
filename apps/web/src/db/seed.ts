@@ -1,11 +1,12 @@
 import { localDb } from "./local-db.js";
+import buildData from "./build-data.json";
 
 /**
  * Seed the local database with default data on first use.
  * Keyed by a "seeded" flag in syncMeta to avoid re-seeding.
  */
 export async function seedDefaults(): Promise<void> {
-  const seeded = await localDb.syncMeta.get("db-seeded-v2");
+  const seeded = await localDb.syncMeta.get("db-seeded-v3");
   if (seeded) return;
 
   const now = new Date().toISOString();
@@ -109,5 +110,68 @@ export async function seedDefaults(): Promise<void> {
     _dirty: 0 as const,
   });
 
-  await localDb.syncMeta.put({ key: "db-seeded-v2", value: now });
+  // ── Import historical test sessions from build docs ──
+  for (const session of buildData.sessions) {
+    const sessionDate = `${session.date}T12:00:00.000Z`;
+
+    // Create setup snapshot for this session's baseline
+    await localDb.setupSnapshots.put({
+      id: session.snapshotId,
+      userId: "local",
+      carId: session.carId,
+      name: session.snapshotName,
+      entries: session.setupEntries.map((e) => ({
+        capabilityId: e.capabilityId,
+        value: e.value,
+      })),
+      wheelTireSetups: [],
+      notes: `Baseline setup for test session ${session.date}`,
+      createdAt: sessionDate,
+      updatedAt: sessionDate,
+      _dirty: 0 as const,
+    });
+
+    // Create run session
+    await localDb.runSessions.put({
+      id: session.sessionId,
+      userId: "local",
+      carId: session.carId,
+      trackId: session.trackId,
+      notes: `Test ${session.date} — ${session.segments.length} segments, ${session.totalLaps} laps`,
+      startedAt: sessionDate,
+      endedAt: sessionDate,
+      _dirty: 0 as const,
+    });
+
+    // Create run segments
+    for (const seg of session.segments) {
+      await localDb.runSegments.put({
+        id: seg.id,
+        sessionId: session.sessionId,
+        setupSnapshotId: session.snapshotId,
+        segmentNumber: seg.segmentNumber,
+        feedback: {
+          handling: seg.feedback ? [seg.feedback] : [],
+          consistency: 0,
+          notes: `${seg.description} | ${seg.repeat} | fast: ${seg.fastLapSec}s avg: ${seg.avgInfo}`,
+        },
+        lapTimes: seg.lapTimes.map((l) => ({
+          lapNumber: l.lapNumber,
+          timeMs: l.timeMs,
+          isOutlier: l.timeMs > 60000,
+        })),
+        setupChanges: [
+          {
+            capabilityId: "setup-change",
+            value: seg.description,
+          },
+        ],
+        startedAt: sessionDate,
+        endedAt: sessionDate,
+        _dirty: 0 as const,
+      });
+    }
+  }
+
+  await localDb.syncMeta.put({ key: "db-seeded-v3", value: now });
 }

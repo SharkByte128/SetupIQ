@@ -16,5 +16,8 @@
     "build": "npm run build:shared && npm run build:web && npm run build:api",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "mammoth": "^1.12.0"
   }
 }
