@@ -1,8 +1,12 @@
 /**
- * Shopify Ingestion Adapter
+ * Vendor Ingestion Adapters
  *
- * Fetches products from a Shopify store's public products.json endpoint
- * and upserts them into vendor_offers for admin review / catalog linking.
+ * Fetches products from vendor stores and upserts them into vendor_offers
+ * for admin review / catalog linking.
+ *
+ * Supported platforms:
+ *   - shopify: Public /products.json endpoint
+ *   - woocommerce: WooCommerce Store API /wp-json/wc/store/v1/products
  *
  * Usage (CLI):
  *   npx tsx apps/api/src/catalog/ingest.ts --source-id <uuid>
@@ -123,6 +127,115 @@ function normalizeShopifyProduct(
 
 // ─── Main Ingestion Function ──────────────────────────────────
 
+interface NormalizedOffer {
+  vendorSourceId: string;
+  vendorSku: string;
+  productName: string;
+  productUrl: string;
+  imageUrl: string | null;
+  price: string | null;
+  currency: string;
+  rawData: Record<string, unknown>;
+  matchStatus: string;
+  lastSeenAt: Date;
+}
+
+// ─── WooCommerce Types ────────────────────────────────────────
+
+interface WooProduct {
+  id: number;
+  name: string;
+  slug: string;
+  sku: string;
+  permalink: string;
+  description: string;
+  prices: {
+    price: string;
+    currency_code: string;
+    currency_minor_unit: number;
+  };
+  images: { id: number; src: string; name: string; alt: string }[];
+  categories: { id: number; name: string; slug: string }[];
+  tags: { id: number; name: string; slug: string }[];
+  variations: {
+    id: number;
+    attributes: { name: string; value: string }[];
+  }[];
+}
+
+// ─── WooCommerce Adapter ──────────────────────────────────────
+
+async function fetchWooProducts(baseUrl: string): Promise<WooProduct[]> {
+  const products: WooProduct[] = [];
+  let page = 1;
+  const perPage = 100; // WC Store API max
+
+  while (true) {
+    const url = `${baseUrl.replace(/\/$/, "")}/wp-json/wc/store/v1/products?per_page=${perPage}&page=${page}`;
+    console.log(`  Fetching page ${page}: ${url}`);
+
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "SetupIQ-Catalog-Bot/1.0 (+https://setupiq.app)",
+        "Accept": "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get("Retry-After") ?? "5", 10);
+        console.log(`  Rate limited, waiting ${retryAfter}s...`);
+        await new Promise((r) => setTimeout(r, retryAfter * 1000));
+        continue;
+      }
+      throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    }
+
+    const data: WooProduct[] = await res.json();
+    if (!data?.length) break;
+
+    products.push(...data);
+
+    // Check if there are more pages via X-WP-TotalPages header
+    const totalPages = parseInt(res.headers.get("X-WP-TotalPages") ?? "1", 10);
+    if (page >= totalPages || data.length < perPage) break;
+    page++;
+
+    // Be polite
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+
+  return products;
+}
+
+function normalizeWooProduct(
+  product: WooProduct,
+  vendorSourceId: string,
+): NormalizedOffer[] {
+  const minorUnit = product.prices?.currency_minor_unit ?? 2;
+  const rawPrice = product.prices?.price ?? "0";
+  const price = (parseInt(rawPrice, 10) / Math.pow(10, minorUnit)).toFixed(2);
+
+  return [{
+    vendorSourceId,
+    vendorSku: product.sku || `woo-${product.id}`,
+    productName: product.name,
+    productUrl: product.permalink,
+    imageUrl: product.images?.[0]?.src ?? null,
+    price,
+    currency: product.prices?.currency_code ?? "USD",
+    rawData: {
+      wooProductId: product.id,
+      categories: product.categories?.map((c) => c.name) ?? [],
+      tags: product.tags?.map((t) => t.name) ?? [],
+    },
+    matchStatus: "pending",
+    lastSeenAt: new Date(),
+  }];
+}
+
+// ─── Main Ingestion Function (continued) ──────────────────────
+
 export async function ingestVendorSource(sourceId: string): Promise<{ fetched: number; upserted: number }> {
   // Load source config
   const [source] = await db
@@ -138,59 +251,52 @@ export async function ingestVendorSource(sourceId: string): Promise<{ fetched: n
   console.log(`\nIngesting: ${source.name} (${source.type})`);
   console.log(`  URL: ${source.baseUrl}`);
 
-  let products: ShopifyProduct[];
+  let allOffers: NormalizedOffer[] = [];
 
   if (source.type === "shopify") {
-    products = await fetchShopifyProducts(source.baseUrl);
+    const products = await fetchShopifyProducts(source.baseUrl);
+    console.log(`  Fetched ${products.length} products`);
+    for (const product of products) {
+      allOffers.push(...normalizeShopifyProduct(product, sourceId, source.baseUrl));
+    }
+  } else if (source.type === "woocommerce") {
+    const products = await fetchWooProducts(source.baseUrl);
+    console.log(`  Fetched ${products.length} products`);
+    for (const product of products) {
+      allOffers.push(...normalizeWooProduct(product, sourceId));
+    }
   } else {
-    throw new Error(`Unsupported source type: ${source.type}. Only "shopify" is implemented.`);
+    throw new Error(`Unsupported source type: ${source.type}. Supported: "shopify", "woocommerce".`);
   }
 
-  console.log(`  Fetched ${products.length} products`);
-
-  // Normalize and upsert
+  // Upsert offers
   let upserted = 0;
-  for (const product of products) {
-    const offers = normalizeShopifyProduct(product, sourceId, source.baseUrl);
-    for (const offer of offers) {
-      // Upsert by vendorSourceId + vendorSku
-      const [existing] = await db
-        .select({ id: vendorOffers.id, matchStatus: vendorOffers.matchStatus })
-        .from(vendorOffers)
-        .where(
-          eq(vendorOffers.vendorSourceId, sourceId),
-        )
-        .limit(1);
+  for (const offer of allOffers) {
+    // Check if this exact SKU already exists for this source
+    const existingBySku = await db
+      .select({ id: vendorOffers.id, matchStatus: vendorOffers.matchStatus })
+      .from(vendorOffers)
+      .where(eq(vendorOffers.vendorSku, offer.vendorSku))
+      .limit(1);
 
-      // Simple: check if this exact SKU already exists for this source
-      const existingBySku = await db
-        .select({ id: vendorOffers.id, matchStatus: vendorOffers.matchStatus })
-        .from(vendorOffers)
-        .where(
-          eq(vendorOffers.vendorSku, offer.vendorSku),
-        )
-        .limit(1);
-
-      if (existingBySku.length > 0) {
-        // Update price, image, last_seen — but don't change match_status if already linked
-        const updates: Record<string, unknown> = {
-          productName: offer.productName,
-          productUrl: offer.productUrl,
-          imageUrl: offer.imageUrl,
-          price: offer.price,
-          rawData: offer.rawData,
-          lastSeenAt: new Date(),
-        };
-        await db.update(vendorOffers).set(updates).where(eq(vendorOffers.id, existingBySku[0].id));
-      } else {
-        await db.insert(vendorOffers).values(offer);
-      }
-      upserted++;
+    if (existingBySku.length > 0) {
+      // Update price, image, last_seen — but don't change match_status if already linked
+      await db.update(vendorOffers).set({
+        productName: offer.productName,
+        productUrl: offer.productUrl,
+        imageUrl: offer.imageUrl,
+        price: offer.price,
+        rawData: offer.rawData,
+        lastSeenAt: new Date(),
+      }).where(eq(vendorOffers.id, existingBySku[0].id));
+    } else {
+      await db.insert(vendorOffers).values(offer);
     }
+    upserted++;
   }
 
   console.log(`  Upserted ${upserted} offers`);
-  return { fetched: products.length, upserted };
+  return { fetched: allOffers.length, upserted };
 }
 
 // ─── CLI Entry Point ──────────────────────────────────────────
