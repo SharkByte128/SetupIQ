@@ -66,6 +66,26 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   textarea { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; width: 100%; resize: vertical; font-family: inherit; }
   textarea:focus { outline: none; border-color: var(--accent); }
+  /* Rich editor */
+  .rich-toolbar { display: flex; gap: 0.25rem; padding: 0.3rem; background: var(--surface); border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; flex-wrap: wrap; }
+  .rich-toolbar button { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px; min-width: 28px; }
+  .rich-toolbar button:hover { background: var(--border); }
+  .rich-body { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 0 0 6px 6px; padding: 0.75rem; min-height: 120px; max-height: 400px; overflow-y: auto; font-size: 0.85rem; line-height: 1.5; }
+  .rich-body:focus { outline: none; border-color: var(--accent); }
+  .rich-body img { max-width: 100%; border-radius: 4px; margin: 0.5rem 0; }
+  .rich-body h3, .rich-body h4 { margin: 0.5rem 0 0.25rem; }
+  .rich-body ul, .rich-body ol { margin: 0.25rem 0; padding-left: 1.5rem; }
+  /* Expandable rows */
+  .part-row { cursor: pointer; }
+  .part-row:hover td { background: rgba(59,130,246,0.05); }
+  .part-expand { display: none; }
+  .part-expand.open { display: table-row; }
+  .part-expand td { padding: 1rem; background: var(--surface); }
+  .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+  .edit-grid .full { grid-column: 1 / -1; }
+  .dirty-indicator { color: var(--accent); font-weight: bold; }
+  .save-bar { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+  .save-bar.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -169,7 +189,20 @@
           <input type="text" id="cp-sku" placeholder="Base SKU * (unique)">
           <input type="text" id="cp-image" placeholder="Image URL" style="grid-column:1/-1">
           <input type="text" id="cp-pdf" placeholder="Instructions PDF URL" style="grid-column:1/-1">
-          <textarea id="cp-desc" placeholder="Description" rows="2" style="grid-column:1/-1"></textarea>
+          <div style="grid-column:1/-1">
+            <label style="font-size:0.8rem;color:var(--muted);margin-bottom:0.25rem;display:block">Description (rich text)</label>
+            <div class="rich-toolbar">
+              <button type="button" onclick="richCmd('bold')" title="Bold"><b>B</b></button>
+              <button type="button" onclick="richCmd('italic')" title="Italic"><i>I</i></button>
+              <button type="button" onclick="richCmd('underline')" title="Underline"><u>U</u></button>
+              <button type="button" onclick="richCmd('insertUnorderedList')" title="Bullet list">• List</button>
+              <button type="button" onclick="richCmd('insertOrderedList')" title="Numbered list">1. List</button>
+              <button type="button" onclick="richInsertHeading('cp-desc')" title="Heading">H3</button>
+              <button type="button" onclick="richInsertImage('cp-desc')" title="Insert image">🖼 Image</button>
+              <button type="button" onclick="richInsertLink()" title="Insert link">🔗 Link</button>
+            </div>
+            <div class="rich-body" contenteditable="true" id="cp-desc"></div>
+          </div>
           <input type="text" id="cp-tags" placeholder="Tags (comma-separated)" style="grid-column:1/-1">
         </div>
         <div style="margin-top:0.75rem">
@@ -179,9 +212,19 @@
       </div>
       <div class="row-between">
         <h2 style="margin-bottom:0">Catalog Parts</h2>
-        <button class="btn-ghost btn-sm" onclick="loadCatalogParts()">Refresh</button>
+        <div class="row" style="gap:0.5rem">
+          <input type="text" id="parts-search" placeholder="Search parts..." oninput="filterCatalogParts()" style="width:220px">
+          <button class="btn-ghost btn-sm" onclick="loadCatalogParts()">Refresh</button>
+        </div>
       </div>
       <div id="catalog-parts-list"></div>
+      <div id="parts-save-bar" class="save-bar hidden">
+        <span id="parts-dirty-count" style="font-size:0.85rem"></span>
+        <div class="row" style="gap:0.5rem">
+          <button class="btn-ghost btn-sm" onclick="discardPartChanges()">Discard</button>
+          <button class="btn-primary" onclick="saveAllDirtyParts()">💾 Save All Changes</button>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -628,16 +671,50 @@ async function autoCreateFromOffer(offerId, btn) {
   }
 }
 
-// ─── Catalog Parts ─────────────────────────────────────────
+// ─── Rich Editor Helpers ───────────────────────────────────
+
+function richCmd(cmd, val) {
+  document.execCommand(cmd, false, val || null);
+}
+function richInsertHeading(editorId) {
+  document.execCommand('formatBlock', false, 'h3');
+}
+function richInsertImage(editorId) {
+  const url = prompt('Image URL:');
+  if (url) document.execCommand('insertImage', false, url);
+}
+function richInsertLink() {
+  const url = prompt('Link URL:');
+  if (url) document.execCommand('createLink', false, url);
+}
+
+// ─── Catalog Parts (mass edit) ─────────────────────────────
+
+let allParts = [];
+let dirtyParts = {}; // { partId: { field: newValue, ... } }
 
 async function loadCatalogParts() {
   try {
     const res = await apiFetch('/api/admin/catalog/parts');
     const data = await res.json();
-    renderCatalogParts(data.parts || []);
+    allParts = data.parts || [];
+    dirtyParts = {};
+    updateSaveBar();
+    filterCatalogParts();
   } catch (e) {
     document.getElementById('catalog-parts-list').innerHTML = `<div class="error">${esc(e.message)}</div>`;
   }
+}
+
+function filterCatalogParts() {
+  const q = (document.getElementById('parts-search').value || '').toLowerCase().trim();
+  if (!q) { renderCatalogParts(allParts); return; }
+  const terms = q.split(/\s+/);
+  const filtered = allParts.filter(p => {
+    const text = [p.name, p.brand, p.category, p.baseSku, p.description, ...(p.tags || [])].filter(Boolean).join(' ').toLowerCase();
+    return terms.every(t => text.includes(t));
+  });
+  renderCatalogParts(filtered);
 }
 
 function renderCatalogParts(parts) {
@@ -646,16 +723,130 @@ function renderCatalogParts(parts) {
     el.innerHTML = '<div class="card"><p style="color:var(--muted)">No catalog parts yet. Create one above or auto-create from vendor offers.</p></div>';
     return;
   }
-  el.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.75rem">${parts.length} part(s)</p>` +
+  el.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.75rem">${parts.length} part(s) — click a row to edit</p>` +
     `<table><thead><tr><th></th><th>Name</th><th>Brand</th><th>Category</th><th>SKU</th><th>Status</th></tr></thead><tbody>` +
-    parts.map(p => `<tr>
+    parts.map(p => {
+      const isDirty = !!dirtyParts[p.id];
+      return `<tr class="part-row" onclick="togglePartEdit('${p.id}')">
       <td>${p.primaryImageUrl ? `<img src="${esc(p.primaryImageUrl)}" class="offers-img" loading="lazy">` : ''}</td>
-      <td><strong>${esc(p.name)}</strong>${p.description ? `<br><span style="color:var(--muted);font-size:0.8rem">${esc(p.description).substring(0, 80)}</span>` : ''}</td>
+      <td><strong>${isDirty ? '<span class="dirty-indicator">● </span>' : ''}${esc(p.name)}</strong>${p.description ? `<br><span style="color:var(--muted);font-size:0.8rem">${stripHtml(p.description).substring(0, 80)}</span>` : ''}</td>
       <td>${esc(p.brand || '—')}</td>
       <td>${esc(p.category)}</td>
       <td><code style="font-size:0.8rem">${esc(p.baseSku)}</code></td>
       <td><span class="badge badge-${p.status === 'active' ? 'linked' : 'pending'}">${esc(p.status)}</span></td>
-    </tr>`).join('') + `</tbody></table>`;
+    </tr>
+    <tr class="part-expand" id="part-edit-${p.id}">
+      <td colspan="6">
+        <div class="edit-grid">
+          <div><label style="font-size:0.75rem;color:var(--muted)">Name</label><input value="${escAttr(p.name)}" onchange="markPartDirty('${p.id}','name',this.value)"></div>
+          <div><label style="font-size:0.75rem;color:var(--muted)">Brand</label><input value="${escAttr(p.brand||'')}" onchange="markPartDirty('${p.id}','brand',this.value)"></div>
+          <div><label style="font-size:0.75rem;color:var(--muted)">Category</label><input value="${escAttr(p.category)}" onchange="markPartDirty('${p.id}','category',this.value)"></div>
+          <div><label style="font-size:0.75rem;color:var(--muted)">Base SKU</label><input value="${escAttr(p.baseSku)}" onchange="markPartDirty('${p.id}','baseSku',this.value)"></div>
+          <div><label style="font-size:0.75rem;color:var(--muted)">Image URL</label><input value="${escAttr(p.primaryImageUrl||'')}" onchange="markPartDirty('${p.id}','primaryImageUrl',this.value)"></div>
+          <div><label style="font-size:0.75rem;color:var(--muted)">PDF URL</label><input value="${escAttr(p.instructionsPdfUrl||'')}" onchange="markPartDirty('${p.id}','instructionsPdfUrl',this.value)"></div>
+          <div><label style="font-size:0.75rem;color:var(--muted)">Tags (comma-separated)</label><input value="${escAttr((p.tags||[]).join(', '))}" onchange="markPartDirty('${p.id}','tags',this.value.split(',').map(t=>t.trim()).filter(Boolean))"></div>
+          <div>
+            <label style="font-size:0.75rem;color:var(--muted)">Status</label>
+            <select onchange="markPartDirty('${p.id}','status',this.value)">
+              <option value="active" ${p.status==='active'?'selected':''}>Active</option>
+              <option value="draft" ${p.status==='draft'?'selected':''}>Draft</option>
+              <option value="archived" ${p.status==='archived'?'selected':''}>Archived</option>
+            </select>
+          </div>
+          <div class="full">
+            <label style="font-size:0.75rem;color:var(--muted)">Description (rich text — bold, lists, images)</label>
+            <div class="rich-toolbar">
+              <button type="button" onclick="event.stopPropagation();richCmd('bold')" title="Bold"><b>B</b></button>
+              <button type="button" onclick="event.stopPropagation();richCmd('italic')" title="Italic"><i>I</i></button>
+              <button type="button" onclick="event.stopPropagation();richCmd('underline')" title="Underline"><u>U</u></button>
+              <button type="button" onclick="event.stopPropagation();richCmd('insertUnorderedList')" title="Bullet list">• List</button>
+              <button type="button" onclick="event.stopPropagation();richCmd('insertOrderedList')" title="Numbered list">1. List</button>
+              <button type="button" onclick="event.stopPropagation();richInsertHeading('pe-desc-${p.id}')" title="Heading">H3</button>
+              <button type="button" onclick="event.stopPropagation();richInsertImage('pe-desc-${p.id}')" title="Insert image">🖼 Img</button>
+              <button type="button" onclick="event.stopPropagation();richInsertLink()" title="Insert link">🔗 Link</button>
+            </div>
+            <div class="rich-body" contenteditable="true" id="pe-desc-${p.id}" oninput="markPartDirty('${p.id}','description',this.innerHTML)" onclick="event.stopPropagation()">${p.description || ''}</div>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+    }).join('') + `</tbody></table>`;
+}
+
+function stripHtml(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return d.textContent || d.innerText || '';
+}
+
+function escAttr(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function togglePartEdit(id) {
+  const row = document.getElementById(`part-edit-${id}`);
+  if (row) row.classList.toggle('open');
+}
+
+function markPartDirty(id, field, value) {
+  if (!dirtyParts[id]) dirtyParts[id] = {};
+  dirtyParts[id][field] = value;
+  updateSaveBar();
+  // Update the dot indicator in the summary row
+  const rows = document.querySelectorAll('.part-row');
+  // re-render would lose editor state, just update count
+}
+
+function updateSaveBar() {
+  const count = Object.keys(dirtyParts).length;
+  const bar = document.getElementById('parts-save-bar');
+  const countEl = document.getElementById('parts-dirty-count');
+  if (count > 0) {
+    bar.classList.remove('hidden');
+    countEl.textContent = `${count} part(s) with unsaved changes`;
+  } else {
+    bar.classList.add('hidden');
+  }
+}
+
+function discardPartChanges() {
+  dirtyParts = {};
+  updateSaveBar();
+  filterCatalogParts();
+}
+
+async function saveAllDirtyParts() {
+  const ids = Object.keys(dirtyParts);
+  if (!ids.length) return;
+  const bar = document.getElementById('parts-save-bar');
+  const countEl = document.getElementById('parts-dirty-count');
+  countEl.innerHTML = `<span class="spinner"></span> Saving ${ids.length} part(s)...`;
+
+  let saved = 0, failed = 0;
+  for (const id of ids) {
+    try {
+      const res = await apiFetch(`/api/admin/catalog/parts/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(dirtyParts[id]),
+      });
+      if (!res.ok) throw new Error('save failed');
+      saved++;
+      // Update local data so re-render shows new values
+      const part = allParts.find(p => p.id === id);
+      if (part) Object.assign(part, dirtyParts[id]);
+      delete dirtyParts[id];
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  updateSaveBar();
+  filterCatalogParts();
+  if (failed) {
+    countEl.textContent = `Saved ${saved}, failed ${failed}`;
+    bar.classList.remove('hidden');
+    setTimeout(() => updateSaveBar(), 3000);
+  }
 }
 
 async function createCatalogPart() {
@@ -665,7 +856,8 @@ async function createCatalogPart() {
   const baseSku = document.getElementById('cp-sku').value.trim();
   const primaryImageUrl = document.getElementById('cp-image').value.trim();
   const instructionsPdfUrl = document.getElementById('cp-pdf').value.trim();
-  const description = document.getElementById('cp-desc').value.trim();
+  const descEl = document.getElementById('cp-desc');
+  const description = descEl.innerHTML.trim();
   const tagsStr = document.getElementById('cp-tags').value.trim();
   const msgEl = document.getElementById('cp-msg');
 
@@ -679,7 +871,9 @@ async function createCatalogPart() {
       body: JSON.stringify({ name, brand: brand || undefined, category, baseSku, description: description || undefined, primaryImageUrl: primaryImageUrl || undefined, instructionsPdfUrl: instructionsPdfUrl || undefined, tags }),
     });
     if (!res.ok) { const d = await res.json(); throw new Error(d.message || d.error || 'Failed'); }
-    ['cp-name','cp-brand','cp-category','cp-sku','cp-image','cp-pdf','cp-desc','cp-tags'].forEach(id => document.getElementById(id).value = '');
+    ['cp-name','cp-brand','cp-category','cp-sku','cp-tags'].forEach(id => document.getElementById(id).value = '');
+    ['cp-image','cp-pdf'].forEach(id => document.getElementById(id).value = '');
+    descEl.innerHTML = '';
     msgEl.innerHTML = '<div class="success">Catalog part created!</div>';
     setTimeout(() => msgEl.innerHTML = '', 3000);
     await loadCatalogParts();

@@ -8,6 +8,48 @@ import {
 } from "../api/client.js";
 import { allCars } from "@setupiq/shared";
 
+// ─── HTML Sanitizer (admin-authored content) ──────────────────
+
+const ALLOWED_TAGS = new Set([
+  "b", "i", "u", "em", "strong", "p", "br", "ul", "ol", "li",
+  "h1", "h2", "h3", "h4", "a", "img", "div", "span", "blockquote",
+]);
+const ALLOWED_ATTRS: Record<string, Set<string>> = {
+  a: new Set(["href", "title", "target", "rel"]),
+  img: new Set(["src", "alt", "width", "height", "style"]),
+};
+
+function sanitizeHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  function clean(node: Node): void {
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+      if (child.nodeType === Node.TEXT_NODE) continue;
+      if (child.nodeType !== Node.ELEMENT_NODE) { child.remove(); continue; }
+      const el = child as Element;
+      if (!ALLOWED_TAGS.has(el.tagName.toLowerCase())) {
+        // Keep children, remove the wrapper tag
+        while (el.firstChild) el.parentNode!.insertBefore(el.firstChild, el);
+        el.remove();
+        continue;
+      }
+      // Strip disallowed attributes
+      const allowed = ALLOWED_ATTRS[el.tagName.toLowerCase()];
+      for (const attr of Array.from(el.attributes)) {
+        if (!allowed?.has(attr.name)) el.removeAttribute(attr.name);
+      }
+      // Force safe link targets
+      if (el.tagName === "A") {
+        el.setAttribute("target", "_blank");
+        el.setAttribute("rel", "noopener noreferrer");
+      }
+      clean(el);
+    }
+  }
+  clean(doc.body);
+  return doc.body.innerHTML;
+}
+
 // ─── Category Options ─────────────────────────────────────────
 
 const categories = [
@@ -340,7 +382,10 @@ function CatalogDetail({ partId }: { partId: string }) {
       {part.description && (
         <div>
           <h3 className="text-xs font-semibold text-neutral-400 uppercase mb-1">Description</h3>
-          <p className="text-sm text-neutral-300">{part.description}</p>
+          <div
+            className="text-sm text-neutral-300 prose prose-invert prose-sm max-w-none [&_img]:rounded [&_img]:max-w-full [&_a]:text-blue-400"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(part.description) }}
+          />
         </div>
       )}
 
