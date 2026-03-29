@@ -25,7 +25,7 @@ export const drivers = pgTable("drivers", {
 // ─── Tracks ───────────────────────────────────────────────────
 
 export const tracks = pgTable("tracks", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
   name: text("name").notNull(),
   location: text("location"),
@@ -45,7 +45,7 @@ export const tracks = pgTable("tracks", {
 // ─── Shared Components ────────────────────────────────────────
 
 export const components = pgTable("components", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
   type: varchar("type", { length: 20 }).notNull(),
   brand: text("brand").notNull(),
@@ -64,7 +64,7 @@ export const components = pgTable("components", {
 // ─── Setup Snapshots ──────────────────────────────────────────
 
 export const setupSnapshots = pgTable("setup_snapshots", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
   carId: text("car_id").notNull(),
   name: text("name").notNull(),
@@ -84,19 +84,19 @@ export const setupSnapshots = pgTable("setup_snapshots", {
 // ─── Run Sessions ─────────────────────────────────────────────
 
 export const runSessions = pgTable("run_sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
   carId: text("car_id").notNull(),
-  trackId: uuid("track_id").references(() => tracks.id),
+  trackId: text("track_id").references(() => tracks.id),
   notes: text("notes"),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   endedAt: timestamp("ended_at", { withTimezone: true }),
 });
 
 export const runSegments = pgTable("run_segments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  sessionId: uuid("session_id").notNull().references(() => runSessions.id),
-  setupSnapshotId: uuid("setup_snapshot_id").notNull().references(() => setupSnapshots.id),
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull().references(() => runSessions.id),
+  setupSnapshotId: text("setup_snapshot_id").notNull().references(() => setupSnapshots.id),
   segmentNumber: integer("segment_number").notNull(),
   feedback: jsonb("feedback").$type<{
     handling: string[];
@@ -112,9 +112,9 @@ export const runSegments = pgTable("run_segments", {
 // ─── Measurements ─────────────────────────────────────────────
 
 export const measurements = pgTable("measurements", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  setupId: uuid("setup_id").notNull().references(() => setupSnapshots.id),
-  runSessionId: uuid("run_session_id").references(() => runSessions.id),
+  id: text("id").primaryKey(),
+  setupId: text("setup_id").notNull().references(() => setupSnapshots.id),
+  runSessionId: text("run_session_id").references(() => runSessions.id),
   cornerWeights: jsonb("corner_weights").$type<{
     frontLeft: number;
     frontRight: number;
@@ -133,7 +133,7 @@ export const measurements = pgTable("measurements", {
 // ─── Parts ────────────────────────────────────────────────────
 
 export const parts = pgTable("parts", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
   vendorId: text("vendor_id").notNull(),
   categoryId: text("category_id").notNull(),
@@ -149,7 +149,7 @@ export const parts = pgTable("parts", {
 // ─── Race Results ─────────────────────────────────────────────
 
 export const raceResults = pgTable("race_results", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
   carId: text("car_id").notNull(),
   trackId: text("track_id"),
@@ -175,7 +175,7 @@ export const raceResults = pgTable("race_results", {
 // ─── Custom Cars ──────────────────────────────────────────────
 
 export const customCars = pgTable("custom_cars", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
   name: text("name").notNull(),
   manufacturer: text("manufacturer").notNull(),
