@@ -2,6 +2,28 @@ import { localDb } from "../db/local-db.js";
 
 export type SyncState = "synced" | "pending" | "syncing" | "offline" | "error" | "not-configured";
 
+// ─── Blob ↔ base64 helpers for image sync ───────────────────
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Strip the data:…;base64, prefix — we store the raw base64
+      const result = reader.result as string;
+      resolve(result.split(",")[1] ?? result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function base64ToBlob(b64: string, mimeType = "image/jpeg"): Blob {
+  const bytes = atob(b64);
+  const buf = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i);
+  return new Blob([buf], { type: mimeType });
+}
+
 type SyncListener = (state: SyncState) => void;
 
 let currentState: SyncState = "not-configured";
@@ -112,6 +134,7 @@ async function hasDirtyRecords(): Promise<boolean> {
     localDb.parts.where("_dirty").equals(1).count(),
     localDb.raceResults.where("_dirty").equals(1).count(),
     localDb.customCars.where("_dirty").equals(1).count(),
+    localDb.carImages.where("_dirty").equals(1).count(),
   ]);
   return counts.some((c) => c > 0);
 }
@@ -129,23 +152,25 @@ export async function markAllDirty(): Promise<void> {
     localDb.parts.toCollection().modify({ _dirty: 1 }),
     localDb.raceResults.toCollection().modify({ _dirty: 1 }),
     localDb.customCars.toCollection().modify({ _dirty: 1 }),
+    localDb.carImages.toCollection().modify({ _dirty: 1 }),
   ]);
 }
 
 // ─── Push dirty records to server ───────────────────────────
 
 async function pushDirtyRecords(): Promise<void> {
-  const [dirtySetups, dirtyTracks, dirtySessions, dirtyParts, dirtyRaceResults, dirtyCustomCars] = await Promise.all([
+  const [dirtySetups, dirtyTracks, dirtySessions, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages] = await Promise.all([
     localDb.setupSnapshots.where("_dirty").equals(1).toArray(),
     localDb.tracks.where("_dirty").equals(1).toArray(),
     localDb.runSessions.where("_dirty").equals(1).toArray(),
     localDb.parts.where("_dirty").equals(1).toArray(),
     localDb.raceResults.where("_dirty").equals(1).toArray(),
     localDb.customCars.where("_dirty").equals(1).toArray(),
+    localDb.carImages.where("_dirty").equals(1).toArray(),
   ]);
 
   const hasAny = dirtySetups.length || dirtyTracks.length || dirtySessions.length ||
-    dirtyParts.length || dirtyRaceResults.length || dirtyCustomCars.length;
+    dirtyParts.length || dirtyRaceResults.length || dirtyCustomCars.length || dirtyCarImages.length;
   if (!hasAny) return;
 
   const body: Record<string, { id: string; updatedAt: string; data: Record<string, unknown> }[]> = {};
@@ -213,6 +238,19 @@ async function pushDirtyRecords(): Promise<void> {
     }));
   }
 
+  if (dirtyCarImages.length > 0) {
+    body.carImages = await Promise.all(
+      dirtyCarImages.map(async (img) => {
+        const base64 = await blobToBase64(img.blob);
+        return {
+          id: img.id,
+          updatedAt: img.updatedAt,
+          data: { carId: img.carId, imageBase64: base64, name: img.name, mimeType: img.mimeType || img.blob.type },
+        };
+      }),
+    );
+  }
+
   await syncFetch("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
 
   // Mark pushed records as clean
@@ -223,6 +261,7 @@ async function pushDirtyRecords(): Promise<void> {
     ...dirtyParts.map((p) => localDb.parts.update(p.id, { _dirty: 0 })),
     ...dirtyRaceResults.map((r) => localDb.raceResults.update(r.id, { _dirty: 0 })),
     ...dirtyCustomCars.map((c) => localDb.customCars.update(c.id, { _dirty: 0 })),
+    ...dirtyCarImages.map((img) => localDb.carImages.update(img.id, { _dirty: 0 })),
   ]);
 }
 
@@ -238,6 +277,7 @@ interface PullResponse {
   parts: any[];
   raceResults: any[];
   customCars: any[];
+  carImages: any[];
   serverTime: string;
 }
 
@@ -250,7 +290,7 @@ async function pullFromServer(): Promise<void> {
   await localDb.transaction("rw",
     [localDb.setupSnapshots, localDb.tracks, localDb.components, localDb.runSessions,
      localDb.runSegments, localDb.measurements, localDb.parts, localDb.raceResults,
-     localDb.customCars, localDb.syncMeta],
+     localDb.customCars, localDb.carImages, localDb.syncMeta],
     async () => {
       for (const setup of data.setupSnapshots) {
         const local = await localDb.setupSnapshots.get(setup.id);
@@ -373,6 +413,24 @@ async function pullFromServer(): Promise<void> {
             notes: car.notes,
             createdAt: car.created_at || car.createdAt,
             updatedAt: car.updated_at || car.updatedAt,
+            _dirty: 0,
+          });
+        }
+      }
+
+      for (const img of (data.carImages || [])) {
+        const local = await localDb.carImages.get(img.id);
+        if (!local || new Date(img.updated_at || img.updatedAt) > new Date(local.updatedAt)) {
+          const mimeType = img.mime_type || img.mimeType || "image/jpeg";
+          const blob = base64ToBlob(img.image_base64 || img.imageBase64, mimeType);
+          await localDb.carImages.put({
+            id: img.id,
+            carId: img.car_id || img.carId,
+            blob,
+            name: img.name || "",
+            mimeType,
+            createdAt: img.created_at || img.createdAt,
+            updatedAt: img.updated_at || img.updatedAt,
             _dirty: 0,
           });
         }

@@ -139,7 +139,10 @@ export interface LocalCarImage {
   carId: string;
   blob: Blob;
   name: string;
+  mimeType?: string;
   createdAt: string;
+  updatedAt: string;
+  _dirty: 0 | 1;
 }
 
 export interface LocalRaceResult {
@@ -364,6 +367,30 @@ class SetupIQDatabase extends Dexie {
       customCars: "id, userId, manufacturer, _dirty",
       racers: "id, name, active",
       syncMeta: "key",
+    });
+
+    this.version(10).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId, updatedAt, _dirty",
+      raceResults: "id, userId, carId, date, className, _dirty",
+      parts: "id, userId, vendorId, categoryId, _dirty",
+      partFiles: "id, partId",
+      trackFiles: "id, trackId",
+      customCars: "id, userId, manufacturer, _dirty",
+      racers: "id, name, active",
+      syncMeta: "key",
+    }).upgrade(tx => {
+      // Add _dirty and updatedAt to existing carImages records
+      return tx.table("carImages").toCollection().modify(img => {
+        if (img._dirty === undefined) img._dirty = 1;
+        if (!img.updatedAt) img.updatedAt = img.createdAt || new Date().toISOString();
+      });
     });
   }
 }

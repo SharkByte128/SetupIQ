@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
-import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars } from "../db/schema.js";
+import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages } from "../db/schema.js";
 import { eq, gt, and } from "drizzle-orm";
 
 type AuthUser = { id: string; email: string; displayName: string };
@@ -21,6 +21,7 @@ interface SyncPushBody {
   parts?: SyncRecord[];
   raceResults?: SyncRecord[];
   customCars?: SyncRecord[];
+  carImages?: SyncRecord[];
 }
 
 interface SyncPullQuery {
@@ -40,7 +41,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user as AuthUser;
     const since = request.query.since ? new Date(request.query.since) : new Date(0);
 
-    const [userSetups, userTracks, userComponents, userSessions, userSegments, userMeasurements, userParts, userRaceResults, userCustomCars] = await Promise.all([
+    const [userSetups, userTracks, userComponents, userSessions, userSegments, userMeasurements, userParts, userRaceResults, userCustomCars, userCarImages] = await Promise.all([
       db.select().from(setupSnapshots).where(
         and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
       ),
@@ -64,6 +65,9 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       db.select().from(customCars).where(
         and(eq(customCars.userId, user.id), gt(customCars.updatedAt, since))
       ),
+      db.select().from(carImages).where(
+        and(eq(carImages.userId, user.id), gt(carImages.updatedAt, since))
+      ),
     ]);
 
     return {
@@ -76,6 +80,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       parts: userParts,
       raceResults: userRaceResults,
       customCars: userCustomCars,
+      carImages: userCarImages,
       serverTime: new Date().toISOString(),
     };
   });
@@ -296,6 +301,34 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.customCars = body.customCars.length;
+    }
+
+    // Upsert car images
+    if (body.carImages?.length) {
+      for (const record of body.carImages) {
+        await db
+          .insert(carImages)
+          .values({
+            id: record.id,
+            userId: user.id,
+            carId: (record.data.carId as string) || "",
+            imageBase64: (record.data.imageBase64 as string) || "",
+            name: record.data.name as string | undefined,
+            mimeType: record.data.mimeType as string | undefined,
+            updatedAt: new Date(record.updatedAt),
+          })
+          .onConflictDoUpdate({
+            target: carImages.id,
+            set: {
+              carId: (record.data.carId as string) || "",
+              imageBase64: (record.data.imageBase64 as string) || "",
+              name: record.data.name as string | undefined,
+              mimeType: record.data.mimeType as string | undefined,
+              updatedAt: new Date(record.updatedAt),
+            },
+          });
+      }
+      results.carImages = body.carImages.length;
     }
 
     return { ok: true, upserted: results };

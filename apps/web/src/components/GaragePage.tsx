@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { allCars } from "@setupiq/shared";
 import type { CarDefinition } from "@setupiq/shared";
 import { localDb, type LocalCarImage, type LocalCustomCar } from "../db/local-db.js";
-import { SetupsPage } from "./SetupsPage.js";
+import { CarDetailPage } from "./CarDetailPage.js";
 import { PartsBinPage } from "./PartsBinPage.js";
 import { AddCarPage } from "./AddCarPage.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -18,7 +18,7 @@ type GarageCar =
 
 export function GaragePage() {
   const [garageView, setGarageView] = useState<GarageView>("cars");
-  const [selectedCar, setSelectedCar] = useState<CarDefinition | null>(null);
+  const [selectedCarId, setSelectedCarId] = useState<string | null>(null);
   const [editingCustomCar, setEditingCustomCar] = useState<LocalCustomCar | undefined>();
   const [images, setImages] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,7 +78,10 @@ export function GaragePage() {
         carId: uploadTargetCarId,
         blob: resized,
         name: file.name,
+        mimeType: resized.type || file.type,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        _dirty: 1,
       };
       await localDb.carImages.put(record);
 
@@ -95,20 +98,13 @@ export function GaragePage() {
     [uploadTargetCarId],
   );
 
-  // If a car is selected, show its setup page
-  if (selectedCar) {
+  // If a car is selected, show its detail page
+  if (selectedCarId) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="px-4 pt-3 pb-2">
-          <button
-            onClick={() => { setSelectedCar(null); setGarageView("cars"); }}
-            className="text-sm text-blue-400 hover:text-blue-300"
-          >
-            ← Back to Garage
-          </button>
-        </div>
-        <SetupsPage forcedCarId={selectedCar.id} />
-      </div>
+      <CarDetailPage
+        carId={selectedCarId}
+        onBack={() => { setSelectedCarId(null); setGarageView("cars"); }}
+      />
     );
   }
 
@@ -184,11 +180,7 @@ export function GaragePage() {
             >
               {/* Thumbnail */}
               <button
-                onClick={() => {
-                  if (gc.kind === "predefined") {
-                    setSelectedCar(gc.car);
-                  }
-                }}
+                onClick={() => setSelectedCarId(carId)}
                 className="relative aspect-[4/3] bg-neutral-800 flex items-center justify-center overflow-hidden group"
               >
                 {images[carId] ? (
@@ -205,11 +197,7 @@ export function GaragePage() {
               {/* Info + actions */}
               <div className="p-3 flex flex-col gap-2">
                 <button
-                  onClick={() => {
-                    if (gc.kind === "predefined") {
-                      setSelectedCar(gc.car);
-                    }
-                  }}
+                  onClick={() => setSelectedCarId(carId)}
                   className="text-left"
                 >
                   <p className="font-medium text-sm leading-tight">{carName}</p>
