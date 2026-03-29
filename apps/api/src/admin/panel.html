@@ -527,7 +527,9 @@ function filterOffers() {
     const text = [
       o.productName, o.vendorSku, o.price, o.matchStatus, o.productUrl,
       ...(o.rawData?.tags || []),
-      o.rawData?.vendor, o.rawData?.productType
+      o.rawData?.vendor, o.rawData?.productType,
+      ...(o.rawData?.categories || []),
+      o.rawData?.description
     ].filter(Boolean).join(' ').toLowerCase();
     return terms.every(t => text.includes(t));
   });

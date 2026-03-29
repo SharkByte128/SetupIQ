@@ -26,6 +26,7 @@ interface ShopifyProduct {
   id: number;
   title: string;
   handle: string;
+  body_html: string;
   vendor: string;
   product_type: string;
   tags: string[];
@@ -119,6 +120,7 @@ function normalizeShopifyProduct(
       productType: product.product_type,
       tags: product.tags,
       available: variant.available,
+      description: product.body_html ?? "",
     },
     matchStatus: "pending" as const,
     lastSeenAt: new Date(),
@@ -228,6 +230,7 @@ function normalizeWooProduct(
       wooProductId: product.id,
       categories: product.categories?.map((c) => c.name) ?? [],
       tags: product.tags?.map((t) => t.name) ?? [],
+      description: product.description ?? "",
     },
     matchStatus: "pending",
     lastSeenAt: new Date(),
