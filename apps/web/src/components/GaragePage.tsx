@@ -5,12 +5,13 @@ import type { CarDefinition } from "@setupiq/shared";
 import { localDb, type LocalCarImage, type LocalCustomCar } from "../db/local-db.js";
 import { CarDetailPage } from "./CarDetailPage.js";
 import { PartsBinPage } from "./PartsBinPage.js";
+import { CatalogPage } from "./CatalogPage.js";
 import { AddCarPage } from "./AddCarPage.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { useHideDemoData } from "../hooks/use-demo-filter.js";
 import { v4 as uuid } from "uuid";
 
-type GarageView = "cars" | "setups" | "parts" | "addCar" | "editCar";
+type GarageView = "cars" | "setups" | "parts" | "catalog" | "addCar" | "editCar";
 
 /** Unified shape for displaying both predefined and custom cars. */
 type GarageCar =
@@ -127,6 +128,11 @@ export function GaragePage() {
     );
   }
 
+  // Catalog view
+  if (garageView === "catalog") {
+    return <CatalogPage onBack={() => setGarageView("cars")} />;
+  }
+
   // Add / Edit Car views
   if (garageView === "addCar" || garageView === "editCar") {
     return (
@@ -162,6 +168,21 @@ export function GaragePage() {
           <div className="text-left">
             <p className="font-medium text-sm">Parts Bin</p>
             <p className="text-xs text-neutral-500">Browse & manage parts by vendor</p>
+          </div>
+        </div>
+        <span className="text-neutral-500 text-sm">→</span>
+      </button>
+
+      {/* Parts Catalog button */}
+      <button
+        onClick={() => setGarageView("catalog")}
+        className="w-full mb-4 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between hover:border-neutral-600 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-lg">📖</span>
+          <div className="text-left">
+            <p className="font-medium text-sm">Parts Catalog</p>
+            <p className="text-xs text-neutral-500">Search catalog & add parts to your bin</p>
           </div>
         </div>
         <span className="text-neutral-500 text-sm">→</span>

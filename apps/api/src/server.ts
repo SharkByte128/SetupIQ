@@ -11,6 +11,7 @@ import { registerRecommendationRoutes } from "./recommendations/routes.js";
 import { registerNltRoutes } from "./nlt/routes.js";
 import { registerGeminiRoutes } from "./gemini/routes.js";
 import { registerAdminRoutes } from "./admin/routes.js";
+import { registerCatalogRoutes } from "./catalog/routes.js";
 import { readFileSync, existsSync } from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,7 @@ async function start(): Promise<void> {
   await registerNltRoutes(app);
   await registerGeminiRoutes(app);
   await registerAdminRoutes(app);
+  await registerCatalogRoutes(app);
 
   // Serve admin panel HTML
   // In Docker (dist/): admin/panel.html next to server.js; in dev (src/): ../src/admin/panel.html

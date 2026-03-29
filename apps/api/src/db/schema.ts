@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, jsonb, varchar, integer, real, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, varchar, integer, real, boolean, decimal } from "drizzle-orm/pg-core";
 
 // ─── Users ────────────────────────────────────────────────────
 
@@ -142,6 +142,7 @@ export const parts = pgTable("parts", {
   compatibleChassisIds: jsonb("compatible_chassis_ids").notNull().$type<string[]>(),
   attributes: jsonb("attributes").notNull().$type<Record<string, string | number>>(),
   notes: text("notes"),
+  catalogPartId: uuid("catalog_part_id").references(() => catalogParts.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -195,6 +196,83 @@ export const carImages = pgTable("car_images", {
   imageBase64: text("image_base64").notNull(),
   name: text("name"),
   mimeType: text("mime_type"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ─── Parts Catalog (global, server-only) ──────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+export const catalogParts = pgTable("catalog_parts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  brand: text("brand"),
+  category: varchar("category", { length: 40 }).notNull(),
+  baseSku: text("base_sku").notNull().unique(),
+  description: text("description"),
+  primaryImageUrl: text("primary_image_url"),
+  instructionsPdfUrl: text("instructions_pdf_url"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  /** Which setup capability IDs this part maps to (e.g. ["front-spring", "rear-spring"]) */
+  setupFieldIds: jsonb("setup_field_ids").$type<string[]>().default([]),
+  /** Attribute values for this part (compound, rate, kv, etc.) */
+  attributes: jsonb("attributes").$type<Record<string, string | number>>().default({}),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Car Platform Compatibility ───────────────────────────────
+
+export const catalogPartCompatibility = pgTable("catalog_part_compatibility", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  catalogPartId: uuid("catalog_part_id").notNull().references(() => catalogParts.id, { onDelete: "cascade" }),
+  /** References CarDefinition.id from shared package (e.g. "car-mrx-me") */
+  carPlatformId: text("car_platform_id").notNull(),
+  notes: text("notes"),
+});
+
+// ─── Vendor Sources (where we ingest from) ────────────────────
+
+export const vendorSources = pgTable("vendor_sources", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  type: varchar("type", { length: 20 }).notNull(),
+  baseUrl: text("base_url").notNull(),
+  ingestionRules: jsonb("ingestion_rules").$type<Record<string, unknown>>().default({}),
+  enabled: boolean("enabled").notNull().default(true),
+  robotsCompliant: boolean("robots_compliant").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Vendor Offers (product listings per vendor) ──────────────
+
+export const vendorOffers = pgTable("vendor_offers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  catalogPartId: uuid("catalog_part_id").references(() => catalogParts.id, { onDelete: "set null" }),
+  vendorSourceId: uuid("vendor_source_id").notNull().references(() => vendorSources.id, { onDelete: "cascade" }),
+  vendorSku: text("vendor_sku"),
+  productName: text("product_name").notNull(),
+  productUrl: text("product_url"),
+  imageUrl: text("image_url"),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  rawData: jsonb("raw_data").$type<Record<string, unknown>>(),
+  /** null = pending review, linked = matched to catalog part */
+  matchStatus: varchar("match_status", { length: 20 }).notNull().default("pending"),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── User Parts Bin (catalog-linked ownership) ────────────────
+
+export const userPartsBin = pgTable("user_parts_bin", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  catalogPartId: uuid("catalog_part_id").notNull().references(() => catalogParts.id),
+  quantity: integer("quantity").notNull().default(1),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
