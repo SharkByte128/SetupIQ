@@ -9,7 +9,7 @@ import {
   type PartCategory,
 } from "@setupiq/shared";
 import { localDb, type LocalPart } from "../db/local-db.js";
-import { lookupPartBySku, type PartLookupResult } from "../lib/gemini-parts.js";
+import { lookupPartBySku, suggestPartsForChassis, type PartLookupResult, type SuggestedPart } from "../lib/gemini-parts.js";
 import { v4 as uuid } from "uuid";
 
 // ── Vendor Logo SVGs ──────────────────────────────────────────
@@ -151,6 +151,7 @@ type View =
   | { type: "parts"; vendor: Vendor; category: PartCategory }
   | { type: "add"; vendor: Vendor; category: PartCategory; editPart?: LocalPart }
   | { type: "quickAdd" }
+  | { type: "suggest" }
   | { type: "detail"; part: LocalPart };
 
 // ── Main Component ────────────────────────────────────────────
@@ -170,6 +171,9 @@ export function PartsBinPage() {
         setView({ type: "parts", vendor: view.vendor, category: view.category });
         break;
       case "quickAdd":
+        setView({ type: "vendors" });
+        break;
+      case "suggest":
         setView({ type: "vendors" });
         break;
       case "detail":
@@ -200,6 +204,7 @@ export function PartsBinPage() {
         <VendorGrid
           onSelect={(v) => setView({ type: "categories", vendor: v })}
           onQuickAdd={() => setView({ type: "quickAdd" })}
+          onSuggest={() => setView({ type: "suggest" })}
         />
       )}
       {view.type === "categories" && (
@@ -242,13 +247,18 @@ export function PartsBinPage() {
           onCancel={goBack}
         />
       )}
+      {view.type === "suggest" && (
+        <SuggestPartsView
+          onDone={() => setView({ type: "vendors" })}
+        />
+      )}
     </div>
   );
 }
 
 // ── Vendor Grid ───────────────────────────────────────────────
 
-function VendorGrid({ onSelect, onQuickAdd }: { onSelect: (v: Vendor) => void; onQuickAdd: () => void }) {
+function VendorGrid({ onSelect, onQuickAdd, onSuggest }: { onSelect: (v: Vendor) => void; onQuickAdd: () => void; onSuggest: () => void }) {
   return (
     <>
       <div className="flex items-center justify-between mb-4">
@@ -256,12 +266,20 @@ function VendorGrid({ onSelect, onQuickAdd }: { onSelect: (v: Vendor) => void; o
           <h2 className="text-xl font-semibold">Parts Bin</h2>
           <p className="text-sm text-neutral-400 mt-1">Choose a vendor to browse or add parts</p>
         </div>
-        <button
-          onClick={onQuickAdd}
-          className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
-        >
-          + Add Part
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onSuggest}
+            className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            ✨ AI Suggest
+          </button>
+          <button
+            onClick={onQuickAdd}
+            className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            + Add Part
+          </button>
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-3">
         {vendors.map((v) => (
@@ -939,6 +957,222 @@ function QuickAddPart({
           </button>
         </div>
       </div>
+    </>
+  );
+}
+
+// ── AI Suggest Parts ──────────────────────────────────────────
+
+function SuggestPartsView({ onDone }: { onDone: () => void }) {
+  const [chassis, setChassis] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [results, setResults] = useState<SuggestedPart[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+
+  const handleGenerate = async () => {
+    if (!chassis.trim()) return;
+    setLoading(true);
+    setError("");
+    setResults([]);
+    setSelected(new Set());
+    setSavedCount(null);
+
+    const res = await suggestPartsForChassis(chassis.trim());
+    setLoading(false);
+
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+
+    if (res.parts && res.parts.length > 0) {
+      setResults(res.parts);
+      setSelected(new Set(res.parts.map((_, i) => i)));
+    } else {
+      setError("No parts returned.");
+    }
+  };
+
+  const toggleAll = () => {
+    if (selected.size === results.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(results.map((_, i) => i)));
+    }
+  };
+
+  const toggle = (i: number) => {
+    const next = new Set(selected);
+    if (next.has(i)) next.delete(i);
+    else next.add(i);
+    setSelected(next);
+  };
+
+  const handleSave = async () => {
+    if (selected.size === 0) return;
+    setSaving(true);
+
+    const toSave = results.filter((_, i) => selected.has(i));
+    const now = new Date().toISOString();
+    const parts = toSave.map((s) => ({
+      id: uuid(),
+      userId: "local",
+      vendorId: s.vendorId,
+      categoryId: s.categoryId,
+      name: s.name,
+      sku: s.sku ?? "",
+      compatibleChassisIds: s.compatibleChassisIds,
+      attributes: s.attributes,
+      notes: s.notes ?? "",
+      createdAt: now,
+      updatedAt: now,
+      _dirty: 1 as const,
+    }));
+
+    await localDb.parts.bulkAdd(parts);
+    setSaving(false);
+    setSavedCount(parts.length);
+  };
+
+  const getVendorName = (id: string) => getVendorById(id)?.name ?? id;
+  const getCategoryName = (id: string) => getCategoryById(id)?.name ?? id;
+
+  return (
+    <>
+      <h2 className="text-xl font-semibold mb-1">✨ AI Suggest Parts</h2>
+      <p className="text-sm text-neutral-400 mb-4">
+        Pick a chassis and let AI suggest optional & upgrade parts
+      </p>
+
+      {/* Chassis picker */}
+      <div className="flex gap-2 mb-4">
+        <select
+          className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white"
+          value={chassis}
+          onChange={(e) => setChassis(e.target.value)}
+        >
+          <option value="">Select chassis...</option>
+          {chassisPlatforms.map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={handleGenerate}
+          disabled={!chassis || loading}
+          className="bg-purple-600 hover:bg-purple-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+        >
+          {loading ? "Thinking..." : "Generate"}
+        </button>
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="text-center py-12 text-neutral-400 text-sm">
+          <div className="animate-pulse">Asking Gemini for parts...</div>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-900/30 border border-red-700 text-red-300 text-sm px-4 py-3 rounded-lg mb-4">
+          {error}
+        </div>
+      )}
+
+      {/* Results */}
+      {results.length > 0 && savedCount === null && (
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-neutral-300">
+              {results.length} parts found — {selected.size} selected
+            </span>
+            <button
+              onClick={toggleAll}
+              className="text-xs text-blue-400 hover:text-blue-300"
+            >
+              {selected.size === results.length ? "Deselect All" : "Select All"}
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2 mb-4 max-h-[55vh] overflow-y-auto">
+            {results.map((part, i) => (
+              <button
+                key={i}
+                onClick={() => toggle(i)}
+                className={`text-left bg-neutral-900 border rounded-lg px-3 py-2.5 transition-colors ${
+                  selected.has(i)
+                    ? "border-purple-500 bg-purple-900/20"
+                    : "border-neutral-800"
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <div
+                    className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center text-xs ${
+                      selected.has(i)
+                        ? "bg-purple-600 border-purple-600 text-white"
+                        : "border-neutral-600"
+                    }`}
+                  >
+                    {selected.has(i) && "✓"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white truncate">
+                      {part.name}
+                    </div>
+                    <div className="text-xs text-neutral-400 mt-0.5">
+                      {getVendorName(part.vendorId)} · {getCategoryName(part.categoryId)}
+                      {part.sku && ` · ${part.sku}`}
+                    </div>
+                    {part.notes && (
+                      <div className="text-xs text-neutral-500 mt-1">{part.notes}</div>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleSave}
+              disabled={selected.size === 0 || saving}
+              className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
+            >
+              {saving ? "Saving..." : `Add ${selected.size} Parts`}
+            </button>
+            <button
+              onClick={onDone}
+              className="px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Success */}
+      {savedCount !== null && (
+        <div className="text-center py-12">
+          <div className="text-4xl mb-3">✅</div>
+          <div className="text-lg font-semibold text-white mb-1">
+            {savedCount} parts added!
+          </div>
+          <p className="text-sm text-neutral-400 mb-6">
+            Browse your vendors to see them
+          </p>
+          <button
+            onClick={onDone}
+            className="bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      )}
     </>
   );
 }
