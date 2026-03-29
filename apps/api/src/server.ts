@@ -10,6 +10,8 @@ import { registerSyncRoutes } from "./sync/routes.js";
 import { registerRecommendationRoutes } from "./recommendations/routes.js";
 import { registerNltRoutes } from "./nlt/routes.js";
 import { registerGeminiRoutes } from "./gemini/routes.js";
+import { registerAdminRoutes } from "./admin/routes.js";
+import { readFileSync } from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3001;
@@ -30,6 +32,16 @@ async function start(): Promise<void> {
   await registerRecommendationRoutes(app);
   await registerNltRoutes(app);
   await registerGeminiRoutes(app);
+  await registerAdminRoutes(app);
+
+  // Serve admin panel HTML
+  const adminHtmlPath = process.env.NODE_ENV === "production"
+    ? path.resolve(__dirname, "admin/panel.html")
+    : path.resolve(__dirname, "../src/admin/panel.html");
+  const adminHtml = readFileSync(adminHtmlPath, "utf-8");
+  app.get("/admin", async (_request, reply) => {
+    reply.type("text/html").send(adminHtml);
+  });
 
   // Serve /docs folder as static files
   // In Docker: /app/docs; in dev: relative to source

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SetupIQ Admin</title>
+<style>
+  :root { --bg: #0f172a; --surface: #1e293b; --border: #334155; --text: #e2e8f0; --muted: #94a3b8; --accent: #3b82f6; --danger: #ef4444; --success: #22c55e; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .container { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+  h1 { font-size: 1.5rem; margin-bottom: 1.5rem; }
+  h2 { font-size: 1.2rem; margin-bottom: 1rem; color: var(--muted); }
+  button { cursor: pointer; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; transition: opacity 0.15s; }
+  button:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  input { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.875rem; width: 100%; }
+  input:focus { outline: none; border-color: var(--accent); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
+  .row { display: flex; gap: 0.75rem; align-items: center; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .token { font-family: monospace; font-size: 0.75rem; color: var(--muted); word-break: break-all; background: var(--bg); padding: 0.3rem 0.5rem; border-radius: 4px; }
+  .badge { display: inline-block; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 9999px; background: var(--accent); color: #fff; margin-left: 0.5rem; }
+  .driver-list { margin-top: 0.75rem; padding-left: 1rem; }
+  .driver-item { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
+  .driver-item:last-child { border-bottom: none; }
+  .hidden { display: none; }
+  .error { color: var(--danger); font-size: 0.85rem; margin-top: 0.5rem; }
+  .success { color: var(--success); font-size: 0.85rem; margin-top: 0.5rem; }
+  .login-wrapper { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  .login-card { width: 100%; max-width: 380px; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.3rem; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+  .user-card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .user-info h3 { font-size: 1rem; }
+  .user-info .username { color: var(--muted); font-size: 0.85rem; }
+  .actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+  .copy-btn { cursor: pointer; color: var(--accent); font-size: 0.75rem; margin-left: 0.5rem; }
+  .copy-btn:hover { text-decoration: underline; }
+  .add-driver-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+  .add-driver-row input { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen" class="login-wrapper">
+  <div class="card login-card">
+    <h1>SetupIQ Admin</h1>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="login-user" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>API Token</label>
+      <input type="password" id="login-token" autocomplete="current-password">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="doLogin()">Sign In</button>
+    <div id="login-error" class="error hidden"></div>
+  </div>
+</div>
+
+<!-- Admin Panel -->
+<div id="admin-screen" class="hidden">
+  <div class="container">
+    <div class="header">
+      <h1>SetupIQ Admin</h1>
+      <button class="btn-ghost" onclick="doLogout()">Sign Out</button>
+    </div>
+
+    <!-- Create User -->
+    <div class="card">
+      <h2>Create User</h2>
+      <div class="row">
+        <input type="text" id="new-username" placeholder="Username (min 2 chars)">
+        <input type="text" id="new-display" placeholder="Display Name (optional)">
+        <button class="btn-primary" onclick="createUser()">Create</button>
+      </div>
+      <div id="create-msg"></div>
+    </div>
+
+    <!-- Users List -->
+    <div class="row-between">
+      <h2 style="margin-bottom:0">Users</h2>
+      <button class="btn-ghost btn-sm" onclick="loadUsers()">Refresh</button>
+    </div>
+    <div id="users-list"></div>
+  </div>
+</div>
+
+<script>
+let AUTH_TOKEN = localStorage.getItem('setupiq_admin_token') || '';
+const API = window.location.origin;
+
+// ─── Auth ──────────────────────────────────────────────────
+
+async function doLogin() {
+  const username = document.getElementById('login-user').value.trim();
+  const apiToken = document.getElementById('login-token').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('hidden');
+
+  try {
+    const res = await fetch(`${API}/admin/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, apiToken }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.error || 'Login failed');
+    }
+    const data = await res.json();
+    AUTH_TOKEN = data.token;
+    localStorage.setItem('setupiq_admin_token', AUTH_TOKEN);
+    showAdmin();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  }
+}
+
+function doLogout() {
+  AUTH_TOKEN = '';
+  localStorage.removeItem('setupiq_admin_token');
+  document.getElementById('admin-screen').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+function authHeaders() {
+  return { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' };
+}
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(`${API}${path}`, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+  if (res.status === 401) { doLogout(); throw new Error('Session expired'); }
+  return res;
+}
+
+// ─── Admin Panel ───────────────────────────────────────────
+
+async function showAdmin() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('admin-screen').classList.remove('hidden');
+  await loadUsers();
+}
+
+async function loadUsers() {
+  try {
+    const res = await apiFetch('/admin/api/users');
+    const usersList = await res.json();
+    renderUsers(usersList);
+  } catch (e) {
+    document.getElementById('users-list').innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+function renderUsers(usersList) {
+  const container = document.getElementById('users-list');
+  if (!usersList.length) {
+    container.innerHTML = '<div class="card"><p style="color:var(--muted)">No users yet. Create one above.</p></div>';
+    return;
+  }
+
+  container.innerHTML = usersList.map(u => `
+    <div class="card" id="user-${u.id}">
+      <div class="user-card-header">
+        <div class="user-info">
+          <h3>${esc(u.displayName || u.username || 'Unknown')}</h3>
+          <div class="username">@${esc(u.username || '—')}</div>
+        </div>
+        <div class="actions">
+          <button class="btn-ghost btn-sm" onclick="regenerateToken('${u.id}')">New Token</button>
+          <button class="btn-danger btn-sm" onclick="deleteUser('${u.id}', '${esc(u.username || '')}')">Delete</button>
+        </div>
+      </div>
+      ${u.apiToken ? `<div style="margin-top:0.5rem"><span class="token" id="token-${u.id}">${esc(u.apiToken)}</span><span class="copy-btn" onclick="copyToken('${u.id}')">copy</span></div>` : ''}
+      <div class="driver-list" id="drivers-${u.id}">
+        <em style="color:var(--muted);font-size:0.8rem">Loading drivers...</em>
+      </div>
+      <div class="add-driver-row">
+        <input type="text" id="driver-name-${u.id}" placeholder="New driver name">
+        <button class="btn-primary btn-sm" onclick="addDriver('${u.id}')">Add Driver</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Load drivers for each user
+  usersList.forEach(u => loadDrivers(u.id));
+}
+
+async function loadDrivers(userId) {
+  try {
+    const res = await apiFetch(`/admin/api/users/${userId}/drivers`);
+    const driversList = await res.json();
+    const container = document.getElementById(`drivers-${userId}`);
+    if (!driversList.length) {
+      container.innerHTML = '<em style="color:var(--muted);font-size:0.8rem">No drivers</em>';
+      return;
+    }
+    container.innerHTML = driversList.map(d => `
+      <div class="driver-item">
+        <span>${esc(d.name)}</span>
+        <button class="btn-danger btn-sm" onclick="deleteDriver('${d.id}', '${userId}')">×</button>
+      </div>
+    `).join('');
+  } catch {
+    // ignore
+  }
+}
+
+// ─── Actions ───────────────────────────────────────────────
+
+async function createUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const displayName = document.getElementById('new-display').value.trim();
+  const msgEl = document.getElementById('create-msg');
+
+  try {
+    const res = await apiFetch('/admin/api/users', {
+      method: 'POST',
+      body: JSON.stringify({ username, displayName: displayName || undefined }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.error || 'Failed');
+    }
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-display').value = '';
+    msgEl.innerHTML = `<div class="success">User "${esc(username)}" created!</div>`;
+    setTimeout(() => msgEl.innerHTML = '', 3000);
+    await loadUsers();
+  } catch (e) {
+    msgEl.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`Delete user @${username}? This will also delete all their drivers.`)) return;
+  try {
+    await apiFetch(`/admin/api/users/${id}`, { method: 'DELETE' });
+    await loadUsers();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function regenerateToken(userId) {
+  if (!confirm('Generate a new API token? The old token will stop working immediately.')) return;
+  try {
+    const res = await apiFetch(`/admin/api/users/${userId}/regenerate-token`, { method: 'POST' });
+    const data = await res.json();
+    const el = document.getElementById(`token-${userId}`);
+    if (el) el.textContent = data.apiToken;
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function addDriver(userId) {
+  const input = document.getElementById(`driver-name-${userId}`);
+  const name = input.value.trim();
+  if (!name) return;
+
+  try {
+    const res = await apiFetch(`/admin/api/users/${userId}/drivers`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.error || 'Failed');
+    }
+    input.value = '';
+    await loadDrivers(userId);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function deleteDriver(driverId, userId) {
+  if (!confirm('Remove this driver?')) return;
+  try {
+    await apiFetch(`/admin/api/drivers/${driverId}`, { method: 'DELETE' });
+    await loadDrivers(userId);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function copyToken(userId) {
+  const el = document.getElementById(`token-${userId}`);
+  if (el) navigator.clipboard.writeText(el.textContent);
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ─── Init ──────────────────────────────────────────────────
+
+(async function init() {
+  if (AUTH_TOKEN) {
+    try {
+      const res = await apiFetch('/admin/api/users');
+      if (res.ok) { showAdmin(); return; }
+    } catch {}
+    doLogout();
+  }
+})();
+</script>
+</body>
+</html>

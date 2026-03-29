@@ -21,6 +21,7 @@ COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/packages/shared/dist ./packages/shared/dist
 COPY --from=base /app/packages/shared/package.json ./packages/shared/
 COPY --from=base /app/apps/api/dist ./apps/api/dist
+COPY --from=base /app/apps/api/src/admin/panel.html ./apps/api/dist/admin/panel.html
 COPY --from=base /app/apps/api/package.json ./apps/api/
 COPY --from=base /app/docs ./docs
 COPY --from=base /app/package.json ./
