@@ -68,9 +68,6 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
       limit?: string;
     };
   }>, reply: FastifyReply) => {
-    const user = await requireAuth(request, reply);
-    if (!user) return;
-
     const { q, category, brand, carPlatformId } = request.query;
     const page = Math.max(1, parseInt(request.query.page ?? "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(request.query.limit ?? "50", 10)));
@@ -144,9 +141,6 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   app.get("/api/catalog/parts/:id", async (request: FastifyRequest<{
     Params: { id: string };
   }>, reply: FastifyReply) => {
-    const user = await requireAuth(request, reply);
-    if (!user) return;
-
     const { id } = request.params;
     const [part] = await db.select().from(catalogParts).where(eq(catalogParts.id, id)).limit(1);
     if (!part) return reply.status(404).send({ error: "Part not found" });
