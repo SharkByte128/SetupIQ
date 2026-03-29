@@ -769,6 +769,25 @@ function renderCatalogParts(parts) {
             </div>
             <div class="rich-body" contenteditable="true" id="pe-desc-${p.id}" oninput="markPartDirty('${p.id}','description',this.innerHTML)" onclick="event.stopPropagation()">${p.description || ''}</div>
           </div>
+          <div class="full" style="border-top:1px solid var(--border);padding-top:0.75rem;margin-top:0.25rem">
+            <label style="font-size:0.85rem;font-weight:600;color:var(--fg)">📷 Images</label>
+            <div id="part-images-${p.id}" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.5rem 0" onclick="event.stopPropagation()"></div>
+            <div style="display:flex;gap:0.5rem;align-items:center" onclick="event.stopPropagation()">
+              <input type="file" accept="image/*" multiple id="img-upload-${p.id}" onchange="uploadPartImages('${p.id}',this.files)" style="font-size:0.8rem">
+              <input type="text" id="img-filter-${p.id}" placeholder="Variant filter JSON (e.g. {&quot;color&quot;:&quot;gold&quot;})" style="font-size:0.8rem;width:280px">
+            </div>
+            <button class="btn-ghost btn-sm" style="margin-top:0.25rem" onclick="event.stopPropagation();loadPartImages('${p.id}')">Refresh Images</button>
+          </div>
+          <div class="full" style="border-top:1px solid var(--border);padding-top:0.75rem;margin-top:0.25rem">
+            <label style="font-size:0.85rem;font-weight:600;color:var(--fg)">🔀 Variants</label>
+            <div id="part-variants-${p.id}" style="margin:0.5rem 0" onclick="event.stopPropagation()"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.5rem;align-items:end" onclick="event.stopPropagation()">
+              <div><label style="font-size:0.7rem;color:var(--muted)">SKU</label><input type="text" id="var-sku-${p.id}" placeholder="Variant SKU" style="font-size:0.8rem"></div>
+              <div><label style="font-size:0.7rem;color:var(--muted)">Label</label><input type="text" id="var-label-${p.id}" placeholder="e.g. Gold / +2 Offset" style="font-size:0.8rem"></div>
+              <div><label style="font-size:0.7rem;color:var(--muted)">Attributes JSON</label><input type="text" id="var-attrs-${p.id}" placeholder='{"color":"gold","offset":"+2"}' style="font-size:0.8rem"></div>
+              <button class="btn-primary btn-sm" onclick="event.stopPropagation();addVariant('${p.id}')">+ Add</button>
+            </div>
+          </div>
         </div>
       </td>
     </tr>`;
@@ -787,7 +806,14 @@ function escAttr(s) {
 
 function togglePartEdit(id) {
   const row = document.getElementById(`part-edit-${id}`);
-  if (row) row.classList.toggle('open');
+  if (row) {
+    const wasOpen = row.classList.contains('open');
+    row.classList.toggle('open');
+    if (!wasOpen) {
+      loadPartImages(id);
+      loadPartVariants(id);
+    }
+  }
 }
 
 function markPartDirty(id, field, value) {
@@ -849,6 +875,141 @@ async function saveAllDirtyParts() {
     bar.classList.remove('hidden');
     setTimeout(() => updateSaveBar(), 3000);
   }
+}
+
+// ─── Part Images ───────────────────────────────────────────
+
+async function loadPartImages(partId) {
+  const container = document.getElementById(`part-images-${partId}`);
+  if (!container) return;
+  try {
+    const res = await apiFetch(`/api/admin/catalog/parts/${partId}/images`);
+    const data = await res.json();
+    const images = data.images || [];
+    if (!images.length) {
+      container.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">No images yet</span>';
+      return;
+    }
+    container.innerHTML = images.map(img => {
+      const filterText = img.variantFilter ? JSON.stringify(img.variantFilter) : 'all variants';
+      return `<div style="position:relative;border:1px solid var(--border);border-radius:6px;overflow:hidden;width:100px">
+        <img src="${API}/api/catalog/parts/${partId}/images/${img.id}" style="width:100px;height:100px;object-fit:cover" loading="lazy">
+        <div style="font-size:0.65rem;padding:2px 4px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(filterText)}">${esc(filterText)}</div>
+        <button onclick="event.stopPropagation();deletePartImage('${partId}','${img.id}')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.7rem;line-height:1" title="Delete">✕</button>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = `<span style="color:red;font-size:0.8rem">${esc(e.message)}</span>`;
+  }
+}
+
+async function uploadPartImages(partId, fileList) {
+  if (!fileList || !fileList.length) return;
+  const filterInput = document.getElementById(`img-filter-${partId}`);
+  let variantFilter = null;
+  if (filterInput && filterInput.value.trim()) {
+    try { variantFilter = JSON.parse(filterInput.value.trim()); } catch { alert('Invalid JSON for variant filter'); return; }
+  }
+
+  for (const file of fileList) {
+    const base64 = await fileToBase64(file);
+    try {
+      await apiFetch(`/api/admin/catalog/parts/${partId}/images`, {
+        method: 'POST',
+        body: JSON.stringify({
+          imageBase64: base64,
+          mimeType: file.type || 'image/jpeg',
+          variantFilter,
+        }),
+      });
+    } catch (e) {
+      alert(`Failed to upload ${file.name}: ${e.message}`);
+    }
+  }
+  // Clear inputs
+  document.getElementById(`img-upload-${partId}`).value = '';
+  if (filterInput) filterInput.value = '';
+  loadPartImages(partId);
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // Strip "data:image/...;base64," prefix
+      const result = reader.result;
+      const idx = result.indexOf(',');
+      resolve(idx >= 0 ? result.substring(idx + 1) : result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function deletePartImage(partId, imageId) {
+  if (!confirm('Delete this image?')) return;
+  try {
+    await apiFetch(`/api/admin/catalog/parts/${partId}/images/${imageId}`, { method: 'DELETE' });
+    loadPartImages(partId);
+  } catch (e) { alert(e.message); }
+}
+
+// ─── Part Variants ─────────────────────────────────────────
+
+async function loadPartVariants(partId) {
+  const container = document.getElementById(`part-variants-${partId}`);
+  if (!container) return;
+  try {
+    const res = await apiFetch(`/api/admin/catalog/parts/${partId}/variants`);
+    const data = await res.json();
+    const variants = data.variants || [];
+    if (!variants.length) {
+      container.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">No variants — this part has a single SKU</span>';
+      return;
+    }
+    container.innerHTML = `<table style="width:100%;font-size:0.8rem"><thead><tr><th>SKU</th><th>Label</th><th>Attributes</th><th>Status</th><th></th></tr></thead><tbody>` +
+      variants.map(v => `<tr>
+        <td><code>${esc(v.sku)}</code></td>
+        <td>${esc(v.label)}</td>
+        <td style="color:var(--muted)">${esc(JSON.stringify(v.variantAttributes||{}))}</td>
+        <td><span class="badge badge-${v.status==='active'?'linked':'pending'}">${esc(v.status)}</span></td>
+        <td><button class="btn-ghost btn-sm" onclick="event.stopPropagation();deleteVariant('${partId}','${v.id}')" style="color:red;font-size:0.75rem">Delete</button></td>
+      </tr>`).join('') + `</tbody></table>`;
+  } catch (e) {
+    container.innerHTML = `<span style="color:red;font-size:0.8rem">${esc(e.message)}</span>`;
+  }
+}
+
+async function addVariant(partId) {
+  const skuEl = document.getElementById(`var-sku-${partId}`);
+  const labelEl = document.getElementById(`var-label-${partId}`);
+  const attrsEl = document.getElementById(`var-attrs-${partId}`);
+  const sku = skuEl.value.trim();
+  const label = labelEl.value.trim();
+  if (!sku || !label) { alert('SKU and label are required'); return; }
+
+  let variantAttributes = {};
+  if (attrsEl.value.trim()) {
+    try { variantAttributes = JSON.parse(attrsEl.value.trim()); } catch { alert('Invalid JSON for attributes'); return; }
+  }
+
+  try {
+    const res = await apiFetch(`/api/admin/catalog/parts/${partId}/variants`, {
+      method: 'POST',
+      body: JSON.stringify({ sku, label, variantAttributes }),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.message || d.error || 'Failed'); }
+    skuEl.value = ''; labelEl.value = ''; attrsEl.value = '';
+    loadPartVariants(partId);
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteVariant(partId, variantId) {
+  if (!confirm('Delete this variant?')) return;
+  try {
+    await apiFetch(`/api/admin/catalog/parts/${partId}/variants/${variantId}`, { method: 'DELETE' });
+    loadPartVariants(partId);
+  } catch (e) { alert(e.message); }
 }
 
 async function createCatalogPart() {

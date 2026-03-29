@@ -3,6 +3,8 @@ import { db } from "../db/index.js";
 import {
   catalogParts,
   catalogPartCompatibility,
+  catalogPartImages,
+  catalogPartVariants,
   vendorOffers,
   vendorSources,
   userPartsBin,
@@ -145,12 +147,20 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     const [part] = await db.select().from(catalogParts).where(eq(catalogParts.id, id)).limit(1);
     if (!part) return reply.status(404).send({ error: "Part not found" });
 
-    const [compat, offers] = await Promise.all([
+    const [compat, offers, images, variants] = await Promise.all([
       db.select().from(catalogPartCompatibility).where(eq(catalogPartCompatibility.catalogPartId, id)),
       db.select().from(vendorOffers).where(eq(vendorOffers.catalogPartId, id)),
+      db.select({
+        id: catalogPartImages.id,
+        mimeType: catalogPartImages.mimeType,
+        sortOrder: catalogPartImages.sortOrder,
+        variantFilter: catalogPartImages.variantFilter,
+        createdAt: catalogPartImages.createdAt,
+      }).from(catalogPartImages).where(eq(catalogPartImages.catalogPartId, id)).orderBy(catalogPartImages.sortOrder),
+      db.select().from(catalogPartVariants).where(eq(catalogPartVariants.catalogPartId, id)).orderBy(catalogPartVariants.label),
     ]);
 
-    return reply.send({ ...part, compatibility: compat, offers });
+    return reply.send({ ...part, compatibility: compat, offers, images, variants });
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -465,6 +475,144 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
         })),
       );
     }
+    return reply.send({ ok: true });
+  });
+
+  // ─── Serve part image (public, binary) ──────────────────────
+
+  app.get("/api/catalog/parts/:partId/images/:imageId", async (request: FastifyRequest<{
+    Params: { partId: string; imageId: string };
+  }>, reply: FastifyReply) => {
+    const { imageId } = request.params;
+    const [img] = await db
+      .select({ imageBase64: catalogPartImages.imageBase64, mimeType: catalogPartImages.mimeType })
+      .from(catalogPartImages)
+      .where(eq(catalogPartImages.id, imageId))
+      .limit(1);
+    if (!img) return reply.status(404).send({ error: "Image not found" });
+
+    const buf = Buffer.from(img.imageBase64, "base64");
+    return reply.type(img.mimeType).header("Cache-Control", "public, max-age=86400").send(buf);
+  });
+
+  // ─── Upload image for a part (admin) ────────────────────────
+
+  app.post("/api/admin/catalog/parts/:id/images", {
+    config: {},
+    bodyLimit: 10 * 1024 * 1024, // 10 MB
+  }, async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: {
+      imageBase64: string;
+      mimeType?: string;
+      sortOrder?: number;
+      variantFilter?: Record<string, string>;
+    };
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+
+    const { id } = request.params;
+    const body = request.body;
+
+    const [img] = await db.insert(catalogPartImages).values({
+      catalogPartId: id,
+      imageBase64: body.imageBase64,
+      mimeType: body.mimeType || "image/jpeg",
+      sortOrder: body.sortOrder ?? 0,
+      variantFilter: body.variantFilter ?? null,
+    }).returning({ id: catalogPartImages.id, sortOrder: catalogPartImages.sortOrder, variantFilter: catalogPartImages.variantFilter, createdAt: catalogPartImages.createdAt });
+
+    return reply.status(201).send(img);
+  });
+
+  // ─── Delete an image (admin) ────────────────────────────────
+
+  app.delete("/api/admin/catalog/parts/:id/images/:imageId", async (request: FastifyRequest<{
+    Params: { id: string; imageId: string };
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+    await db.delete(catalogPartImages).where(eq(catalogPartImages.id, request.params.imageId));
+    return reply.send({ ok: true });
+  });
+
+  // ─── Update image metadata (admin) ──────────────────────────
+
+  app.patch("/api/admin/catalog/parts/:id/images/:imageId", async (request: FastifyRequest<{
+    Params: { id: string; imageId: string };
+    Body: Partial<{ sortOrder: number; variantFilter: Record<string, string> | null }>;
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+    await db.update(catalogPartImages).set(request.body).where(eq(catalogPartImages.id, request.params.imageId));
+    return reply.send({ ok: true });
+  });
+
+  // ─── List images for a part (admin, includes base64) ────────
+
+  app.get("/api/admin/catalog/parts/:id/images", async (request: FastifyRequest<{
+    Params: { id: string };
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+    const rows = await db.select().from(catalogPartImages)
+      .where(eq(catalogPartImages.catalogPartId, request.params.id))
+      .orderBy(catalogPartImages.sortOrder);
+    return reply.send({ images: rows });
+  });
+
+  // ─── List variants for a part (admin) ───────────────────────
+
+  app.get("/api/admin/catalog/parts/:id/variants", async (request: FastifyRequest<{
+    Params: { id: string };
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+    const rows = await db.select().from(catalogPartVariants)
+      .where(eq(catalogPartVariants.catalogPartId, request.params.id))
+      .orderBy(catalogPartVariants.label);
+    return reply.send({ variants: rows });
+  });
+
+  // ─── Create variant (admin) ─────────────────────────────────
+
+  app.post("/api/admin/catalog/parts/:id/variants", async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: { sku: string; label: string; variantAttributes?: Record<string, string>; status?: string };
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+    const { id } = request.params;
+    const body = request.body;
+    try {
+      const [row] = await db.insert(catalogPartVariants).values({
+        catalogPartId: id,
+        sku: body.sku,
+        label: body.label,
+        variantAttributes: body.variantAttributes ?? {},
+        status: body.status ?? "active",
+      }).returning();
+      return reply.status(201).send(row);
+    } catch (err: any) {
+      if (err.code === "23505") return reply.status(409).send({ error: "Variant with that SKU already exists" });
+      throw err;
+    }
+  });
+
+  // ─── Update variant (admin) ─────────────────────────────────
+
+  app.patch("/api/admin/catalog/parts/:id/variants/:variantId", async (request: FastifyRequest<{
+    Params: { id: string; variantId: string };
+    Body: Partial<{ sku: string; label: string; variantAttributes: Record<string, string>; status: string }>;
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+    await db.update(catalogPartVariants).set({ ...request.body, updatedAt: new Date() })
+      .where(eq(catalogPartVariants.id, request.params.variantId));
+    return reply.send({ ok: true });
+  });
+
+  // ─── Delete variant (admin) ─────────────────────────────────
+
+  app.delete("/api/admin/catalog/parts/:id/variants/:variantId", async (request: FastifyRequest<{
+    Params: { id: string; variantId: string };
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+    await db.delete(catalogPartVariants).where(eq(catalogPartVariants.id, request.params.variantId));
     return reply.send({ ok: true });
   });
 

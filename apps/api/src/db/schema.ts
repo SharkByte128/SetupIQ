@@ -236,6 +236,32 @@ export const catalogPartCompatibility = pgTable("catalog_part_compatibility", {
   notes: text("notes"),
 });
 
+// ─── Part Images (stored in DB) ───────────────────────────────
+
+export const catalogPartImages = pgTable("catalog_part_images", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  catalogPartId: uuid("catalog_part_id").notNull().references(() => catalogParts.id, { onDelete: "cascade" }),
+  imageBase64: text("image_base64").notNull(),
+  mimeType: varchar("mime_type", { length: 60 }).notNull().default("image/jpeg"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  /** When set, image only applies to variants matching these attribute values (e.g. { color: "gold" }) */
+  variantFilter: jsonb("variant_filter").$type<Record<string, string>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Part Variants (individual SKUs within a parent part) ─────
+
+export const catalogPartVariants = pgTable("catalog_part_variants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  catalogPartId: uuid("catalog_part_id").notNull().references(() => catalogParts.id, { onDelete: "cascade" }),
+  sku: text("sku").notNull().unique(),
+  label: text("label").notNull(),
+  variantAttributes: jsonb("variant_attributes").$type<Record<string, string>>().default({}),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Vendor Sources (where we ingest from) ────────────────────
 
 export const vendorSources = pgTable("vendor_sources", {

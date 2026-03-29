@@ -1,5 +1,10 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
+/** Build a full API URL (useful for image src attributes) */
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path}`;
+}
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -66,6 +71,8 @@ export interface CatalogPart {
 export interface CatalogPartDetail extends CatalogPart {
   compatibility: { id: string; catalogPartId: string; carPlatformId: string; notes: string | null }[];
   offers: { id: string; vendorSku: string; productUrl: string | null; imageUrl: string | null; price: string | null; currency: string }[];
+  images: { id: string; mimeType: string; sortOrder: number; variantFilter: Record<string, string> | null; createdAt: string }[];
+  variants: { id: string; sku: string; label: string; variantAttributes: Record<string, string>; status: string; createdAt: string; updatedAt: string }[];
 }
 
 export interface CatalogSearchResult {

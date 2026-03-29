@@ -3,6 +3,7 @@ import {
   searchCatalog,
   getCatalogPart,
   addToPartsBin,
+  apiUrl,
   type CatalogPart,
   type CatalogPartDetail,
 } from "../api/client.js";
@@ -351,14 +352,25 @@ function CatalogDetail({ partId }: { partId: string }) {
 
   return (
     <div className="px-4 py-2 space-y-4 flex-1 overflow-y-auto">
-      {/* Image */}
-      {part.primaryImageUrl && (
+      {/* Images — DB images first, fallback to primaryImageUrl */}
+      {(part.images?.length > 0) ? (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {part.images.map((img) => (
+            <img
+              key={img.id}
+              src={apiUrl(`/api/catalog/parts/${part.id}/images/${img.id}`)}
+              alt={part.name}
+              className="h-40 rounded-lg bg-neutral-900 border border-neutral-800 object-contain flex-shrink-0"
+            />
+          ))}
+        </div>
+      ) : part.primaryImageUrl ? (
         <img
           src={part.primaryImageUrl}
           alt={part.name}
           className="w-full max-h-56 object-contain rounded-lg bg-neutral-900 border border-neutral-800"
         />
-      )}
+      ) : null}
 
       {/* Header */}
       <div>
@@ -423,6 +435,21 @@ function CatalogDetail({ partId }: { partId: string }) {
                 </span>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Variants */}
+      {part.variants?.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase mb-1">Variants</h3>
+          <div className="space-y-1">
+            {part.variants.map((v) => (
+              <div key={v.id} className="flex justify-between text-sm bg-neutral-800/50 rounded px-2 py-1.5">
+                <span className="text-neutral-200">{v.label}</span>
+                <code className="text-xs text-neutral-500">{v.sku}</code>
+              </div>
+            ))}
           </div>
         </div>
       )}
