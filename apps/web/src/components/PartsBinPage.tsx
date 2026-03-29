@@ -9,6 +9,7 @@ import {
   type PartCategory,
 } from "@setupiq/shared";
 import { localDb, type LocalPart } from "../db/local-db.js";
+import { lookupPartBySku, type PartLookupResult } from "../lib/gemini-parts.js";
 import { v4 as uuid } from "uuid";
 
 // ── Vendor Logo SVGs ──────────────────────────────────────────
@@ -75,6 +76,71 @@ function VendorLogo({ slug, size = 48 }: { slug: string; size?: number }) {
         </svg>
       );
   }
+}
+
+// ── SKU Lookup Field ──────────────────────────────────────────
+
+function SkuLookupField({
+  sku,
+  onSkuChange,
+  onLookupResult,
+  inputClass,
+}: {
+  sku: string;
+  onSkuChange: (v: string) => void;
+  onLookupResult: (r: PartLookupResult) => void;
+  inputClass: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  const handleLookup = async () => {
+    setLoading(true);
+    setStatus(null);
+    const { result, error } = await lookupPartBySku(sku);
+    setLoading(false);
+
+    if (error) {
+      setStatus({ type: "error", msg: error });
+      return;
+    }
+    if (result) {
+      onLookupResult(result);
+      setStatus({ type: "success", msg: "Fields updated from AI lookup" });
+      setTimeout(() => setStatus(null), 3000);
+    }
+  };
+
+  return (
+    <div>
+      <label className="text-xs text-neutral-400 mb-1 block">SKU / Part Number</label>
+      <div className="flex gap-2">
+        <input
+          className={inputClass}
+          placeholder="e.g. MZW-38"
+          value={sku}
+          onChange={(e) => onSkuChange(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={handleLookup}
+          disabled={!sku.trim() || loading}
+          className="bg-purple-600 hover:bg-purple-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-xs font-medium px-3 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1"
+        >
+          {loading ? (
+            <span className="animate-pulse">✨ Looking up…</span>
+          ) : (
+            <>✨ Lookup</>
+          )}
+        </button>
+      </div>
+      {status && (
+        <p className={`text-[11px] mt-1 ${status.type === "error" ? "text-red-400" : "text-green-400"}`}>
+          {status.msg}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ── View Types ────────────────────────────────────────────────
@@ -388,6 +454,13 @@ function AddPartForm({
     setAttrs((prev) => ({ ...prev, [key]: value }));
   };
 
+  const applyLookup = (r: PartLookupResult) => {
+    if (r.name) setName(r.name);
+    if (r.compatibleChassisIds?.length) setSelectedChassis(r.compatibleChassisIds);
+    if (r.notes) setNotes(r.notes);
+    if (r.attributes) setAttrs((prev) => ({ ...prev, ...r.attributes }));
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
 
@@ -432,16 +505,13 @@ function AddPartForm({
           />
         </div>
 
-        {/* SKU */}
-        <div>
-          <label className="text-xs text-neutral-400 mb-1 block">SKU / Part Number</label>
-          <input
-            className={inputClass}
-            placeholder="e.g. MZW-38"
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
-          />
-        </div>
+        {/* SKU + AI Lookup */}
+        <SkuLookupField
+          sku={sku}
+          onSkuChange={setSku}
+          onLookupResult={applyLookup}
+          inputClass={inputClass}
+        />
 
         {/* Compatible Chassis */}
         <div>
@@ -667,6 +737,21 @@ function QuickAddPart({
     setAttrs({});
   };
 
+  const applyLookup = (r: PartLookupResult) => {
+    if (r.name) setName(r.name);
+    if (r.vendorId) {
+      const v = vendors.find((v) => v.id === r.vendorId);
+      if (v) setSelectedVendor(v);
+    }
+    if (r.categoryId) {
+      const c = partCategories.find((c) => c.id === r.categoryId);
+      if (c) setSelectedCategory(c);
+    }
+    if (r.compatibleChassisIds?.length) setSelectedChassis(r.compatibleChassisIds);
+    if (r.notes) setNotes(r.notes);
+    if (r.attributes) setAttrs((prev) => ({ ...prev, ...r.attributes }));
+  };
+
   const handleSave = async () => {
     if (!name.trim() || !selectedVendor || !selectedCategory) return;
 
@@ -750,16 +835,13 @@ function QuickAddPart({
           />
         </div>
 
-        {/* SKU */}
-        <div>
-          <label className="text-xs text-neutral-400 mb-1 block">SKU / Part Number</label>
-          <input
-            className={inputClass}
-            placeholder="e.g. MZW-38"
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
-          />
-        </div>
+        {/* SKU + AI Lookup */}
+        <SkuLookupField
+          sku={sku}
+          onSkuChange={setSku}
+          onLookupResult={applyLookup}
+          inputClass={inputClass}
+        />
 
         {/* Compatible Chassis */}
         <div>

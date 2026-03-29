@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import { SyncIndicator } from "./components/SyncIndicator.js";
 import { UserMenu } from "./components/UserMenu.js";
+import { SettingsPage } from "./components/SettingsPage.js";
 import { GaragePage } from "./components/GaragePage.js";
 import { RunsPage } from "./components/RunsPage.js";
 import { ScalesPage } from "./components/ScalesPage.js";
@@ -32,6 +33,7 @@ function TabIcon({ name }: { name: Tab }) {
 
 function App() {
   const [tab, setTab] = useState<Tab>("garage");
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
@@ -40,16 +42,34 @@ function App() {
           <h1 className="text-lg font-semibold tracking-tight">SetupIQ</h1>
           <SyncIndicator />
         </div>
-        <UserMenu />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="text-neutral-500 hover:text-neutral-300 transition-colors"
+            aria-label="Settings"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+          <UserMenu />
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto">
-        {tab === "garage" && <GaragePage />}
-        {tab === "races" && <RacesPage />}
-        {tab === "runs" && <RunsPage />}
-        {tab === "scales" && <ScalesPage />}
-        {tab === "timing" && <TimingPage />}
-        {tab === "tracks" && <TracksPage />}
+        {showSettings ? (
+          <SettingsPage onClose={() => setShowSettings(false)} />
+        ) : (
+          <>
+            {tab === "garage" && <GaragePage />}
+            {tab === "races" && <RacesPage />}
+            {tab === "runs" && <RunsPage />}
+            {tab === "scales" && <ScalesPage />}
+            {tab === "timing" && <TimingPage />}
+            {tab === "tracks" && <TracksPage />}
+          </>
+        )}
       </main>
 
       <nav className="border-t border-neutral-800 px-2 py-2 flex justify-around text-xs">

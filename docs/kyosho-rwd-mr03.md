@@ -24,7 +24,15 @@ Battery Manufacture: ________
 
 ELECTRONICS
 
-Motor: ☐ Standard ☐ XSPEED V ☐ 4100kv ☐ 5600kv ☐ 8100kb
+Motor: ☐ Standard ☐ XSPEED V ☐ 4100kv ☐ 5600kv ☐ 8700kv
+((((MotorList
+Kyosho Stock Brushed  (MR03, MR04, PN 2.5 Chassis)
+Kyosho vSpeed  (MR03, MR04, PN 2.5 Chassis)
+Kyosho 4100k (MR 04 Evo2)
+Kyosho 5600k (MR 04 Evo2)
+Kyosho 8700k (MR 04 Evo2)
+))))
+
 Pinion / Spur:
 Final Drive Ratio:
 ESC Settings: (Brake %, Punch, Neutral Width)
@@ -134,6 +142,18 @@ Body: (Model, wheelbase, width)
 Weight (RTR):
 
 
+T Plate List:
+Standard
+Carbon #2 (Soft)
+Carbon #3 (Soft/Medium)
+Carbon #4 (Medium/Hard)
+Carbon #5 (Hard)
+FRP #6S
+FRP #6M
+FRP #6H
+Carbon Soft
+Carbon Medium
+Carbon Hard
 
 
 
