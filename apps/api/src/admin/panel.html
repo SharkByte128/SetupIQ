@@ -472,7 +472,7 @@ async function runIngestion(sourceId) {
   btn.disabled = true;
 
   try {
-    const res = await apiFetch(`/api/admin/catalog/vendor-sources/${sourceId}/ingest`, { method: 'POST' });
+    const res = await apiFetch(`/api/admin/catalog/vendor-sources/${sourceId}/ingest`, { method: 'POST', body: '{}' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Ingestion failed');
     btn.innerHTML = `✅ ${data.fetched} products, ${data.upserted} offers`;
