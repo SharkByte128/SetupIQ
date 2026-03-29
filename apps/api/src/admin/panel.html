@@ -227,7 +227,7 @@ async function createUser() {
     });
     if (!res.ok) {
       const d = await res.json();
-      throw new Error(d.error || 'Failed');
+      throw new Error(d.message || d.error || 'Failed');
     }
     document.getElementById('new-username').value = '';
     document.getElementById('new-display').value = '';
@@ -273,7 +273,7 @@ async function addDriver(userId) {
     });
     if (!res.ok) {
       const d = await res.json();
-      throw new Error(d.error || 'Failed');
+      throw new Error(d.message || d.error || 'Failed');
     }
     input.value = '';
     await loadDrivers(userId);

@@ -91,18 +91,23 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
 
     const apiToken = randomBytes(32).toString("hex");
 
-    const inserted = await db
-      .insert(users)
-      .values({
-        email: `${cleanUsername}@token.local`,
-        displayName: displayName?.trim() || cleanUsername,
-        provider: "token",
-        username: cleanUsername,
-        apiToken,
-      })
-      .returning();
+    try {
+      const inserted = await db
+        .insert(users)
+        .values({
+          email: `${cleanUsername}@token.local`,
+          displayName: displayName?.trim() || cleanUsername,
+          provider: "token",
+          username: cleanUsername,
+          apiToken,
+        })
+        .returning();
 
-    return inserted[0];
+      return inserted[0];
+    } catch (err: any) {
+      request.log.error(err, "Failed to create user");
+      return reply.status(500).send({ error: err.message || "Failed to create user" });
+    }
   });
 
   // ─── Users: Delete ────────────────────────────────────────
