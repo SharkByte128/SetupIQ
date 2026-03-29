@@ -178,6 +178,15 @@ export interface LocalPart {
   _dirty: 0 | 1;
 }
 
+export interface LocalPartFile {
+  id: string;
+  partId: string;
+  blob: Blob;
+  name: string;
+  mimeType: string; // "image/*" or "application/pdf"
+  createdAt: string;
+}
+
 export interface LocalCustomCar {
   id: string;
   userId: string;
@@ -202,6 +211,7 @@ class SetupIQDatabase extends Dexie {
   carImages!: Table<LocalCarImage, string>;
   raceResults!: Table<LocalRaceResult, string>;
   parts!: Table<LocalPart, string>;
+  partFiles!: Table<LocalPartFile, string>;
   customCars!: Table<LocalCustomCar, string>;
   syncMeta!: Table<SyncMeta, string>;
 
@@ -279,6 +289,22 @@ class SetupIQDatabase extends Dexie {
       carImages: "id, carId",
       raceResults: "id, userId, carId, date, className, _dirty",
       parts: "id, userId, vendorId, categoryId, _dirty",
+      customCars: "id, userId, manufacturer, _dirty",
+      syncMeta: "key",
+    });
+
+    this.version(7).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId",
+      raceResults: "id, userId, carId, date, className, _dirty",
+      parts: "id, userId, vendorId, categoryId, _dirty",
+      partFiles: "id, partId",
       customCars: "id, userId, manufacturer, _dirty",
       syncMeta: "key",
     });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   vendors,
   partCategories,
@@ -8,8 +8,9 @@ import {
   type Vendor,
   type PartCategory,
 } from "@setupiq/shared";
-import { localDb, type LocalPart } from "../db/local-db.js";
+import { localDb, type LocalPart, type LocalPartFile } from "../db/local-db.js";
 import { lookupPartBySku, suggestPartsForChassis, type PartLookupResult, type SuggestedPart } from "../lib/gemini-parts.js";
+import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
 
 // ── Vendor Logo SVGs ──────────────────────────────────────────
@@ -642,6 +643,89 @@ function PartDetail({
 }) {
   const vendor = getVendorById(part.vendorId);
   const category = getCategoryById(part.categoryId);
+  const [files, setFiles] = useState<{ id: string; name: string; mimeType: string; url: string }[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [viewingPdf, setViewingPdf] = useState<string | null>(null);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+  // Load files on mount / part change
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const records = await localDb.partFiles.where("partId").equals(part.id).toArray();
+      if (cancelled) return;
+      setFiles(
+        records.map((r) => ({
+          id: r.id,
+          name: r.name,
+          mimeType: r.mimeType,
+          url: URL.createObjectURL(r.blob),
+        })),
+      );
+    }
+    load();
+    return () => {
+      cancelled = true;
+      files.forEach((f) => URL.revokeObjectURL(f.url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [part.id]);
+
+  const handleImageUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const resized = await resizeImage(file, 800);
+      const record: LocalPartFile = {
+        id: uuid(),
+        partId: part.id,
+        blob: resized,
+        name: file.name,
+        mimeType: "image/webp",
+        createdAt: new Date().toISOString(),
+      };
+      await localDb.partFiles.add(record);
+      setFiles((prev) => [
+        ...prev,
+        { id: record.id, name: record.name, mimeType: record.mimeType, url: URL.createObjectURL(resized) },
+      ]);
+      e.target.value = "";
+    },
+    [part.id],
+  );
+
+  const handlePdfUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const record: LocalPartFile = {
+        id: uuid(),
+        partId: part.id,
+        blob: file,
+        name: file.name,
+        mimeType: file.type || "application/pdf",
+        createdAt: new Date().toISOString(),
+      };
+      await localDb.partFiles.add(record);
+      setFiles((prev) => [
+        ...prev,
+        { id: record.id, name: record.name, mimeType: record.mimeType, url: URL.createObjectURL(file) },
+      ]);
+      e.target.value = "";
+    },
+    [part.id],
+  );
+
+  const handleDeleteFile = useCallback(async (fileId: string) => {
+    const f = files.find((x) => x.id === fileId);
+    if (f) URL.revokeObjectURL(f.url);
+    await localDb.partFiles.delete(fileId);
+    setFiles((prev) => prev.filter((x) => x.id !== fileId));
+  }, [files]);
+
+  const images = files.filter((f) => f.mimeType.startsWith("image/"));
+  const pdfs = files.filter((f) => f.mimeType === "application/pdf");
 
   return (
     <>
@@ -717,7 +801,142 @@ function PartDetail({
             <p className="text-sm text-neutral-300">{part.notes}</p>
           </div>
         )}
+
+        {/* ── Photos ─────────────────────────────────── */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-neutral-500">Photos</p>
+            <button
+              onClick={() => imageInputRef.current?.click()}
+              className="text-xs text-blue-400 hover:text-blue-300"
+            >
+              + Add Photo
+            </button>
+          </div>
+          {images.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {images.map((img) => (
+                <div key={img.id} className="relative group">
+                  <button
+                    onClick={() => setViewingImage(img.url)}
+                    className="w-full"
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.name}
+                      className="w-full h-20 object-cover rounded-lg"
+                    />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteFile(img.id)}
+                    className="absolute top-1 right-1 bg-black/60 text-red-400 rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-600">No photos yet</p>
+          )}
+        </div>
+
+        {/* ── Documents ──────────────────────────────── */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-neutral-500">Documents</p>
+            <button
+              onClick={() => pdfInputRef.current?.click()}
+              className="text-xs text-blue-400 hover:text-blue-300"
+            >
+              + Add PDF
+            </button>
+          </div>
+          {pdfs.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {pdfs.map((pdf) => (
+                <div
+                  key={pdf.id}
+                  className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2 group"
+                >
+                  <button
+                    onClick={() => setViewingPdf(pdf.url)}
+                    className="flex items-center gap-2 text-left flex-1 min-w-0"
+                  >
+                    <span className="text-lg">📄</span>
+                    <span className="text-sm text-neutral-300 truncate">{pdf.name}</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteFile(pdf.id)}
+                    className="text-red-400 text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-600">No documents yet</p>
+          )}
+        </div>
       </div>
+
+      {/* Hidden file inputs */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageUpload}
+      />
+      <input
+        ref={pdfInputRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={handlePdfUpload}
+      />
+
+      {/* ── Fullscreen image viewer ────────────────── */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <img
+            src={viewingImage}
+            alt="Part photo"
+            className="max-w-full max-h-full object-contain rounded-lg"
+          />
+          <button
+            className="absolute top-4 right-4 text-white text-2xl"
+            onClick={() => setViewingImage(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* ── Fullscreen PDF viewer ──────────────────── */}
+      {viewingPdf && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex flex-col p-4"
+        >
+          <div className="flex justify-end mb-2">
+            <button
+              className="text-white text-2xl"
+              onClick={() => setViewingPdf(null)}
+            >
+              ✕
+            </button>
+          </div>
+          <iframe
+            src={viewingPdf}
+            title="PDF Document"
+            className="flex-1 rounded-lg bg-white"
+          />
+        </div>
+      )}
     </>
   );
 }
