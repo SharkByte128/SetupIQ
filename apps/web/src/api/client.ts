@@ -52,6 +52,7 @@ export interface CatalogPart {
   category: string;
   baseSku: string;
   description: string | null;
+  setupDisplayText: string | null;
   primaryImageUrl: string | null;
   instructionsPdfUrl: string | null;
   tags: string[];

@@ -367,6 +367,7 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
       category: string;
       baseSku: string;
       description?: string;
+      setupDisplayText?: string;
       primaryImageUrl?: string;
       instructionsPdfUrl?: string;
       tags?: string[];
@@ -387,6 +388,7 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
           category: body.category,
           baseSku: body.baseSku,
           description: body.description,
+          setupDisplayText: body.setupDisplayText,
           primaryImageUrl: body.primaryImageUrl,
           instructionsPdfUrl: body.instructionsPdfUrl,
           tags: body.tags ?? [],
@@ -425,6 +427,7 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
       category: string;
       baseSku: string;
       description: string;
+      setupDisplayText: string;
       primaryImageUrl: string;
       instructionsPdfUrl: string;
       tags: string[];

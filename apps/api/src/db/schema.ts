@@ -215,6 +215,8 @@ export const catalogParts = pgTable("catalog_parts", {
   primaryImageUrl: text("primary_image_url"),
   instructionsPdfUrl: text("instructions_pdf_url"),
   tags: jsonb("tags").$type<string[]>().default([]),
+  /** Text to show on the setup page when this part is selected */
+  setupDisplayText: text("setup_display_text"),
   /** Which setup capability IDs this part maps to (e.g. ["front-spring", "rear-spring"]) */
   setupFieldIds: jsonb("setup_field_ids").$type<string[]>().default([]),
   /** Attribute values for this part (compound, rate, kv, etc.) */

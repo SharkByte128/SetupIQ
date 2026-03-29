@@ -185,10 +185,11 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
           <input type="text" id="cp-name" placeholder="Part Name *">
           <input type="text" id="cp-brand" placeholder="Brand">
-          <input type="text" id="cp-category" placeholder="Category * (e.g. spring, tire, motor)">
+          <select id="cp-category"><option value="">Category *</option><option value="chassis">Chassis</option><option value="suspension">Suspension</option><option value="tires">Tires</option><option value="wheels">Wheels</option><option value="electronics">Electronics</option><option value="servo">Servo</option><option value="esc">ESC</option><option value="receiver">Receiver</option><option value="drivetrain">Drivetrain</option><option value="body">Body</option><option value="other">Other</option></select>
           <input type="text" id="cp-sku" placeholder="Base SKU * (unique)">
           <input type="text" id="cp-image" placeholder="Image URL" style="grid-column:1/-1">
           <input type="text" id="cp-pdf" placeholder="Instructions PDF URL" style="grid-column:1/-1">
+          <input type="text" id="cp-setup-text" placeholder="Setup display text (shown on setup page)" style="grid-column:1/-1">
           <div style="grid-column:1/-1">
             <label style="font-size:0.8rem;color:var(--muted);margin-bottom:0.25rem;display:block">Description (rich text)</label>
             <div class="rich-toolbar">
@@ -740,8 +741,9 @@ function renderCatalogParts(parts) {
         <div class="edit-grid">
           <div><label style="font-size:0.75rem;color:var(--muted)">Name</label><input value="${escAttr(p.name)}" onchange="markPartDirty('${p.id}','name',this.value)"></div>
           <div><label style="font-size:0.75rem;color:var(--muted)">Brand</label><input value="${escAttr(p.brand||'')}" onchange="markPartDirty('${p.id}','brand',this.value)"></div>
-          <div><label style="font-size:0.75rem;color:var(--muted)">Category</label><input value="${escAttr(p.category)}" onchange="markPartDirty('${p.id}','category',this.value)"></div>
+          <div><label style="font-size:0.75rem;color:var(--muted)">Category</label><select onchange="markPartDirty('${p.id}','category',this.value)">${['chassis','suspension','tires','wheels','electronics','servo','esc','receiver','drivetrain','body','other'].map(c=>`<option value="${c}" ${p.category===c?'selected':''}>${c.charAt(0).toUpperCase()+c.slice(1)}</option>`).join('')}</select></div>
           <div><label style="font-size:0.75rem;color:var(--muted)">Base SKU</label><input value="${escAttr(p.baseSku)}" onchange="markPartDirty('${p.id}','baseSku',this.value)"></div>
+          <div class="full"><label style="font-size:0.75rem;color:var(--muted)">Setup Display Text (shown on setup page)</label><input value="${escAttr(p.setupDisplayText||'')}" onchange="markPartDirty('${p.id}','setupDisplayText',this.value)"></div>
           <div><label style="font-size:0.75rem;color:var(--muted)">Image URL</label><input value="${escAttr(p.primaryImageUrl||'')}" onchange="markPartDirty('${p.id}','primaryImageUrl',this.value)"></div>
           <div><label style="font-size:0.75rem;color:var(--muted)">PDF URL</label><input value="${escAttr(p.instructionsPdfUrl||'')}" onchange="markPartDirty('${p.id}','instructionsPdfUrl',this.value)"></div>
           <div><label style="font-size:0.75rem;color:var(--muted)">Tags (comma-separated)</label><input value="${escAttr((p.tags||[]).join(', '))}" onchange="markPartDirty('${p.id}','tags',this.value.split(',').map(t=>t.trim()).filter(Boolean))"></div>
@@ -852,10 +854,11 @@ async function saveAllDirtyParts() {
 async function createCatalogPart() {
   const name = document.getElementById('cp-name').value.trim();
   const brand = document.getElementById('cp-brand').value.trim();
-  const category = document.getElementById('cp-category').value.trim();
+  const category = document.getElementById('cp-category').value;
   const baseSku = document.getElementById('cp-sku').value.trim();
   const primaryImageUrl = document.getElementById('cp-image').value.trim();
   const instructionsPdfUrl = document.getElementById('cp-pdf').value.trim();
+  const setupDisplayText = document.getElementById('cp-setup-text').value.trim();
   const descEl = document.getElementById('cp-desc');
   const description = descEl.innerHTML.trim();
   const tagsStr = document.getElementById('cp-tags').value.trim();
@@ -868,11 +871,12 @@ async function createCatalogPart() {
   try {
     const res = await apiFetch('/api/admin/catalog/parts', {
       method: 'POST',
-      body: JSON.stringify({ name, brand: brand || undefined, category, baseSku, description: description || undefined, primaryImageUrl: primaryImageUrl || undefined, instructionsPdfUrl: instructionsPdfUrl || undefined, tags }),
+      body: JSON.stringify({ name, brand: brand || undefined, category, baseSku, description: description || undefined, setupDisplayText: setupDisplayText || undefined, primaryImageUrl: primaryImageUrl || undefined, instructionsPdfUrl: instructionsPdfUrl || undefined, tags }),
     });
     if (!res.ok) { const d = await res.json(); throw new Error(d.message || d.error || 'Failed'); }
-    ['cp-name','cp-brand','cp-category','cp-sku','cp-tags'].forEach(id => document.getElementById(id).value = '');
-    ['cp-image','cp-pdf'].forEach(id => document.getElementById(id).value = '');
+    ['cp-name','cp-brand','cp-sku','cp-tags'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('cp-category').value = '';
+    ['cp-image','cp-pdf','cp-setup-text'].forEach(id => document.getElementById(id).value = '');
     descEl.innerHTML = '';
     msgEl.innerHTML = '<div class="success">Catalog part created!</div>';
     setTimeout(() => msgEl.innerHTML = '', 3000);
