@@ -21,6 +21,62 @@ export interface PartLookupResult {
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
+/**
+ * Call Gemini, trying the server proxy first, then falling back to the local API key.
+ */
+async function callGemini(requestBody: Record<string, unknown>): Promise<{ data?: any; error?: string }> {
+  // Try server proxy first
+  const serverUrl = (await localDb.syncMeta.get("sync_server_url"))?.value;
+  if (serverUrl) {
+    try {
+      const resp = await fetch(`${serverUrl}/api/gemini/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      if (resp.ok) {
+        return { data: await resp.json() };
+      }
+      // 503 = no key on server, fall through to local key
+      if (resp.status !== 503) {
+        const errBody = await resp.text();
+        return { error: `Gemini API error (${resp.status}): ${errBody.slice(0, 200)}` };
+      }
+    } catch {
+      // Server unreachable, fall through to local key
+    }
+  }
+
+  // Fall back to local API key
+  const keyRow = await localDb.syncMeta.get("gemini_api_key");
+  const apiKey = keyRow?.value?.trim();
+  if (!apiKey) {
+    return { error: "No Gemini API key configured. Add one in Settings or configure GEMINI_API_KEY on the server." };
+  }
+
+  try {
+    const resp = await fetch(
+      `${GEMINI_API_BASE}/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      },
+    );
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      if (resp.status === 400 || resp.status === 403) {
+        return { error: "Invalid Gemini API key. Check Settings." };
+      }
+      return { error: `Gemini API error (${resp.status}): ${errBody.slice(0, 200)}` };
+    }
+    return { data: await resp.json() };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: `Gemini call failed: ${msg}` };
+  }
+}
+
 const SYSTEM_PROMPT = `You are an expert on 1:28-scale RC car parts (Mini-Z, Atomic RC, PN Racing, NEXX Racing, Reflex Racing, GL Racing, Silver Horse, etc.).
 
 Given a part number / SKU, return a JSON object with as many of these fields as you can determine:
@@ -37,51 +93,31 @@ Return ONLY valid JSON, no markdown fences, no extra text. If you cannot identif
 export async function lookupPartBySku(
   sku: string,
 ): Promise<{ result?: PartLookupResult; error?: string }> {
-  const keyRow = await localDb.syncMeta.get("gemini_api_key");
-  const apiKey = keyRow?.value?.trim();
-
-  if (!apiKey) {
-    return { error: "No Gemini API key configured. Add one in Settings." };
-  }
-
   if (!sku.trim()) {
     return { error: "Enter a SKU / part number first." };
   }
 
   try {
-    const resp = await fetch(
-      `${GEMINI_API_BASE}/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [
+    const requestBody = {
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [
+        {
+          parts: [
             {
-              parts: [
-                {
-                  text: `Look up this RC part number: "${sku.trim()}". Return the JSON details.`,
-                },
-              ],
+              text: `Look up this RC part number: "${sku.trim()}". Return the JSON details.`,
             },
           ],
-          generationConfig: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-          },
-        }),
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
       },
-    );
+    };
 
-    if (!resp.ok) {
-      const errBody = await resp.text();
-      if (resp.status === 400 || resp.status === 403) {
-        return { error: "Invalid Gemini API key. Check Settings." };
-      }
-      return { error: `Gemini API error (${resp.status}): ${errBody.slice(0, 200)}` };
-    }
+    const { data, error } = await callGemini(requestBody);
+    if (error) return { error };
 
-    const data = await resp.json();
     const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
@@ -170,47 +206,27 @@ Return ONLY valid JSON: {"parts": [...]}. No markdown fences.`;
 export async function suggestPartsForChassis(
   chassisName: string,
 ): Promise<{ parts?: SuggestedPart[]; error?: string }> {
-  const keyRow = await localDb.syncMeta.get("gemini_api_key");
-  const apiKey = keyRow?.value?.trim();
-
-  if (!apiKey) {
-    return { error: "No Gemini API key configured. Add one in Settings." };
-  }
-
   try {
-    const resp = await fetch(
-      `${GEMINI_API_BASE}/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SUGGEST_SYSTEM_PROMPT }] },
-          contents: [
+    const requestBody = {
+      systemInstruction: { parts: [{ text: SUGGEST_SYSTEM_PROMPT }] },
+      contents: [
+        {
+          parts: [
             {
-              parts: [
-                {
-                  text: `List all popular optional and upgrade parts for the "${chassisName}" RC car. Include parts from multiple vendors across all categories.`,
-                },
-              ],
+              text: `List all popular optional and upgrade parts for the "${chassisName}" RC car. Include parts from multiple vendors across all categories.`,
             },
           ],
-          generationConfig: {
-            temperature: 0.3,
-            responseMimeType: "application/json",
-          },
-        }),
+        },
+      ],
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: "application/json",
       },
-    );
+    };
 
-    if (!resp.ok) {
-      const errBody = await resp.text();
-      if (resp.status === 400 || resp.status === 403) {
-        return { error: "Invalid Gemini API key. Check Settings." };
-      }
-      return { error: `Gemini API error (${resp.status}): ${errBody.slice(0, 200)}` };
-    }
+    const { data, error } = await callGemini(requestBody);
+    if (error) return { error };
 
-    const data = await resp.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     if (!text) {

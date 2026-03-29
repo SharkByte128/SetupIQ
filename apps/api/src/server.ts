@@ -9,6 +9,7 @@ import { registerAuthRoutes } from "./auth/routes.js";
 import { registerSyncRoutes } from "./sync/routes.js";
 import { registerRecommendationRoutes } from "./recommendations/routes.js";
 import { registerNltRoutes } from "./nlt/routes.js";
+import { registerGeminiRoutes } from "./gemini/routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3001;
@@ -28,6 +29,7 @@ async function start(): Promise<void> {
   await registerSyncRoutes(app);
   await registerRecommendationRoutes(app);
   await registerNltRoutes(app);
+  await registerGeminiRoutes(app);
 
   // Serve /docs folder as static files
   // In Docker: /app/docs; in dev: relative to source

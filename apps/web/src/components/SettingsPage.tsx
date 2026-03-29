@@ -287,10 +287,16 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+        {isConnected && (
+          <p className="text-xs text-green-400 mb-3">
+            Using server's Gemini API key. Local key below is optional (used as fallback).
+          </p>
+        )}
+
         <div className="flex flex-col gap-3">
           <div>
             <label className="text-xs text-neutral-400 mb-1 block">
-              API Key
+              API Key {isConnected ? "(optional fallback)" : ""}
             </label>
             <div className="flex gap-2">
               <input
@@ -308,16 +314,19 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
               </button>
             </div>
             <p className="text-[11px] text-neutral-600 mt-1">
-              Get a key at{" "}
-              <a
-                href="https://aistudio.google.com/apikey"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300"
-              >
-                aistudio.google.com/apikey
-              </a>
-              . Stored locally on this device only.
+              {isConnected
+                ? "Optional — the server provides its own key. This is only used if the server key is missing."
+                : <>Get a key at{" "}
+                  <a
+                    href="https://aistudio.google.com/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300"
+                  >
+                    aistudio.google.com/apikey
+                  </a>
+                  . Stored locally on this device only.</>
+              }
             </p>
           </div>
 
@@ -342,7 +351,10 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
       </div>
 
       <p className="text-[11px] text-neutral-600 mt-4 text-center">
-        Your API key never leaves this device — all AI calls are made directly from your browser.
+        {isConnected
+          ? "AI calls are proxied through the server. No local API key needed."
+          : "Your API key never leaves this device — all AI calls are made directly from your browser."
+        }
       </p>
     </div>
   );
