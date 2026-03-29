@@ -1,9 +1,15 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
-import { setupSnapshots, runSessions, runSegments, tracks, components, measurements } from "../db/schema.js";
+import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars } from "../db/schema.js";
 import { eq, gt, and } from "drizzle-orm";
 
 type AuthUser = { id: string; email: string; displayName: string };
+
+interface SyncRecord {
+  id: string;
+  updatedAt: string;
+  data: Record<string, unknown>;
+}
 
 interface SyncPushBody {
   setupSnapshots?: SyncRecord[];
@@ -12,26 +18,14 @@ interface SyncPushBody {
   tracks?: SyncRecord[];
   components?: SyncRecord[];
   measurements?: SyncRecord[];
-}
-
-interface SyncRecord {
-  id: string;
-  updatedAt: string;
-  data: Record<string, unknown>;
+  parts?: SyncRecord[];
+  raceResults?: SyncRecord[];
+  customCars?: SyncRecord[];
 }
 
 interface SyncPullQuery {
   since?: string;
 }
-
-// Map of table name → drizzle table + userId column + updatedAt column
-const SYNC_TABLES = {
-  setupSnapshots: { table: setupSnapshots, userCol: setupSnapshots.userId, timeCol: setupSnapshots.updatedAt },
-  tracks: { table: tracks, userCol: tracks.userId, timeCol: tracks.updatedAt },
-  components: { table: components, userCol: components.userId, timeCol: components.createdAt },
-  runSessions: { table: runSessions, userCol: runSessions.userId, timeCol: runSessions.startedAt },
-  measurements: { table: measurements, userCol: measurements.setupId, timeCol: measurements.measuredAt },
-} as const;
 
 export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
   // ─── Pull: Get all records updated after `since` ──────────
@@ -46,7 +40,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user as AuthUser;
     const since = request.query.since ? new Date(request.query.since) : new Date(0);
 
-    const [userSetups, userTracks, userComponents, userSessions, userSegments, userMeasurements] = await Promise.all([
+    const [userSetups, userTracks, userComponents, userSessions, userSegments, userMeasurements, userParts, userRaceResults, userCustomCars] = await Promise.all([
       db.select().from(setupSnapshots).where(
         and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
       ),
@@ -59,9 +53,17 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       db.select().from(runSessions).where(
         and(eq(runSessions.userId, user.id), gt(runSessions.startedAt, since))
       ),
-      // Segments don't have userId direct — pull via sessions
       db.select().from(runSegments).where(gt(runSegments.startedAt, since)),
       db.select().from(measurements).where(gt(measurements.measuredAt, since)),
+      db.select().from(parts).where(
+        and(eq(parts.userId, user.id), gt(parts.updatedAt, since))
+      ),
+      db.select().from(raceResults).where(
+        and(eq(raceResults.userId, user.id), gt(raceResults.createdAt, since))
+      ),
+      db.select().from(customCars).where(
+        and(eq(customCars.userId, user.id), gt(customCars.updatedAt, since))
+      ),
     ]);
 
     return {
@@ -71,6 +73,9 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       runSessions: userSessions,
       runSegments: userSegments,
       measurements: userMeasurements,
+      parts: userParts,
+      raceResults: userRaceResults,
+      customCars: userCustomCars,
       serverTime: new Date().toISOString(),
     };
   });
@@ -127,6 +132,10 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             userId: user.id,
             name: (record.data.name as string) || "Untitled",
             location: record.data.location as string | undefined,
+            address: record.data.address as string | undefined,
+            phone: record.data.phone as string | undefined,
+            hours: record.data.hours as string | undefined,
+            timingSystem: record.data.timingSystem as string | undefined,
             surfaceType: (record.data.surfaceType as string) || "other",
             tileType: record.data.tileType as string | undefined,
             dimensions: record.data.dimensions as string | undefined,
@@ -139,6 +148,10 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             set: {
               name: (record.data.name as string) || "Untitled",
               location: record.data.location as string | undefined,
+              address: record.data.address as string | undefined,
+              phone: record.data.phone as string | undefined,
+              hours: record.data.hours as string | undefined,
+              timingSystem: record.data.timingSystem as string | undefined,
               surfaceType: (record.data.surfaceType as string) || "other",
               tileType: record.data.tileType as string | undefined,
               dimensions: record.data.dimensions as string | undefined,
@@ -174,6 +187,115 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.runSessions = body.runSessions.length;
+    }
+
+    // Upsert parts
+    if (body.parts?.length) {
+      for (const record of body.parts) {
+        await db
+          .insert(parts)
+          .values({
+            id: record.id,
+            userId: user.id,
+            vendorId: (record.data.vendorId as string) || "",
+            categoryId: (record.data.categoryId as string) || "",
+            name: (record.data.name as string) || "Untitled",
+            sku: record.data.sku as string | undefined,
+            compatibleChassisIds: (record.data.compatibleChassisIds as any) || [],
+            attributes: (record.data.attributes as any) || {},
+            notes: record.data.notes as string | undefined,
+            updatedAt: new Date(record.updatedAt),
+          })
+          .onConflictDoUpdate({
+            target: parts.id,
+            set: {
+              vendorId: (record.data.vendorId as string) || "",
+              categoryId: (record.data.categoryId as string) || "",
+              name: (record.data.name as string) || "Untitled",
+              sku: record.data.sku as string | undefined,
+              compatibleChassisIds: (record.data.compatibleChassisIds as any) || [],
+              attributes: (record.data.attributes as any) || {},
+              notes: record.data.notes as string | undefined,
+              updatedAt: new Date(record.updatedAt),
+            },
+          });
+      }
+      results.parts = body.parts.length;
+    }
+
+    // Upsert race results
+    if (body.raceResults?.length) {
+      for (const record of body.raceResults) {
+        await db
+          .insert(raceResults)
+          .values({
+            id: record.id,
+            userId: user.id,
+            carId: (record.data.carId as string) || "",
+            trackId: record.data.trackId as string | undefined,
+            eventName: (record.data.eventName as string) || "",
+            community: record.data.community as string | undefined,
+            className: (record.data.className as string) || "",
+            roundType: (record.data.roundType as string) || "custom",
+            roundNumber: record.data.roundNumber as number | undefined,
+            date: (record.data.date as string) || "",
+            position: (record.data.position as number) || 0,
+            totalEntries: record.data.totalEntries as number | undefined,
+            totalLaps: (record.data.totalLaps as number) || 0,
+            totalTimeMs: (record.data.totalTimeMs as number) || 0,
+            fastLapMs: (record.data.fastLapMs as number) || 0,
+            avgLapMs: record.data.avgLapMs as number | undefined,
+            laps: (record.data.laps as any) || [],
+            sourceUrl: record.data.sourceUrl as string | undefined,
+            setupSnapshotId: record.data.setupSnapshotId as string | undefined,
+            notes: record.data.notes as string | undefined,
+          })
+          .onConflictDoUpdate({
+            target: raceResults.id,
+            set: {
+              eventName: (record.data.eventName as string) || "",
+              className: (record.data.className as string) || "",
+              roundType: (record.data.roundType as string) || "custom",
+              position: (record.data.position as number) || 0,
+              totalLaps: (record.data.totalLaps as number) || 0,
+              totalTimeMs: (record.data.totalTimeMs as number) || 0,
+              fastLapMs: (record.data.fastLapMs as number) || 0,
+              laps: (record.data.laps as any) || [],
+              notes: record.data.notes as string | undefined,
+            },
+          });
+      }
+      results.raceResults = body.raceResults.length;
+    }
+
+    // Upsert custom cars
+    if (body.customCars?.length) {
+      for (const record of body.customCars) {
+        await db
+          .insert(customCars)
+          .values({
+            id: record.id,
+            userId: user.id,
+            name: (record.data.name as string) || "Untitled",
+            manufacturer: (record.data.manufacturer as string) || "",
+            scale: (record.data.scale as string) || "",
+            driveType: (record.data.driveType as string) || "RWD",
+            notes: record.data.notes as string | undefined,
+            updatedAt: new Date(record.updatedAt),
+          })
+          .onConflictDoUpdate({
+            target: customCars.id,
+            set: {
+              name: (record.data.name as string) || "Untitled",
+              manufacturer: (record.data.manufacturer as string) || "",
+              scale: (record.data.scale as string) || "",
+              driveType: (record.data.driveType as string) || "RWD",
+              notes: record.data.notes as string | undefined,
+              updatedAt: new Date(record.updatedAt),
+            },
+          });
+      }
+      results.customCars = body.customCars.length;
     }
 
     return { ok: true, upserted: results };

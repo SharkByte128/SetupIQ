@@ -7,6 +7,7 @@ const LABELS: Record<SyncState, string> = {
   syncing: "Syncing…",
   offline: "Offline",
   error: "Sync Error",
+  "not-configured": "Not Connected",
 };
 
 const COLORS: Record<SyncState, string> = {
@@ -15,6 +16,7 @@ const COLORS: Record<SyncState, string> = {
   syncing: "bg-blue-500 animate-pulse",
   offline: "bg-neutral-500",
   error: "bg-red-500",
+  "not-configured": "bg-neutral-600",
 };
 
 export function SyncIndicator() {

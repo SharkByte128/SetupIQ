@@ -1,8 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import jwt from "@fastify/jwt";
+import { randomBytes } from "node:crypto";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const JWT_SECRET = process.env.JWT_SECRET || "setupiq-dev-secret-change-in-production";
@@ -141,5 +142,66 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   app.post("/auth/logout", async function (_request, reply) {
     reply.clearCookie(COOKIE_NAME, { path: "/" });
     return { ok: true };
+  });
+
+  // ─── Register (username → apiToken) ───────────────────────
+
+  app.post("/auth/register", async function (request: FastifyRequest<{ Body: { username: string } }>, reply: FastifyReply) {
+    const { username } = request.body;
+    if (!username || typeof username !== "string" || username.trim().length < 2) {
+      return reply.status(400).send({ error: "Username must be at least 2 characters" });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+
+    // Check if username already exists
+    const existing = await db.select().from(users).where(eq(users.username, cleanUsername)).limit(1);
+    if (existing.length > 0) {
+      return reply.status(409).send({ error: "Username already taken" });
+    }
+
+    const apiToken = randomBytes(32).toString("hex");
+
+    const inserted = await db
+      .insert(users)
+      .values({
+        email: `${cleanUsername}@token.local`,
+        displayName: cleanUsername,
+        provider: "token",
+        username: cleanUsername,
+        apiToken,
+      })
+      .returning({ id: users.id, username: users.username, displayName: users.displayName });
+
+    return { username: inserted[0].username, apiToken };
+  });
+
+  // ─── Token Login (username + apiToken → JWT) ──────────────
+
+  app.post("/auth/token-login", async function (request: FastifyRequest<{ Body: { username: string; apiToken: string } }>, reply: FastifyReply) {
+    const { username, apiToken } = request.body;
+    if (!username || !apiToken) {
+      return reply.status(400).send({ error: "Username and API token required" });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+
+    const found = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.username, cleanUsername), eq(users.apiToken, apiToken)))
+      .limit(1);
+
+    if (found.length === 0) {
+      return reply.status(401).send({ error: "Invalid username or API token" });
+    }
+
+    const user = found[0];
+    const jwtToken = app.jwt.sign(
+      { id: user.id, email: user.email, displayName: user.displayName },
+      { expiresIn: "30d" }
+    );
+
+    return { token: jwtToken, user: { id: user.id, username: user.username, displayName: user.displayName } };
   });
 }

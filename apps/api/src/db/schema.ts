@@ -7,6 +7,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull(),
   provider: varchar("provider", { length: 20 }).notNull(),
+  username: text("username").unique(),
+  apiToken: text("api_token").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -18,6 +20,10 @@ export const tracks = pgTable("tracks", {
   userId: uuid("user_id").notNull().references(() => users.id),
   name: text("name").notNull(),
   location: text("location"),
+  address: text("address"),
+  phone: text("phone"),
+  hours: text("hours"),
+  timingSystem: text("timing_system"),
   surfaceType: varchar("surface_type", { length: 20 }).notNull(),
   tileType: text("tile_type"),
   dimensions: text("dimensions"),
@@ -113,4 +119,60 @@ export const measurements = pgTable("measurements", {
   crossWeightPercent: real("cross_weight_percent"),
   measuredAt: timestamp("measured_at", { withTimezone: true }).notNull().defaultNow(),
   source: varchar("source", { length: 20 }).notNull().default("manual"),
+});
+
+// ─── Parts ────────────────────────────────────────────────────
+
+export const parts = pgTable("parts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  vendorId: text("vendor_id").notNull(),
+  categoryId: text("category_id").notNull(),
+  name: text("name").notNull(),
+  sku: text("sku"),
+  compatibleChassisIds: jsonb("compatible_chassis_ids").notNull().$type<string[]>(),
+  attributes: jsonb("attributes").notNull().$type<Record<string, string | number>>(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Race Results ─────────────────────────────────────────────
+
+export const raceResults = pgTable("race_results", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  carId: text("car_id").notNull(),
+  trackId: text("track_id"),
+  eventName: text("event_name").notNull(),
+  community: text("community"),
+  className: text("class_name").notNull(),
+  roundType: varchar("round_type", { length: 20 }).notNull(),
+  roundNumber: integer("round_number"),
+  date: text("date").notNull(),
+  position: integer("position").notNull(),
+  totalEntries: integer("total_entries"),
+  totalLaps: integer("total_laps").notNull(),
+  totalTimeMs: integer("total_time_ms").notNull(),
+  fastLapMs: integer("fast_lap_ms").notNull(),
+  avgLapMs: integer("avg_lap_ms"),
+  laps: jsonb("laps").notNull().$type<{ lapNumber: number; timeMs: number }[]>(),
+  sourceUrl: text("source_url"),
+  setupSnapshotId: text("setup_snapshot_id"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Custom Cars ──────────────────────────────────────────────
+
+export const customCars = pgTable("custom_cars", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  manufacturer: text("manufacturer").notNull(),
+  scale: text("scale").notNull(),
+  driveType: varchar("drive_type", { length: 10 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
