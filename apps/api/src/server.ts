@@ -43,9 +43,11 @@ async function start(): Promise<void> {
   const adminHtmlPath = adminCandidates.find(p => existsSync(p));
   if (adminHtmlPath) {
     const adminHtml = readFileSync(adminHtmlPath, "utf-8");
-    app.get("/admin", async (_request, reply) => {
+    const serveAdmin = async (_request: any, reply: any) => {
       reply.type("text/html").send(adminHtml);
-    });
+    };
+    app.get("/admin", serveAdmin);
+    app.get("/admin/", serveAdmin);
   }
 
   // Serve /docs folder as static files
