@@ -43,6 +43,18 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
     [view, updateSetup],
   );
 
+  const handleAutoSave = useCallback(
+    async (setupId: string, patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "notes">>) => {
+      await updateSetup(setupId, patch);
+      // Refresh the view.setup reference with updated data
+      const updated = setups.find((s) => s.id === setupId);
+      if (updated && view.kind === "detail") {
+        setView({ kind: "detail", setup: updated });
+      }
+    },
+    [updateSetup, setups, view],
+  );
+
   const handleClone = useCallback(
     async (source: SetupSnapshot) => {
       const cloned = await cloneSetup(source, `${source.name} (copy)`);
@@ -118,10 +130,10 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
           setup={view.setup}
           car={car}
           allSetups={setups}
-          onEdit={() => setView({ kind: "edit", setup: view.setup })}
           onClone={() => handleClone(view.setup)}
           onDelete={() => handleDelete(view.setup.id)}
           onBack={() => setView({ kind: "list" })}
+          onAutoSave={(patch) => handleAutoSave(view.setup.id, patch)}
         />
       )}
     </div>

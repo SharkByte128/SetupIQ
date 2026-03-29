@@ -54,6 +54,10 @@ export interface LocalTrack {
   userId: string;
   name: string;
   location?: string;
+  address?: string;
+  phone?: string;
+  hours?: string;
+  timingSystem?: string;
   surfaceType: string;
   tileType?: string;
   dimensions?: string;
@@ -200,6 +204,22 @@ export interface LocalCustomCar {
   _dirty: 0 | 1;
 }
 
+export interface LocalTrackFile {
+  id: string;
+  trackId: string;
+  blob: Blob;
+  name: string;
+  mimeType: string;
+  createdAt: string;
+}
+
+export interface LocalRacer {
+  id: string;
+  name: string;
+  active: 0 | 1;
+  createdAt: string;
+}
+
 class SetupIQDatabase extends Dexie {
   setupSnapshots!: Table<LocalSetupSnapshot, string>;
   runSessions!: Table<LocalRunSession, string>;
@@ -213,6 +233,8 @@ class SetupIQDatabase extends Dexie {
   parts!: Table<LocalPart, string>;
   partFiles!: Table<LocalPartFile, string>;
   customCars!: Table<LocalCustomCar, string>;
+  trackFiles!: Table<LocalTrackFile, string>;
+  racers!: Table<LocalRacer, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -306,6 +328,41 @@ class SetupIQDatabase extends Dexie {
       parts: "id, userId, vendorId, categoryId, _dirty",
       partFiles: "id, partId",
       customCars: "id, userId, manufacturer, _dirty",
+      syncMeta: "key",
+    });
+
+    this.version(8).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId",
+      raceResults: "id, userId, carId, date, className, _dirty",
+      parts: "id, userId, vendorId, categoryId, _dirty",
+      partFiles: "id, partId",
+      trackFiles: "id, trackId",
+      customCars: "id, userId, manufacturer, _dirty",
+      syncMeta: "key",
+    });
+
+    this.version(9).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId",
+      raceResults: "id, userId, carId, date, className, _dirty",
+      parts: "id, userId, vendorId, categoryId, _dirty",
+      partFiles: "id, partId",
+      trackFiles: "id, trackId",
+      customCars: "id, userId, manufacturer, _dirty",
+      racers: "id, name, active",
       syncMeta: "key",
     });
   }

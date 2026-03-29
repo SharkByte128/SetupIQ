@@ -207,6 +207,10 @@ export interface Track {
   userId: UUID;
   name: string;
   location?: string;
+  address?: string;
+  phone?: string;
+  hours?: string;
+  timingSystem?: string;
   surfaceType: SurfaceType;
   tileType?: string;
   dimensions?: string;

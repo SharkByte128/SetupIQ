@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { localDb } from "../db/local-db.js";
+import { RacersManager } from "./RacersManager.js";
 
 export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [geminiKey, setGeminiKey] = useState("");
@@ -39,6 +40,11 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
         >
           Done
         </button>
+      </div>
+
+      {/* Racers Section */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+        <RacersManager />
       </div>
 
       {/* Gemini AI Section */}

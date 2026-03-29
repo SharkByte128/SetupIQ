@@ -13,6 +13,10 @@ export function useTracks() {
     async (data: {
       name: string;
       location?: string;
+      address?: string;
+      phone?: string;
+      hours?: string;
+      timingSystem?: string;
       surfaceType: SurfaceType;
       tileType?: string;
       dimensions?: string;
@@ -26,6 +30,10 @@ export function useTracks() {
         userId: "local",
         name: data.name,
         location: data.location,
+        address: data.address,
+        phone: data.phone,
+        hours: data.hours,
+        timingSystem: data.timingSystem,
         surfaceType: data.surfaceType,
         tileType: data.tileType,
         dimensions: data.dimensions,
@@ -48,6 +56,10 @@ export function useTracks() {
       data: Partial<{
         name: string;
         location: string;
+        address: string;
+        phone: string;
+        hours: string;
+        timingSystem: string;
         surfaceType: SurfaceType;
         tileType: string;
         dimensions: string;
