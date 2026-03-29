@@ -26,14 +26,29 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
 // ─── Helper: require sysadmin ──────────────────────────────────
 
 function requireSysadmin(request: FastifyRequest, reply: FastifyReply): boolean {
-  const token = (request.headers["x-api-token"] ?? "") as string;
   const expectedUser = process.env.SYSADMIN_USER;
   const expectedToken = process.env.SYSADMIN_USER_API_TOKEN;
-  if (!expectedUser || !expectedToken || token !== expectedToken) {
-    reply.status(403).send({ error: "Forbidden" });
+  if (!expectedUser || !expectedToken) {
+    reply.status(503).send({ error: "Admin not configured" });
     return false;
   }
-  return true;
+
+  // Accept X-Api-Token header (CLI / direct calls)
+  const directToken = (request.headers["x-api-token"] ?? "") as string;
+  if (directToken === expectedToken) return true;
+
+  // Accept Bearer base64(user:token) (admin panel)
+  const auth = (request.headers.authorization ?? "") as string;
+  if (auth.startsWith("Bearer ")) {
+    try {
+      const decoded = Buffer.from(auth.slice(7), "base64").toString("utf-8");
+      const [user, apiToken] = decoded.split(":");
+      if (user === expectedUser && apiToken === expectedToken) return true;
+    } catch { /* fall through */ }
+  }
+
+  reply.status(403).send({ error: "Forbidden" });
+  return false;
 }
 
 export async function registerCatalogRoutes(app: FastifyInstance): Promise<void> {
@@ -327,6 +342,28 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   // ADMIN: Catalog Management (sysadmin only)
   // ═══════════════════════════════════════════════════════════
 
+  // ─── List catalog parts (admin) ─────────────────────────────
+
+  app.get("/api/admin/catalog/parts", async (request: FastifyRequest<{
+    Querystring: { baseSku?: string };
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+
+    const conditions = [];
+    if (request.query.baseSku) {
+      conditions.push(eq(catalogParts.baseSku, request.query.baseSku));
+    }
+
+    const rows = await db
+      .select()
+      .from(catalogParts)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(catalogParts.name)
+      .limit(500);
+
+    return reply.send({ parts: rows });
+  });
+
   // ─── Create catalog part ────────────────────────────────────
 
   app.post("/api/admin/catalog/parts", async (request: FastifyRequest<{
@@ -504,5 +541,21 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
       .where(eq(vendorOffers.id, request.params.id));
 
     return reply.send({ ok: true });
+  });
+
+  // ─── Trigger ingestion for a vendor source ──────────────────
+
+  app.post("/api/admin/catalog/vendor-sources/:id/ingest", async (request: FastifyRequest<{
+    Params: { id: string };
+  }>, reply: FastifyReply) => {
+    if (!requireSysadmin(request, reply)) return;
+
+    const { ingestVendorSource } = await import("./ingest.js");
+    try {
+      const result = await ingestVendorSource(request.params.id);
+      return reply.send({ ok: true, fetched: result.fetched, upserted: result.upserted });
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
   });
 }
