@@ -3,9 +3,13 @@ import { allCars } from "@setupiq/shared";
 import type { CarDefinition } from "@setupiq/shared";
 import { localDb, type LocalCarImage } from "../db/local-db.js";
 import { SetupsPage } from "./SetupsPage.js";
+import { PartsBinPage } from "./PartsBinPage.js";
 import { v4 as uuid } from "uuid";
 
+type GarageView = "cars" | "setups" | "parts";
+
 export function GaragePage() {
+  const [garageView, setGarageView] = useState<GarageView>("cars");
   const [selectedCar, setSelectedCar] = useState<CarDefinition | null>(null);
   const [images, setImages] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +83,7 @@ export function GaragePage() {
       <div className="flex flex-col h-full">
         <div className="px-4 pt-3 pb-2">
           <button
-            onClick={() => setSelectedCar(null)}
+            onClick={() => { setSelectedCar(null); setGarageView("cars"); }}
             className="text-sm text-blue-400 hover:text-blue-300"
           >
             ← Back to Garage
@@ -90,9 +94,41 @@ export function GaragePage() {
     );
   }
 
+  // Parts Bin view
+  if (garageView === "parts") {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-4 pt-3 pb-2">
+          <button
+            onClick={() => setGarageView("cars")}
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            ← Back to Garage
+          </button>
+        </div>
+        <PartsBinPage />
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 py-4">
       <h2 className="text-xl font-semibold mb-4">Garage</h2>
+
+      {/* Parts Bin button */}
+      <button
+        onClick={() => setGarageView("parts")}
+        className="w-full mb-4 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between hover:border-neutral-600 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-lg">🗃️</span>
+          <div className="text-left">
+            <p className="font-medium text-sm">Parts Bin</p>
+            <p className="text-xs text-neutral-500">Browse & manage parts by vendor</p>
+          </div>
+        </div>
+        <span className="text-neutral-500 text-sm">→</span>
+      </button>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {allCars.map((car) => (

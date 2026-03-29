@@ -1,6 +1,7 @@
 export * from "./models.js";
 export * from "./cars/index.js";
 export * from "./components/index.js";
+export * from "./parts-bin.js";
 export { validateSetup, getAllowedValues } from "./validation.js";
 export type { ValidationError } from "./validation.js";
 export {

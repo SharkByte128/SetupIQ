@@ -1,0 +1,3924 @@
+🏎️ Atomic RC MRX Master Edition — Build Profile
+
+COPILOT INSTRUCTIONS
+
+This document is structured for RC car testing, analysis, and reference. Please use the following guidelines whenever you answer questions or analyze data in this file:
+
+DOCUMENT STRUCTURE:
+
+This document uses multiple Heading 1 sections, each serving a specific purpose:
+
+Run Log: Contains all test sessions and their results.
+
+Inventory Overview: Lists all available parts, options, and configurations (e.g., springs, tires, chassis, electronics) that may be referenced or changed during runs.
+
+Setup Tips: Contains tuning advice, troubleshooting steps, and best practices for car setup.
+
+Tracks: Details the tracks/environments where the car may be tested or raced, including surface, layout, and any special considerations.
+
+Rules: Lists event or class rules that must be followed for legal race setups.
+
+Additional Heading 1 sections may be added as needed for other reference information.
+
+Each Session Title (e.g., 2025-12-31) is a Heading 2 under Run Log.
+
+Each session includes:
+
+Run Baseline Setup (details before the run)
+
+Run Summary (table of setup changes, lap data, feedback)
+
+Each row in the Run Summary table represents a new test segment, starting with a setup change.
+
+HOW TO USE THIS DOCUMENT:
+
+When I ask questions, always reference the latest session (the last Heading 2 under Run Log) unless I specify otherwise.
+
+Use the Run Summary table to analyze consistency, lap times, and feedback.
+
+Reference the Inventory Overview for available parts and options when making setup recommendations.
+
+Use Setup Tips for tuning advice and troubleshooting.
+
+Reference the Tracks section to tailor suggestions for the current or specified track.
+
+Check the Rules section to ensure all recommendations are legal for the intended event or class.
+
+Use my heading styles (Heading 1, Heading 2, etc.) to navigate and extract relevant data from all sections.
+
+Always ground your answers in the structure and content of this document.
+
+RUN SUMMARY TABLE ANALYSIS (AI PROMPT LOGIC):
+
+When analyzing or summarizing a session’s Run Summary table, Reference the Data under the Run Data section for this session.  Use the following definitions and calculations:
+
+The data under the Run Data section is structured as follows: Lap#) time   [optional trailing number]
+
+The trailing number indicates a “consistent lap.” If no number is present, it is not consistent.
+
+Using this data, produce a Final Summary table with the following metrics:
+
+Repeat = Number of consistent laps “out of” total laps
+
+Repeat Percentage = Repeat expressed as a percentage out of 100%
+
+Fast Lap = The single fastest lap time in the dataset
+
+Avg = Average of all laps that are 7.000 seconds or faster (ignore any lap > 7.000)
+
+Avg Qty = Count of all laps that are 7.000 seconds or faster
+
+Present the results in a clean motorsports-style table with the five metrics listed above. Do not include any other commentary unless I ask for it.
+
+When asked for a summary or analysis:
+
+Present a table or list with Repeat, Repeat Percentage, Fast Lap, Avg, and Avg Qty for each segment.
+
+Highlight patterns in consistency, lap times, or handling.
+
+Compare new results to previous runs to identify what worked and what didn’t.
+
+Suggest next setup changes based on the latest run data and available options.
+
+Ensure all recommendations comply with the Rules section if preparing for a race or event.
+
+Adapt advice based on track details and setup tips as documented.
+
+EXPECTATIONS:
+
+Analyze trends, improvements, or issues based on my data and feedback.
+
+Suggest next setup changes based on the latest run data and available options.
+
+Highlight patterns in consistency, lap times, or handling.
+
+If possible, compare new results to previous runs to identify what worked and what didn’t.
+
+Ensure all recommendations comply with the Rules section if preparing for a race or event.
+
+Adapt advice based on track details and setup tips as documented.
+
+Note: This section acts as a living prompt for Copilot. Update it as needed to reflect any changes in how you want your data organized, referenced, or analyzed.
+
+
+
+End of Copilot Instructions section.
+
+
+
+📦 Inventory Overview
+
+🏎️ Chassis
+
+Atomic RC MRX Master Edition (base chassis)
+
+Optional Aluminum Chassis — MRXME‑UP10 (12 g)
+
+Optional Brass Chassis — MRXME‑04 (weight missing)
+
+MRX Master Side Wing (Small – 58 mm width) — weight missing
+
+
+
+🛠️ Suspension & Handling
+
+Center & Rear
+
+Center Damper w/ Droop Adjustment — MRXME‑UP08
+
+Center Damper Mount for 24 mm Battery — MRXME‑UP09
+
+MRX Master Aluminum Knuckles V2
+
+Vertical Side Springs (optional)
+
+Soft — Green — MRXME‑UP01S
+
+Medium — Red — MRXME‑UP01M
+
+Hard — Yellow — MRXME‑UP01H
+
+DAA Front Springs (optional)
+
+Super Soft — Red — MRXME‑UP02SS
+
+Soft — White — MRXME‑UP02S
+
+Medium — Yellow — MRXME‑UP02M
+
+Hard — Purple — MRXME‑UP02H
+
+Rear Top Spring (optional)
+
+Soft — White — MRXME‑UP05S
+
+Medium — Yellow — MRXME‑UP05M
+
+Hard — Purple — MRXME‑UP05H
+
+Damper Greases (optional)
+
+Atomic Shock Grease: 15000 / 25000 / 35000 / 45000
+
+Reflex Racing Damper Grease: 250000
+
+Kyosho Differential Grease: 1000 / 3000 / 5000 / 15000 / 30000
+
+
+
+🛞 Tires & Wheels
+
+Front Tire Options:
+
+Kyosho 30 (Medium/Hard) (Yellow)
+
+Marka V5 Front 25° / 11 mm (Medium) (White)
+
+Gekko FM-GK-002 (Medium) (Red)
+
+Gekko FS-GK-001 (soft) (Black)
+
+Rear Tire Options:
+
+Kyosho 30 (Medium/Hard) (Yellow)
+
+Kyosho 20 (Medium) (Red)
+
+Gekko RM1-GK-004 (Medium) (Gray)
+
+Marka MZR‑V1RR15 (Medium/soft) (White)
+
+Gekko RS1 GK-003 (Soft) (Black)
+
+Front Wheel Options:
+
+Silver Horse EVO “JUD” — 8.5 mm +1 offset
+
+Silver Horse EVO “JUD” — 8.5 mm +0 offset
+
+Silver Horse EVO “JUD” — 8.5 mm -1 offset
+
+Rear Wheels
+
+Silver Horse EVO “JUD” — 11 mm +3 offset
+
+Silver Horse EVO “JUD” — 11 mm +2 offset
+
+Silver Horse EVO “JUD” — 11 mm +1 offset
+
+Silver Horse EVO “JUD” — 11 mm +0 offset
+
+
+
+⚡ Electronics & Power
+
+Motor: PN Anima V4 2500kv (non‑handout, for practice)
+
+ESC: Hobbywing EZRun Mini28
+
+Servo: AGFRC A06CLS v2
+
+Battery: Silver Horse RC 450 mAh 2S 7.4V 60C (3.33 Wh)
+
+Radio: Flysky Noble 4 Plus
+
+Receiver: Micro 4‑channel
+
+Lap Timing: EasyLap Transponder
+
+
+
+🛠️ Setup Notes (Baseline)
+
+Built per MRX Master Edition manual
+
+Front suspension:
+
+Front Ride Height: 2.1
+
+Front Damper Grease: Atomic 25000
+
+Front DAA Springs: Super Soft (red)
+
+Toe Angle: 4 degrees out
+
+Top Kingpin Shim: 0
+
+Bottom Kingpin Shim: 2
+
+Caster: 2
+
+Damper Shim: 1
+
+Axles: v2
+
+Rear Suspension:
+
+Rear Ride Height: 3.2
+
+Style: Horizontal
+
+Center Damper Grease: : Atomic 25000
+
+Side Spring Damper Grease: Atomic 25000
+
+Vertical Side Springs: n/a
+
+Rear Top Spring: Medium (hard)
+
+Drive
+
+Pinion: 12T
+
+Spur Gear: Atomic Stock 53T
+
+Diff: Atomic Gear Diff (Stock)
+
+Motor: PN 2500kv Anima v4
+
+Tires: 
+
+Front: Marka V5 Front 25° / 11 mm
+
+Rear: Marka MZR‑V1RR15‑14
+
+Wheels: 
+
+Front: Silver Horse EVO “JUD” — 8.5 mm +1 offset
+
+Rear: Silver Horse EVO “JUD” — 11 mm +3 offset
+
+
+
+Setup Tips:
+
+🔧⚙️Ball Differential Tuning Advice
+
+Tighten the ball diff fully, then back off about 1/8 to 1/4 turn to allow smooth operation without slipping.
+
+The diff should turn smoothly by hand without grit or binding.
+
+Avoid overtightening, which can cause the diff to act like a locked diff and reduce smooth differential action.
+
+If the diff slips or makes a barking sound under power, tighten it slightly.
+
+Regularly check and lubricate the diff with silicone or diff grease for optimal performance and longevity.
+
+Adjust tightness based on track conditions and personal driving feel.
+
+
+
+Tracks
+
+🏟️ Track in the Cave — Test Environment
+
+Location: Basement garage
+
+Dimensions: 12 ft × 24 ft
+
+Surface: RCP 30 cm tiles (smooth side up)
+
+Layout:
+
+Two 12 ft straights
+
+One 24 ft straight
+
+Road‑course style
+
+Purpose: FX28 + MRX tuning, consistency testing, setup validation
+
+This is a perfect environment for F1 chassis testing — long enough to expose stability issues, narrow enough to punish sloppy steering, and consistent enough to track setup changes.
+
+
+
+Rules
+
+PNWC
+
+🏁 PNWC Formula 1 Class — Compliance Summary
+
+Your MRX Master Edition is legal for PNWC F1.
+
+Key PNWC Requirements (and your status)
+
+Rule Area
+
+PNWC Requirement
+
+Your Build
+
+Chassis
+
+MRZ F1 allowed
+
+✔ MRX Master Edition (MRZ family)
+
+Body
+
+Must use approved F1 bodies
+
+✔ You can run PN, GL, G‑Force, ZP06, Grivi, or kit body
+
+Wings
+
+Must use original kit wings
+
+✔ You have original MRX wings
+
+Motor
+
+Handout PN V4 Anima 2500kv
+
+⚠ Practice motor OK, race requires handout
+
+Gearing
+
+Fixed 12/53 (64 pitch)
+
+✔ You can run this
+
+ESC
+
+Any, no gyro
+
+✔ Mini28 is legal
+
+Battery
+
+2S LiPo, max 8.40V
+
+✔ Your pack is legal
+
+Wheels
+
+PN MR2088/2089 Delrin ONLY
+
+⚠ Your Silver Horse wheels are NOT legal for PNWC
+
+Tires
+
+Mini‑Z rubber only
+
+✔ Marka rubber is legal
+
+Weight
+
+≥ 140 g
+
+⚠ Need to confirm final weight
+
+The only PNWC‑critical change you’ll need later is switching to PN Delrin wheels.
+
+
+
+📘 Run Log
+
+Test 2025-12-28
+
+Run Baseline Setup:
+
+Front suspension:
+
+Front Ride Height: 2.1
+
+Front Damper Grease: Atomic 25000
+
+Front DAA Springs: Yellow (Med)
+
+Toe Angle: 4 degrees out
+
+Caster: Top Kingpin Shim: 0
+
+Caster: Bottom Kingpin Shim: 2
+
+Camber: 2
+
+Damper Shim: 1
+
+Axles: v2
+
+
+
+Rear Suspension:
+
+Rear Ride Height: 3.2
+
+Style: Horizontal
+
+Center Damper Grease: : Atomic 45000
+
+Side Spring Damper Grease: Atomic 25000
+
+Vertical Side Springs: n/a
+
+Rear Top Spring: Medium (Yellow) + 0 Turn
+
+
+
+Drive
+
+Pinion: 12T
+
+Spur Gear: Kyosho 53T
+
+Diff: Kyosho Ball Diff
+
+Motor: PN 2500kv Anima v4
+
+Tires & Wheels
+
+Front: Gekko FM-GK-002 (Med) (Red) | +1offset
+
+Rear: Gekko RM1-GK-004 (Med) (Gray) | + 3 offset
+
+
+
+Run Summary:
+
+Setup Change
+
+Start
+
+End
+
+Repeat
+
+Fast
+
+Avg
+
+Feedback
+
+New Battery / New Tires
+
+1
+
+22
+
+11 / 22
+
+6.2
+
+6.5(13)
+
+Steering wide and unpredictable
+
+Front DAA Springs: White (Soft)
+
+23
+
+62
+
+7 / 30
+
+6.2
+
+6.7 (11)
+
+Steering wide and unpredictable
+
+Front DAA Springs: Red  (Super Soft)
+
+63
+
+74
+
+8 /12 (66%)
+
+6.2
+
+6.8 (9)
+
+Steering wide and unpredictable
+
+Front Tires: Gekko FS-GK-001 (soft) (Black)
+
+75
+
+78
+
+1 / 4 (25%)
+
+n/a
+
+n/a
+
+Steering better, but bites hard – car flips
+
+Front Ride Height: 1.8
+
+79
+
+94
+
+4 / 16 (25%)
+
+6.5
+
+6.6 (5)
+
+Bites hard – car flips
+
+Gekko FM-GK-002 (Med) (Red)
+
+95
+
+108
+
+2 / 14 (14%)
+
+6.6
+
+6.8 (2)
+
+Bites hard – car flips in turns
+
+Marka V5 Front 25° / 11 mm (Medium) (White)
+
+Marka MZR V1RR15 (Medium/soft) (White)
+
+Front Ride Height not measured
+
+109
+
+146
+
+17 / 38 (44%)
+
+5.8
+
+6.4 (23)
+
+Could be driver – Steering
+
+Front Ride Height: 1.8
+
+147
+
+174
+
+18 / 28 (64%)
+
+5.8
+
+6.2 (24)
+
+Drives great – Looking for what if
+
+Front DAA Springs: White (Soft)
+
+Front Ride Height: 1.8
+
+175
+
+207
+
+18 / 33 (54%)
+
+6.0
+
+6.2 (18)
+
+Steering not as predictable
+
+Front Ride Height: 2.0
+
+208
+
+229
+
+10 /22 (45%)
+
+6.1
+
+6.3 (13)
+
+Steering more predicable but car is slower
+
+Front Ride Height: 2.1 (by damper)
+
+230
+
+249
+
+ 12 / 20 (60%)
+
+5.9
+
+6.2 (16)
+
+Battery died
+
+New Battery
+
+250
+
+281
+
+16/32 (50%)
+
+5.9
+
+5.9 (22)
+
+Drives Great – Looking for what if
+
+Front DAA Springs: Yellow (Med)
+
+Front Ride Height: 2.1
+
+282
+
+301
+
+10/20 (50%)
+
+5.8
+
+6.0 (13)
+
+Drives Great – Looking for more speed
+
+Toe Angle: 2 degrees out
+
+302
+
+362
+
+21/61 (34%)
+
+5.8
+
+6.2 (38)
+
+
+
+New Battery
+
+363
+
+395
+
+14/33 (44%)
+
+5.8
+
+6.3 (15)
+
+Steering is improved but unpredictable on throttle
+
+Rear Diff – Tight – ¼ turn
+
+396
+
+401
+
+1 / 6 (16%)
+
+6.3
+
+6.3 (3)
+
+Diff Too loose
+
+Rear Diff – Tight – 1/8 turn
+
+402
+
+435
+
+18/34 (52%)
+
+5.7
+
+6.1 (20)
+
+Drives Great – Looking for more speed
+
+Center Damper Grease: : Atomic 15000
+
+436
+
+461
+
+15/26 (57%)
+
+5.7
+
+6.2 (17)
+
+Drives Great – Looking for more speed
+
+Rear Top Spring: Medium (hard) - 3 Turns
+
+462
+
+505
+
+24/44 (54%)
+
+5.8
+
+6.2 (31)
+
+Drives Great – Looking for more speed
+
+Diff – Atomic gear diff (Stock)New Battery
+
+506
+
+537
+
+7/32 (21%)
+
+6.0
+
+6.3 (16)
+
+
+
+Rear Top Spring: Medium (Yellow) + 3 Turns
+
+538
+
+587
+
+20/50 (40%)
+
+5.9
+
+6.2 (27)
+
+
+
+Rear Top Spring: Medium (Yellow) + 0 Turns
+
+588
+
+615
+
+14/28 (50%)
+
+6.0
+
+6.2 (20)
+
+
+
+Marka V5 Front 25° / 11 mm (Medium) (White) (Swapped old tires with slightly used tires)
+
+616
+
+682
+
+35/67 (52%)
+
+6.0
+
+6.4 (45)
+
+
+
+Run Data
+
+Lap 1 - 22
+
+1) 0:07.489 
+
+2) 0:08.674
+
+3) 0:09.044  1
+
+4) 0:07.128 
+
+5) 0:06.562  1
+
+6) 0:09.063
+
+7) 0:09.655  1
+
+8) 0:15.555
+
+9) 0:08.561
+
+10) 0:07.049
+
+11) 0:10.146
+
+12) 0:07.193
+
+13) 0:07.462  1
+
+14) 0:06.691
+
+15) 0:06.582  1
+
+16) 0:06.674  2
+
+17) 0:06.440  3
+
+18) 0:06.358  4
+
+19) 0:06.638  5
+
+20) 0:06.202  6
+
+21) 0:06.952
+
+22) 0:06.746  1
+
+Lap 23 - 62
+
+23) 27:41.523
+
+24) 1:15.914
+
+25) 0:08.800
+
+26) 0:06.864
+
+27) 0:10.316
+
+28) 0:08.968
+
+29) 0:07.027
+
+30) 0:06.992  1
+
+31) 0:06.861  2
+
+32) 0:06.582  3
+
+33) 0:23.352
+
+34) 0:09.519
+
+35) 0:06.374
+
+36) 0:06.270  1
+
+37) 0:09.286
+
+38) 0:08.929  1
+
+39) 0:06.427
+
+40) 0:07.091
+
+41) 0:06.640  1
+
+42) 0:06.522  2
+
+43) 0:07.396
+
+44) 0:06.606
+
+45) 0:20.112
+
+46) 0:12.372
+
+47) 0:07.040
+
+48) 0:08.631
+
+49) 0:06.667
+
+50) 0:07.525
+
+51) 0:10.844
+
+52) 0:09.171
+
+53) 0:07.158
+
+54) 0:06.964  1
+
+55) 0:06.637  2
+
+56) 0:06.810  3
+
+57) 4:59.728
+
+58) 0:07.123
+
+59) 0:07.010  1
+
+60) 0:10.550
+
+61) 0:11.409  1
+
+62) 0:06.754
+
+Lap 63 - 74
+
+63) 0:06.948  1
+
+64) 0:06.493  2
+
+65) 0:06.862  3
+
+66) 0:06.490  4
+
+67) 0:06.853  5
+
+68) 0:09.496
+
+69) 0:06.800
+
+70) 0:06.740  1
+
+71) 0:06.254  2
+
+72) 0:07.653
+
+73) 0:08.312  1
+
+74) 0:06.541
+
+Lap 75 - 78
+
+75) 8:55.048
+
+76) 0:09.515
+
+77) 0:09.110  1
+
+78) 0:11.062
+
+Lap 79 - 94
+
+79) 0:08.597
+
+80) 0:06.606
+
+81) 0:06.883  1
+
+82) 6:49.497
+
+83) 0:07.786
+
+84) 0:07.105  1
+
+85) 0:14.756
+
+86) 0:11.546
+
+87) 0:06.739
+
+88) 0:07.372  1
+
+89) 0:06.629
+
+90) 0:12.227
+
+91) 0:10.357
+
+92) 0:07.022
+
+93) 0:06.544  1
+
+94) 0:08.765
+
+Lap 95 - 108
+
+95) 0:16.142
+
+96) 106:41.545
+
+97) 0:09.968
+
+98) 0:06.646
+
+99) 0:14.276
+
+100) 0:10.180
+
+101) 0:08.187
+
+102) 0:07.405  1
+
+103) 0:18.982
+
+104) 0:13.899
+
+105) 0:09.841
+
+106) 0:06.997
+
+107) 0:08.551
+
+108) 0:08.594  1
+
+Lap 109 - 146
+
+109) 30:32.928
+
+110) 0:06.877
+
+111) 0:07.043  1
+
+112) 0:12.223
+
+113) 0:08.186
+
+114) 0:06.629
+
+115) 0:06.768  1
+
+116) 0:06.682  2
+
+117) 0:07.867
+
+118) 0:06.160 
+
+119) 0:11.298
+
+120) 0:06.735
+
+121) 0:06.500  1
+
+122) 0:06.089  2
+
+123) 0:06.149  3
+
+124) 0:06.436  4
+
+125) 0:06.870  5
+
+126) 0:06.946  6
+
+127) 0:06.717  7
+
+128) 0:07.470
+
+129) 0:11.428
+
+130) 0:06.109
+
+131) 0:05.852  1
+
+132) 0:07.461
+
+133) 0:08.633
+
+134) 0:07.748
+
+135) 0:07.503  1
+
+136) 0:06.458
+
+137) 0:06.067  1
+
+138) 0:08.563
+
+139) 0:06.195
+
+140) 0:06.269  1
+
+141) 0:08.415
+
+142) 0:08.490  1
+
+143) 0:05.951
+
+144) 0:06.056  1
+
+145) 0:05.951  2
+
+146) 0:06.623
+
+147) 12:21.901
+
+Lap 147 - 174
+
+148) 0:06.299
+
+149) 0:07.563
+
+150) 0:06.362
+
+151) 0:06.022  1
+
+152) 0:05.924  2
+
+153) 0:06.318  3
+
+154) 0:06.074  4
+
+155) 0:06.339  5
+
+156) 0:05.906  6
+
+157) 0:06.905
+
+158) 0:06.358  1
+
+159) 0:06.116  2
+
+160) 0:05.988  3
+
+161) 0:05.805  4
+
+162) 0:06.064  5
+
+163) 0:06.980
+
+164) 0:06.139
+
+165) 0:08.267
+
+166) 0:08.479  1
+
+167) 0:06.044
+
+168) 0:06.601  1
+
+169) 0:05.901
+
+170) 0:06.412  1
+
+171) 0:06.052  2
+
+172) 0:06.336  3
+
+173) 0:06.082  4
+
+174) 0:06.325  5
+
+Lap 175 - 207
+
+175) 8:02.898
+
+176) 0:07.196
+
+177) 0:07.925
+
+178) 0:11.159
+
+179) 0:07.119
+
+180) 0:07.016  1
+
+181) 0:07.277  2
+
+182) 0:08.685
+
+183) 0:06.772
+
+184) 0:06.415  1
+
+185) 0:06.309  2
+
+186) 0:07.017
+
+187) 0:07.441  1
+
+188) 0:06.572
+
+189) 0:07.574
+
+190) 0:07.599  1
+
+191) 0:06.093
+
+192) 0:06.501  1
+
+193) 0:06.446  2
+
+194) 0:06.873  3
+
+195) 0:06.368  4
+
+196) 0:06.373  5
+
+197) 0:06.138  6
+
+198) 0:07.020
+
+199) 0:06.067
+
+200) 0:09.072
+
+201) 0:06.218
+
+202) 0:06.667  1
+
+203) 0:06.295  2
+
+204) 0:06.184  3
+
+205) 0:06.274  4
+
+206) 0:06.129  5
+
+207) 0:06.032  6
+
+Lap 208 - 229
+
+208) 0:06.169  7
+
+209) 0:06.192  8
+
+210) 10:01.268
+
+211) 0:08.455
+
+212) 0:06.672
+
+213) 0:08.776
+
+214) 0:08.314  1
+
+215) 0:06.388
+
+216) 0:06.117  1
+
+217) 0:07.009
+
+218) 0:14.541
+
+219) 0:06.169
+
+220) 0:06.283  1
+
+221) 0:06.273  2
+
+222) 0:12.424
+
+223) 0:09.359
+
+224) 0:07.674
+
+225) 0:06.483
+
+226) 0:06.353  1
+
+227) 0:06.151  2
+
+228) 0:06.523  3
+
+229) 0:06.221  4
+
+Lap 230 - 249
+
+230) 16:18.748
+
+231) 0:06.225
+
+232) 0:05.943  1
+
+233) 0:06.156  2
+
+234) 0:06.497  3
+
+235) 0:06.241  4
+
+236) 0:06.361  5
+
+237) 0:06.042  6
+
+238) 0:06.039  7
+
+239) 0:06.191  8
+
+240) 0:10.338
+
+241) 0:06.536
+
+242) 0:06.265  1
+
+243) 0:06.164  2
+
+244) 0:08.362
+
+245) 0:06.126
+
+246) 0:06.254  1
+
+247) 0:09.562
+
+248) 0:06.403
+
+249) 0:06.429  1
+
+Lap 250 - 281
+
+250) 1:53.824
+
+251) 0:07.713
+
+252) 0:07.015  1
+
+253) 0:08.343
+
+254) 0:06.161
+
+255) 0:08.068
+
+256) 0:06.365
+
+257) 0:08.887
+
+258) 0:08.308  1
+
+259) 0:06.715
+
+260) 0:06.217  1
+
+261) 0:09.015
+
+262) 0:06.354
+
+263) 0:07.004
+
+264) 0:06.727  1
+
+265) 0:05.954
+
+266) 0:07.146
+
+267) 0:10.104
+
+268) 0:06.245
+
+269) 0:06.497  1
+
+270) 0:06.725  2
+
+271) 0:06.872  3
+
+272) 0:06.011
+
+273) 0:05.963  1
+
+274) 0:05.948  2
+
+275) 0:06.057  3
+
+276) 0:06.020  4
+
+277) 0:06.134  5
+
+278) 0:06.146  6
+
+279) 0:06.458  7
+
+280) 0:06.113  8
+
+281) 0:06.095  9
+
+Lap 282 - 301
+
+282) 9:23.829
+
+283) 0:09.121
+
+284) 0:06.604
+
+285) 0:08.539
+
+286) 0:07.768  1
+
+287) 0:06.249
+
+288) 0:10.146
+
+289) 0:08.127
+
+290) 0:06.229
+
+291) 0:06.218  1
+
+292) 0:06.820  2
+
+293) 0:08.561
+
+294) 0:05.862
+
+295) 0:06.216  1
+
+296) 0:06.192  2
+
+297) 0:05.997  3
+
+298) 0:06.507  4
+
+299) 0:06.100  5
+
+300) 0:06.023  6
+
+301) 0:06.022  7
+
+Lap 302 - 362
+
+302) 24:22.613
+
+303) 0:06.638
+
+304) 0:07.133  1
+
+305) 0:07.998
+
+306) 0:06.079
+
+307) 0:06.311  1
+
+308) 0:09.339
+
+309) 0:06.154
+
+310) 0:10.799
+
+311) 0:06.133
+
+312) 0:08.951
+
+313) 0:09.816  1
+
+314) 0:09.985  2
+
+315) 0:05.932
+
+316) 0:11.864
+
+317) 0:06.024
+
+318) 0:06.488  1
+
+319) 0:07.850
+
+320) 0:06.334
+
+321) 0:05.816  1
+
+322) 0:06.405
+
+323) 0:07.389
+
+324) 0:06.470
+
+325) 0:07.549
+
+326) 0:06.117
+
+327) 0:05.947  1
+
+328) 0:05.875  2
+
+329) 0:07.233
+
+330) 0:08.436
+
+331) 0:21.937
+
+332) 0:07.795
+
+333) 0:06.007
+
+334) 0:06.790
+
+335) 0:10.485
+
+336) 0:08.197
+
+337) 0:12.608
+
+338) 0:06.587
+
+339) 0:06.422  1
+
+340) 0:10.645
+
+341) 0:06.378
+
+342) 0:07.805
+
+343) 0:06.486
+
+344) 0:06.644  1
+
+345) 0:06.992  2
+
+346) 0:06.231
+
+347) 0:06.403  1
+
+348) 0:06.344  2
+
+349) 0:05.959  3
+
+350) 0:09.480
+
+351) 0:06.273
+
+352) 0:09.587
+
+353) 0:06.621
+
+354) 0:06.289  1
+
+355) 0:06.084  2
+
+356) 0:06.095  3
+
+357) 0:07.551
+
+358) 0:06.003
+
+359) 0:06.051  1
+
+360) 0:06.223  2
+
+361) 0:06.787  3
+
+362) 0:06.410  4
+
+Lap 363 - 395
+
+363) 2:12.198
+
+364) 0:06.237
+
+365) 0:06.915
+
+366) 0:06.095
+
+367) 0:06.021  1
+
+368) 0:11.958
+
+369) 0:33.268
+
+370) 0:06.612
+
+371) 0:10.793
+
+372) 0:07.103
+
+373) 0:07.790  1
+
+374) 0:06.294
+
+375) 0:11.874
+
+376) 0:08.509
+
+377) 0:08.300  1
+
+378) 0:08.005  2
+
+379) 0:07.991  3
+
+380) 0:07.824  4
+
+381) 0:06.203
+
+382) 0:06.241  1
+
+383) 0:06.100  2
+
+384) 0:05.860  3
+
+385) 0:06.375  4
+
+386) 0:06.540  5
+
+387) 0:06.085  6
+
+388) 0:06.008  7
+
+389) 0:07.462
+
+390) 0:08.226
+
+391) 0:14.151
+
+392) 0:08.413
+
+393) 0:06.005
+
+394) 0:06.461  1
+
+395) 0:09.385
+
+Lap 396 - 401
+
+396) 9:30.282
+
+397) 0:06.404
+
+398) 0:09.920
+
+399) 0:06.459
+
+400) 0:06.306  1
+
+401) 0:10.256
+
+Lap 402 - 435
+
+402) 0:07.549
+
+403) 0:07.514  1
+
+404) 0:07.137  2
+
+405) 2:12.787
+
+406) 0:09.262
+
+407) 0:08.300
+
+408) 0:06.365
+
+409) 0:08.073
+
+410) 0:06.554
+
+411) 0:07.657
+
+412) 0:06.236
+
+413) 0:06.776  1
+
+414) 0:06.161  2
+
+415) 0:06.415  3
+
+416) 0:05.853  4
+
+417) 0:07.156
+
+418) 0:06.034
+
+419) 0:06.039  1
+
+420) 0:08.113
+
+421) 0:08.741  1
+
+422) 0:06.982
+
+423) 0:06.213
+
+424) 0:06.074  1
+
+425) 0:05.887  2
+
+426) 0:05.783  3
+
+427) 0:06.036  4
+
+428) 0:06.062  5
+
+429) 0:06.074  6
+
+430) 0:06.742
+
+431) 0:07.042  1
+
+432) 0:06.524  2
+
+433) 0:06.837  3
+
+434) 0:06.061
+
+435) 0:05.995  1
+
+Lap 436 - 461
+
+436) 7:51.696
+
+437) 0:09.013
+
+438) 0:11.370
+
+439) 0:09.199
+
+440) 0:06.348
+
+441) 0:06.146  1
+
+442) 0:06.317  2
+
+443) 0:05.754  3
+
+444) 0:11.962
+
+445) 0:10.822  1
+
+446) 0:07.633
+
+447) 0:06.349
+
+448) 0:06.080  1
+
+449) 0:06.367  2
+
+450) 0:06.089  3
+
+451) 0:06.085  4
+
+452) 0:06.320  5
+
+453) 0:06.108  6
+
+454) 0:07.115
+
+455) 0:06.502  1
+
+456) 0:05.923  2
+
+457) 0:07.094
+
+458) 0:06.068
+
+459) 0:06.039  1
+
+460) 0:06.000  2
+
+461) 0:06.210  3
+
+Lap 462 - 505
+
+462) 0:15.408
+
+463) 0:09.278
+
+464) 0:06.059
+
+465) 0:06.102  1
+
+466) 5:54.122
+
+467) 0:13.294
+
+468) 0:06.230
+
+469) 0:06.374  1
+
+470) 0:06.035  2
+
+471) 0:05.998  3
+
+472) 0:06.219  4
+
+473) 0:06.145  5
+
+474) 0:10.527
+
+475) 0:06.540
+
+476) 0:05.821
+
+477) 0:06.120  1
+
+478) 0:08.179
+
+479) 0:06.248
+
+480) 0:06.050  1
+
+481) 0:06.079  2
+
+482) 0:06.192  3
+
+483) 0:06.757  4
+
+484) 0:08.086
+
+485) 0:08.638  1
+
+486) 0:06.085
+
+487) 0:08.005
+
+488) 0:06.162
+
+489) 0:06.511  1
+
+490) 0:07.687
+
+491) 0:06.341
+
+492) 0:07.656
+
+493) 0:06.079
+
+494) 0:06.151  1
+
+495) 0:06.666  2
+
+496) 0:06.162  3
+
+497) 0:05.864  4
+
+498) 0:06.135  5
+
+499) 0:06.709  6
+
+500) 0:06.501  7
+
+501) 0:06.202  8
+
+502) 0:07.441
+
+503) 0:06.386
+
+504) 0:06.883  1
+
+505) 0:06.366  2
+
+Lap 506 - 537
+
+506) 14:21.142
+
+507) 0:07.657
+
+508) 0:06.707
+
+509) 0:06.214  1
+
+510) 0:10.910
+
+511) 0:08.896
+
+512) 0:16.230
+
+513) 0:06.528
+
+514) 0:06.696  1
+
+515) 0:09.632
+
+516) 0:10.261  1
+
+517) 0:07.255
+
+518) 0:56.791
+
+519) 0:10.624
+
+520) 0:06.366
+
+521) 0:21.068
+
+522) 0:06.961
+
+523) 0:06.242
+
+524) 0:10.434
+
+525) 0:06.168
+
+526) 0:07.911
+
+527) 0:06.478
+
+528) 0:11.143
+
+529) 0:06.384
+
+530) 0:07.816
+
+531) 0:06.491
+
+532) 0:06.484  1
+
+533) 0:10.519
+
+534) 0:06.092
+
+535) 0:06.086  1
+
+536) 0:06.159  2
+
+537) 0:06.058  3
+
+Lap 538 - 586
+
+538) 3:48.733
+
+539) 0:07.350
+
+540) 0:06.097
+
+541) 0:06.343  1
+
+542) 0:06.218  2
+
+543) 0:06.518  3
+
+544) 0:08.251
+
+545) 0:06.039
+
+546) 0:10.488
+
+547) 0:06.056
+
+548) 0:06.275  1
+
+549) 0:06.406  2
+
+550) 0:06.254  3
+
+551) 0:08.933
+
+552) 0:09.847
+
+553) 0:07.477
+
+554) 0:06.943  1
+
+555) 0:45.876
+
+556) 0:11.284
+
+557) 0:08.278
+
+558) 0:06.298
+
+559) 0:06.311  1
+
+560) 0:06.292  2
+
+561) 0:06.333  3
+
+562) 0:06.491  4
+
+563) 0:05.962  5
+
+564) 0:10.549
+
+565) 0:06.622
+
+566) 0:07.084  1
+
+567) 0:06.342
+
+568) 0:06.181  1
+
+569) 0:06.499  2
+
+570) 0:06.349  3
+
+571) 0:06.448  4
+
+572) 0:07.875
+
+573) 0:07.096  1
+
+574) 0:10.622
+
+575) 0:14.280
+
+576) 0:07.095
+
+577) 0:09.674
+
+578) 0:09.858  1
+
+579) 0:08.155
+
+580) 0:09.617
+
+581) 0:07.779
+
+582) 0:06.609
+
+583) 0:09.101
+
+584) 0:11.585
+
+585) 0:08.421
+
+586) 0:06.763
+
+lap 587 - 615
+
+587) 0:06.121  1
+
+588) 0:06.467  2
+
+589) 0:06.423  3
+
+590) 0:06.585  4
+
+591) 4:23.549
+
+592) 0:29.423
+
+593) 0:07.463
+
+594) 0:09.313
+
+595) 0:06.301
+
+596) 0:12.177
+
+597) 0:06.264
+
+598) 0:06.370  1
+
+599) 0:06.979  2
+
+600) 0:06.832  3
+
+601) 0:06.077
+
+602) 0:06.233  1
+
+603) 0:08.233
+
+604) 0:09.167
+
+605) 0:06.885
+
+606) 0:06.385  1
+
+607) 0:06.209  2
+
+608) 0:06.476  3
+
+609) 0:06.667  4
+
+610) 0:10.275
+
+611) 0:08.184
+
+612) 0:06.587
+
+613) 0:06.352  1
+
+614) 0:06.307  2
+
+615) 0:06.274  3
+
+Lap 616 - 682
+
+616) 16:58.708
+
+617) 0:07.461
+
+618) 0:07.774  1
+
+619) 0:10.701
+
+620) 0:06.374
+
+621) 0:11.411
+
+622) 0:06.723
+
+623) 0:07.960
+
+624) 0:06.684
+
+625) 0:07.645
+
+626) 0:07.203  1
+
+627) 0:07.072  2
+
+628) 0:13.786
+
+629) 0:06.694
+
+630) 0:06.428  1
+
+631) 0:06.478  2
+
+632) 0:06.520  3
+
+633) 0:06.419  4
+
+634) 0:06.490  5
+
+635) 0:06.846  6
+
+636) 0:06.534  7
+
+637) 0:08.108
+
+638) 0:09.757
+
+639) 0:06.129
+
+640) 0:07.368
+
+641) 0:06.124
+
+642) 0:06.347  1
+
+643) 0:06.605  2
+
+644) 0:07.784
+
+645) 0:06.081
+
+646) 0:06.359  1
+
+647) 0:06.783  2
+
+648) 0:06.187  3
+
+649) 0:06.813
+
+650) 0:06.747  1
+
+651) 0:06.350  2
+
+652) 0:06.398  3
+
+653) 0:06.420  4
+
+654) 0:10.587
+
+655) 0:07.475
+
+656) 0:06.139
+
+657) 0:06.301  1
+
+658) 0:06.147  2
+
+659) 0:07.388
+
+660) 0:07.120  1
+
+661) 0:11.823
+
+662) 0:08.775
+
+663) 0:06.691
+
+664) 0:07.890
+
+665) 0:06.261
+
+666) 0:06.389  1
+
+667) 0:06.386  2
+
+668) 0:06.906  3
+
+669) 0:10.745
+
+670) 0:06.998
+
+671) 0:06.514  1
+
+672) 0:09.640
+
+673) 0:06.246
+
+674) 0:06.362  1
+
+675) 0:06.414  2
+
+676) 0:06.373  3
+
+677) 0:06.281  4
+
+678) 0:06.871  5
+
+679) 0:06.620  6
+
+680) 0:06.130  7
+
+681) 0:06.259  8
+
+682) 0:06.436  9
+
+Test 2025-12-31
+
+Run Baseline Setup:
+
+Chassis
+
+Side wings: Installed
+
+Chassis Weights: LR/RF
+
+w/ body LF/RR
+
+
+
+w/ body LR/RF
+
+
+
+
+
+Front suspension:
+
+Front Ride Height: 2.2
+
+Front Damper Grease: Atomic 25000
+
+Front DAA Springs: Yellow (Med)
+
+Toe Angle: 2 degrees out
+
+Caster: Top Kingpin Shim: 0
+
+Caster: Bottom Kingpin Shim: 2
+
+Camber: 2
+
+Damper Shim: 1
+
+Axles: v2
+
+
+
+Rear Suspension:
+
+Rear Ride Height: 3.2
+
+Style: Horizontal
+
+Center Damper Grease: Atomic 45000
+
+Side Spring Damper Grease: Atomic 25000
+
+Vertical Side Springs: Medium (Red)
+
+Rear Top Spring: Medium (Yellow) + 0 Turn
+
+Drive
+
+Pinion: 12T
+
+Spur Gear: Atomic 53T
+
+Diff: Atomic Gear Diff
+
+Diff Rebuilt: Kyosho 3k (green) & Rebuilt
+
+Motor: PN 2500kv Anima v4
+
+Tires & Wheels
+
+Front: Marka V5 Front 25° / 11 mm (Medium) (White)
+
+Rear: Marka MZR V1RR15 (Medium/soft) (White)
+
+
+
+
+
+Run Summary:
+
+Setup Change
+
+Start
+
+End
+
+Repeat
+
+Fast
+
+Avg
+
+Feedback
+
+Run Baseline Setup w/New BatteryWeights LR/RF
+
+1
+
+103
+
+46/103 (44%)
+
+6.136
+
+6.536 (63)
+
+Car drives very smooth and fun to drive.  Want to find more speed.
+
+Chassis weights LF/RR (New Battery)
+
+104
+
+193
+
+35/90 (40%)
+
+6.055
+
+6.422 (57)
+
+Car drives very smooth  (Tires: LF: 21.8, RF: 21.2 (no discs on Front) LR: 24.8, RR: 24.7 
+
+Front Ride height: 2.0 (Adjusted by Droop screw) (New Battery)
+
+194
+
+254
+
+20/61 (32%)
+
+6.034
+
+6.430 (33)
+
+Not as smooth, steering keeps darting left or right.
+
+Front Ride height: 2.0 IAdjusted by Spring collar) (New Battery)
+
+255
+
+309
+
+22/52 (42%)
+
+6.015
+
+6.305 (36)
+
+Smoothness returned, car feels quicker.
+
+Rear Top Spring: Hard (Purple)
+
+310
+
+357
+
+21/48 (44%)
+
+6.192
+
+6.63 (21)
+
+Rear of the car vibrates.  The car sounds faster, but the lap times do not show it.
+
+Center damper grease: Atomic 15000
+
+358
+
+410
+
+27/53 (51%)
+
+6.005
+
+6.43 (27)
+
+Rear of the car vibrates.  The car sounds faster, but the lap times do not show it.
+
+Forces me to drive hard instead of smooth.
+
+Front Springs: Soft (white)
+
+Front Damper Grease: 25000
+
+Front Ride Height: 2.0
+
+411
+
+431
+
+
+
+10/21 (48%)
+
+6.194
+
+6.4 (10)
+
+Smooth in turns, car is not aggressive Had to stop due to dead battery.
+
+New battery
+
+432
+
+479
+
+15/48 (31%)
+
+6.216
+
+6.49 (15)
+
+Steering servo getting stuck Left.  Nothing stands out to cause this issue.  Noticed RF tire showing plastic (21.0). LF measures 21.6  
+
+Changed RF tire (21.5)
+
+480
+
+504
+
+8/25 (32%)
+
+6.255
+
+6.56 (8)
+
+Steering servo getting stuck Left.  Nothing stands out to cause this issue.  
+
+Replaced servoCamber: 2Toe Angle: 2 degrees outFront Ride Height: 2.0New Battery
+
+505
+
+567
+
+11/63 (17%)
+
+6.150
+
+6.60 (11)
+
+Rear very loose.  Temp is 64 and very cold.
+
+Replace rear tires with MR04 Evo
+
+568
+
+617
+
+32/50 (64%)
+
+5.948
+
+6.234 (32)
+
+Car feels great.  Believe a new set of rear tires would set new records.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Run Data
+
+Lap 1 - 103
+
+1) 0:12.132 
+
+2) 0:06.525 
+
+3) 0:06.967  1
+
+4) 0:06.341  2
+
+5) 0:06.670  3
+
+6) 0:10.368
+
+7) 0:08.090
+
+8) 0:06.570
+
+9) 0:08.821
+
+10) 0:06.289 
+
+11) 0:06.597  1
+
+12) 0:07.142  2
+
+13) 0:06.795  3
+
+14) 0:06.506  4
+
+15) 0:06.757  5
+
+16) 0:08.868
+
+17) 0:06.664
+
+18) 0:07.113  1
+
+19) 0:08.052
+
+20) 0:07.933  1
+
+21) 0:08.771
+
+22) 0:07.385
+
+23) 0:07.613  1
+
+24) 0:06.535
+
+25) 0:06.750  1
+
+26) 0:06.687  2
+
+27) 0:06.605  3
+
+28) 0:06.485  4
+
+29) 0:06.701  5
+
+30) 0:07.063  6
+
+31) 0:06.281 
+
+32) 0:06.697  1
+
+33) 0:06.519  2
+
+34) 0:07.533
+
+35) 0:11.997
+
+36) 0:06.892
+
+37) 0:09.452
+
+38) 0:12.752
+
+39) 0:10.091
+
+40) 0:07.989
+
+41) 0:06.646
+
+42) 0:06.882  1
+
+43) 0:06.698  2
+
+44) 0:06.448  3
+
+45) 0:07.104
+
+46) 0:06.542  1
+
+47) 0:06.833  2
+
+48) 0:06.476  3
+
+49) 0:06.733  4
+
+50) 0:07.169  5
+
+51) 0:06.473  6
+
+52) 2:58.456
+
+53) 0:09.247
+
+54) 0:07.997
+
+55) 0:11.701
+
+56) 0:06.548
+
+57) 0:08.200
+
+58) 0:07.937  1
+
+59) 0:06.670
+
+60) 0:06.948  1
+
+61) 0:07.488  2
+
+62) 0:06.774  3
+
+63) 0:08.712
+
+64) 0:07.413
+
+65) 0:06.799  1
+
+66) 0:07.923
+
+67) 0:07.760  1
+
+68) 0:06.331
+
+69) 0:07.522
+
+70) 0:06.369
+
+71) 0:06.186  1
+
+72) 0:06.759  2
+
+73) 0:06.252  3
+
+74) 0:06.277  4
+
+75) 0:06.619  5
+
+76) 0:07.902
+
+77) 0:07.063
+
+78) 0:06.214
+
+79) 0:06.461  1
+
+80) 0:07.167
+
+81) 0:06.517  1
+
+82) 0:06.235  2
+
+83) 0:06.686  3
+
+84) 0:07.828
+
+85) 0:06.357
+
+86) 0:06.136  1
+
+87) 0:06.692  2
+
+88) 0:06.444  3
+
+89) 0:06.388  4
+
+90) 0:13.710
+
+91) 0:09.200
+
+92) 0:08.975  1
+
+93) 0:06.703
+
+94) 0:07.148  1
+
+95) 0:07.040  2
+
+96) 0:18.390
+
+97) 0:07.850
+
+98) 0:06.851
+
+99) 0:11.887
+
+100) 0:06.714
+
+101) 0:07.477
+
+102) 0:07.113  1
+
+103) 0:28.522
+
+Lap 104 - 193
+
+104) 923:33.837
+
+105) 0:09.689
+
+106) 0:06.567
+
+107) 0:07.178  1
+
+108) 0:06.998  2
+
+109) 0:07.569  3
+
+110) 0:09.226
+
+111) 0:06.300
+
+112) 0:07.476
+
+113) 0:06.404
+
+114) 0:06.326  1
+
+115) 0:08.352
+
+116) 0:07.131
+
+117) 0:07.997
+
+118) 0:07.072
+
+119) 0:06.294
+
+120) 0:06.832  1
+
+121) 0:17.885
+
+122) 0:10.187
+
+123) 0:08.502
+
+124) 0:07.278
+
+125) 0:06.818  1
+
+126) 0:08.531
+
+127) 0:06.620
+
+128) 0:08.647
+
+129) 0:06.549
+
+130) 0:06.266  1
+
+131) 0:06.175  2
+
+132) 0:10.572
+
+133) 0:06.132 
+
+134) 0:09.540
+
+135) 0:06.743
+
+136) 0:06.185  1
+
+137) 0:06.260  2
+
+138) 0:06.055  3
+
+139) 0:07.462
+
+140) 0:12.068
+
+141) 0:09.710
+
+142) 0:06.468
+
+143) 0:07.157
+
+144) 0:06.291
+
+145) 0:06.174  1
+
+146) 0:06.537  2
+
+147) 0:06.084  3
+
+148) 0:07.141
+
+149) 0:09.576
+
+150) 0:06.761
+
+151) 0:06.177  1
+
+152) 0:06.327  2
+
+153) 0:06.166  3
+
+154) 0:06.561  4
+
+155) 0:10.330
+
+156) 0:10.203  1
+
+157) 0:08.300
+
+158) 0:06.749
+
+159) 0:07.183  1
+
+160) 0:07.555  2
+
+161) 0:06.584
+
+162) 0:06.248  1
+
+163) 1:04.340
+
+164) 0:06.302
+
+165) 0:07.145
+
+166) 0:06.428
+
+167) 0:06.363  1
+
+168) 0:06.424  2
+
+169) 0:10.033
+
+170) 0:09.804  1
+
+171) 0:06.781
+
+172) 0:07.128  1
+
+173) 0:09.133
+
+174) 0:06.176
+
+175) 0:08.055
+
+176) 0:06.914
+
+177) 0:06.182
+
+178) 0:07.320
+
+179) 0:06.353
+
+180) 0:06.642  1
+
+181) 0:07.303  2
+
+182) 0:07.996  3
+
+183) 0:06.285
+
+184) 0:08.610
+
+185) 0:07.382
+
+186) 0:06.461
+
+187) 0:07.291
+
+188) 0:07.323  1
+
+189) 0:06.831  2
+
+190) 0:06.343  3
+
+191) 0:06.225  4
+
+192) 0:06.664  5
+
+193) 0:07.118  6
+
+
+
+Lap 194 – 254
+
+194) 100:37.566
+
+195) 0:08.607
+
+196) 0:11.966
+
+197) 0:09.508
+
+198) 0:06.828
+
+199) 0:09.225
+
+200) 0:07.641
+
+201) 0:32.863
+
+202) 0:09.094
+
+203) 0:06.326
+
+204) 0:07.180
+
+205) 0:09.373
+
+206) 0:08.669  1
+
+207) 0:06.237
+
+208) 0:06.418  1
+
+209) 0:06.509  2
+
+210) 0:06.568  3
+
+211) 0:06.996  4
+
+212) 0:11.133
+
+213) 0:07.569
+
+214) 0:06.374
+
+215) 0:06.213  1
+
+216) 0:08.588
+
+217) 0:06.641
+
+218) 0:06.667  1
+
+219) 0:09.301
+
+220) 0:06.308
+
+221) 0:08.042
+
+222) 0:09.809
+
+223) 0:06.841
+
+224) 0:06.644  1
+
+225) 0:07.355
+
+226) 0:08.746
+
+227) 0:06.511
+
+228) 0:09.199
+
+229) 0:14.007
+
+230) 0:08.244
+
+231) 0:06.034 
+
+232) 0:08.191
+
+233) 0:09.305
+
+234) 0:11.102
+
+235) 0:06.884
+
+236) 0:06.442  1
+
+237) 0:06.152  2
+
+238) 0:08.830
+
+239) 0:06.427
+
+240) 0:06.319  1
+
+241) 0:06.953
+
+242) 0:06.969  1
+
+243) 0:06.385  2
+
+244) 0:08.507
+
+245) 0:06.683
+
+246) 0:06.352  1
+
+247) 0:06.290  2
+
+248) 0:07.705
+
+249) 0:06.487
+
+250) 0:06.619  1
+
+251) 0:06.225  2
+
+252) 0:06.732  3
+
+253) 0:06.624  4
+
+254) 0:06.175  5
+
+Lap 255 – 309
+
+255) 20:13.593
+
+256) 0:07.518
+
+257) 0:08.318
+
+258) 0:07.900  1
+
+259) 0:06.926
+
+260) 0:06.871  1
+
+261) 0:06.534  2
+
+262) 0:06.015  3
+
+263) 0:07.831
+
+264) 0:06.684
+
+265) 0:06.543  1
+
+266) 0:06.232  2
+
+267) 0:07.766
+
+268) 0:06.597
+
+269) 0:06.193  1
+
+270) 0:06.371  2
+
+271) 0:10.130
+
+272) 0:08.646
+
+273) 0:06.618
+
+274) 0:08.485
+
+275) 0:08.911  1
+
+276) 0:06.467
+
+277) 0:07.405
+
+278) 0:20.938
+
+279) 0:06.036
+
+280) 0:06.222  1
+
+281) 0:06.630  2
+
+282) 0:06.137  3
+
+283) 0:06.078  4
+
+284) 0:06.280  5
+
+285) 0:06.039  6
+
+286) 0:08.840
+
+287) 0:06.395
+
+288) 0:06.284  1
+
+289) 0:07.751
+
+290) 0:06.980  1
+
+291) 0:06.154
+
+292) 0:06.962
+
+293) 0:06.125
+
+294) 0:06.161  1
+
+295) 0:06.248  2
+
+296) 0:06.721  3
+
+297) 0:07.339  4
+
+298) 0:07.338  5
+
+299) 0:06.282
+
+300) 0:06.832  1
+
+301) 0:06.264  2
+
+302) 0:06.921
+
+303) 0:06.144
+
+304) 0:06.620  1
+
+305) 0:06.207  2
+
+306) 0:06.242  3
+
+307) 0:06.398  4
+
+308) 0:06.153  5
+
+309) 0:06.128  6
+
+Lap 310 – 357
+
+310) 25:04.684
+
+311) 0:07.276
+
+312) 0:07.285  1
+
+313) 0:06.412
+
+314) 0:12.812
+
+315) 0:09.203
+
+316) 0:08.516  1
+
+317) 0:06.414
+
+318) 0:06.879  1
+
+319) 0:07.021  2
+
+320) 0:08.122
+
+321) 0:09.920
+
+322) 0:06.280
+
+323) 0:35.251
+
+324) 0:06.427
+
+325) 0:34.605
+
+326) 0:09.832
+
+327) 0:06.441
+
+328) 0:06.198  1
+
+329) 0:06.551  2
+
+330) 0:07.309
+
+331) 0:07.161  1
+
+332) 0:07.366  2
+
+333) 0:06.966  3
+
+334) 0:07.231  4
+
+335) 0:06.711  5
+
+336) 0:07.926
+
+337) 0:06.315
+
+338) 0:06.775  1
+
+339) 0:09.102
+
+340) 0:08.403  1
+
+341) 0:06.306
+
+342) 0:06.247  1
+
+343) 0:06.320  2
+
+344) 0:08.521
+
+345) 0:06.587
+
+346) 0:10.029
+
+347) 0:06.192
+
+348) 0:06.690  1
+
+349) 0:06.350  2
+
+350) 0:06.683  3
+
+351) 0:08.640
+
+352) 0:06.622
+
+353) 0:09.357
+
+354) 0:06.417
+
+355) 0:06.453  1
+
+356) 0:06.528  2
+
+357) 0:07.047  3
+
+Lap 358 - 410
+
+358) 10:01.211
+
+359) 0:07.270
+
+360) 0:06.890  1
+
+361) 0:06.772  2
+
+362) 0:06.737  3
+
+363) 0:07.628
+
+364) 0:06.482
+
+365) 0:06.476  1
+
+366) 0:06.684  2
+
+367) 0:06.258  3
+
+368) 0:06.200  4
+
+369) 0:09.542
+
+370) 0:12.307
+
+371) 0:06.084
+
+372) 0:07.773
+
+373) 0:07.448  1
+
+374) 0:06.642
+
+375) 0:06.504  1
+
+376) 0:06.675  2
+
+377) 0:06.456  3
+
+378) 0:06.479  4
+
+379) 0:11.492
+
+380) 0:06.427
+
+381) 0:06.463  1
+
+382) 0:07.812
+
+383) 0:08.074  1
+
+384) 0:08.322  2
+
+385) 0:06.781
+
+386) 0:06.521  1
+
+387) 0:06.402  2
+
+388) 0:09.755
+
+389) 0:09.530  1
+
+390) 0:08.774  2
+
+391) 0:06.577
+
+392) 0:11.987
+
+393) 0:06.610
+
+394) 0:06.504  1
+
+395) 0:06.450  2
+
+396) 0:06.435  3
+
+397) 0:06.414  4
+
+398) 0:08.288
+
+399) 0:06.396
+
+400) 0:08.708
+
+401) 0:06.466
+
+402) 0:06.364  1
+
+403) 0:06.573  2
+
+404) 0:06.781  3
+
+405) 0:08.344
+
+406) 0:07.107
+
+407) 0:07.177  1
+
+408) 0:06.382
+
+409) 0:07.079
+
+410) 0:07.096  1
+
+Lap 411 – 431
+
+411) 25:39.796
+
+412) 0:07.030
+
+413) 0:07.964
+
+414) 0:07.660  1
+
+415) 0:07.547  2
+
+416) 0:07.641  3
+
+417) 0:06.514
+
+418) 0:06.593  1
+
+419) 0:06.333  2
+
+420) 0:07.048
+
+421) 0:06.390  1
+
+422) 0:06.317  2
+
+423) 0:06.317  3
+
+424) 0:06.662  4
+
+425) 0:07.002  5
+
+426) 0:08.071
+
+427) 0:06.692
+
+428) 0:06.194  1
+
+429) 0:06.400  2
+
+430) 0:06.264  3
+
+431) 0:06.822  4
+
+Lap 432 – 479
+
+432) 6:30.662
+
+433) 0:08.410
+
+434) 0:07.145
+
+435) 0:06.464  1
+
+436) 0:06.858  2
+
+437) 0:07.650
+
+438) 0:07.020  1
+
+439) 0:06.438  2
+
+440) 0:07.713
+
+441) 0:09.345
+
+442) 0:06.447
+
+443) 0:07.730
+
+444) 0:08.566
+
+445) 0:11.011
+
+446) 0:09.635
+
+447) 0:06.216
+
+448) 0:11.544
+
+449) 0:10.388
+
+450) 0:07.312
+
+451) 0:08.990
+
+452) 0:06.567
+
+453) 0:07.308
+
+454) 0:09.901
+
+455) 0:09.227  1
+
+456) 0:06.468
+
+457) 0:06.585  1
+
+458) 0:10.731
+
+459) 0:06.536
+
+460) 0:15.748
+
+461) 0:07.396
+
+462) 0:06.422
+
+463) 0:06.583  1
+
+464) 0:08.804
+
+465) 0:07.859
+
+466) 0:06.527
+
+467) 0:08.021
+
+468) 0:06.405
+
+469) 0:06.506  1
+
+470) 0:07.264
+
+471) 0:13.036
+
+472) 0:07.934
+
+473) 0:08.183  1
+
+474) 0:06.437
+
+475) 0:08.733
+
+476) 0:06.583
+
+477) 0:06.268  1
+
+478) 0:06.498  2
+
+479) 0:06.653  3
+
+Lap 480 – 504
+
+480) 11:03.114
+
+481) 0:33.655
+
+482) 0:10.219
+
+483) 0:08.538
+
+484) 0:11.465
+
+485) 0:08.838
+
+486) 0:07.568
+
+487) 0:07.314  1
+
+488) 0:06.567
+
+489) 0:06.255  1
+
+490) 0:06.669  2
+
+491) 0:07.697
+
+492) 0:09.921
+
+493) 0:06.778
+
+494) 0:07.180  1
+
+495) 0:07.886  2
+
+496) 0:06.267
+
+497) 0:07.109
+
+498) 0:08.950
+
+499) 0:06.321
+
+500) 0:06.844  1
+
+501) 0:06.868  2
+
+502) 0:15.271
+
+503) 0:06.548
+
+504) 0:11.989
+
+Lap 505 – 567
+
+505) 193:38.707
+
+506) 0:19.777
+
+507) 0:18.081  1
+
+508) 185:30.585
+
+509) 0:31.654
+
+510) 0:10.646
+
+511) 0:10.950  1
+
+512) 0:12.153
+
+513) 0:07.687
+
+514) 0:07.743  1
+
+515) 0:07.877  2
+
+516) 0:08.563  3
+
+517) 0:07.810  4
+
+518) 0:09.782
+
+519) 0:12.178
+
+520) 0:07.684
+
+521) 0:09.111
+
+522) 0:08.615  1
+
+523) 0:10.142
+
+524) 0:06.616
+
+525) 0:09.371
+
+526) 0:06.501
+
+527) 0:07.062  1
+
+528) 0:12.126
+
+529) 0:06.085
+
+530) 0:06.525  1
+
+531) 0:11.164
+
+532) 0:07.884
+
+533) 0:09.956
+
+534) 0:08.645
+
+535) 0:06.590
+
+536) 0:06.498  1
+
+537) 0:20.666
+
+538) 0:10.466
+
+539) 0:06.313
+
+540) 0:07.524
+
+541) 0:08.371
+
+542) 0:10.201
+
+543) 0:07.481
+
+544) 0:06.354
+
+545) 0:06.508  1
+
+546) 0:10.730
+
+547) 0:07.291
+
+548) 0:07.112  1
+
+549) 0:09.275
+
+550) 0:08.546  1
+
+551) 0:08.666  2
+
+552) 0:06.150
+
+553) 0:08.787
+
+554) 0:06.458
+
+555) 0:09.608
+
+556) 0:08.082
+
+557) 0:06.948
+
+558) 0:09.079
+
+559) 0:06.832
+
+560) 0:12.391
+
+561) 0:07.852
+
+562) 0:08.611  1
+
+563) 0:07.488
+
+564) 0:07.169  1
+
+565) 0:06.824  2
+
+566) 0:07.140  3
+
+567) 0:06.527  4
+
+Lap 568 – 617
+
+568) 10:26.589
+
+569) 0:09.136
+
+570) 0:06.791
+
+571) 0:06.183  1
+
+572) 0:06.137  2
+
+573) 0:10.304
+
+574) 0:08.942
+
+575) 0:06.147
+
+576) 0:06.160  1
+
+577) 0:06.060  2
+
+578) 0:06.847
+
+579) 0:06.453  1
+
+580) 0:06.250  2
+
+581) 0:06.669  3
+
+582) 0:06.187  4
+
+583) 0:06.738  5
+
+584) 0:06.089  6
+
+585) 0:06.068  7
+
+586) 0:05.948  8
+
+587) 0:13.909
+
+588) 0:06.029
+
+589) 0:12.220
+
+590) 0:08.964
+
+591) 0:07.723
+
+592) 0:06.629
+
+593) 0:08.271
+
+594) 0:06.139
+
+595) 0:06.063  1
+
+596) 0:06.015  2
+
+597) 0:06.043  3
+
+598) 0:11.384
+
+599) 0:06.191
+
+600) 0:06.059  1
+
+601) 0:06.670
+
+602) 0:06.324  1
+
+603) 0:06.147  2
+
+604) 0:06.213  3
+
+605) 0:06.289  4
+
+606) 0:06.258  5
+
+607) 0:06.443  6
+
+608) 0:06.157  7
+
+609) 0:06.143  8
+
+610) 0:06.260  9
+
+611) 0:06.269  10
+
+612) 0:06.027  11
+
+613) 0:06.662
+
+614) 0:07.224  1
+
+615) 0:06.129
+
+616) 0:06.148  1
+
+617) 0:06.191  2
+
+Lap 618 - 
+
+
+
+
+
+
+
+The only PNWC‑critical change you’ll need later is switching to PN Delrin wheels.
+
+
+
+Test 2026-01-03
+
+Run Baseline Setup:
+
+Chassis
+
+Side wings: Installed
+
+Chassis Weights: LR/RF
+
+w/ body LF/RR
+
+
+
+w/ body LR/RF
+
+
+
+
+
+Front suspension:
+
+Front Ride Height: 2.0
+
+Front Damper Grease: Atomic 25000
+
+Front DAA Springs: Soft (white)
+
+Toe Angle: 2 degrees out
+
+Caster: Top Kingpin Shim: 0
+
+Caster: Bottom Kingpin Shim: 2
+
+Camber: 2
+
+Damper Shim: 1
+
+Axles: v2
+
+
+
+Rear Suspension:
+
+Rear Ride Height: 3.2
+
+Style: Horizontal
+
+Center Damper Grease: Atomic 15000
+
+Side Spring Damper Grease: Atomic 25000
+
+Vertical Side Springs: Medium (Red)
+
+Rear Top Spring: Hard (Purple) + 0 Turn
+
+Drive
+
+Pinion: 12T
+
+Spur Gear: Atomic 53T
+
+Diff: Atomic Gear Diff
+
+Diff Rebuilt: Kyosho 3k (green) & Rebuilt
+
+Motor: PN 2500kv Anima v4
+
+Tires & Wheels
+
+Front: Marka V5 Front 25° / 11 mm (Medium) (White)
+
+Rear: Marka MZR V1RR15 (Medium/soft) (White)
+
+
+
+
+
+Run Summary:
+
+Setup Change
+
+Start
+
+End
+
+Repeat
+
+Fast
+
+Avg
+
+Feedback
+
+Run Baseline Setup w/New BatteryWeights LR/RF
+
+1
+
+103
+
+46/103 (44%)
+
+6.136
+
+6.536 (63)
+
+Car drives very smooth and fun to drive.  Want to find more speed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Run Data
+
+Lap 1 - 103
+
+1) 0:12.132 
+
+2) 0:06.525 
+
+3) 0:06.967  1
+
+4) 0:06.341  2
+
+5) 0:06.670  3
+
+6) 0:10.368
+
+7) 0:08.090
+
+8) 0:06.570
+
+
+
+END OF DOCUMENT
+
+
+
