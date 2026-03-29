@@ -50,7 +50,7 @@ export async function lookupPartBySku(
 
   try {
     const resp = await fetch(
-      `${GEMINI_API_BASE}/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `${GEMINI_API_BASE}/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -175,7 +175,7 @@ export async function suggestPartsForChassis(
 
   try {
     const resp = await fetch(
-      `${GEMINI_API_BASE}/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `${GEMINI_API_BASE}/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
