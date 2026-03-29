@@ -24,6 +24,14 @@
 		reverse_proxy api:3001
 	}
 
+	# Admin panel
+	handle /admin {
+		reverse_proxy api:3001
+	}
+	handle /admin/* {
+		reverse_proxy api:3001
+	}
+
 	# SPA — serve static files, fallback to index.html
 	handle {
 		root * /srv
