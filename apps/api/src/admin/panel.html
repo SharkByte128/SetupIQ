@@ -149,9 +149,10 @@
     <div class="tab-content" id="tab-offers">
       <div class="card">
         <div class="row" style="flex-wrap:wrap">
+          <input type="text" id="offers-search" placeholder="Search products, SKUs, tags..." style="flex:1;min-width:200px" oninput="filterOffers()">
           <select id="offers-source-filter" style="width:auto;min-width:150px"><option value="">All Sources</option></select>
           <select id="offers-status-filter" style="width:auto"><option value="">All Statuses</option><option value="pending">Pending</option><option value="linked">Linked</option><option value="rejected">Rejected</option></select>
-          <button class="btn-primary" onclick="loadOffers()">Filter</button>
+          <button class="btn-primary" onclick="loadOffers()">Load</button>
         </div>
       </div>
       <div id="offers-list"></div>
@@ -499,6 +500,8 @@ async function loadSourcesForFilter() {
     sourcesCache.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
 }
 
+let allOffers = [];
+
 async function loadOffers() {
   const sourceId = document.getElementById('offers-source-filter').value;
   const status = document.getElementById('offers-status-filter').value;
@@ -509,10 +512,26 @@ async function loadOffers() {
   try {
     const res = await apiFetch(`/api/admin/catalog/vendor-offers${qs.length ? '?' + qs.join('&') : ''}`);
     const data = await res.json();
-    renderOffers(data.offers || []);
+    allOffers = data.offers || [];
+    filterOffers();
   } catch (e) {
     document.getElementById('offers-list').innerHTML = `<div class="error">${esc(e.message)}</div>`;
   }
+}
+
+function filterOffers() {
+  const q = (document.getElementById('offers-search').value || '').toLowerCase().trim();
+  if (!q) { renderOffers(allOffers); return; }
+  const terms = q.split(/\s+/);
+  const filtered = allOffers.filter(o => {
+    const text = [
+      o.productName, o.vendorSku, o.price, o.matchStatus, o.productUrl,
+      ...(o.rawData?.tags || []),
+      o.rawData?.vendor, o.rawData?.productType
+    ].filter(Boolean).join(' ').toLowerCase();
+    return terms.every(t => text.includes(t));
+  });
+  renderOffers(filtered);
 }
 
 function renderOffers(offers) {
