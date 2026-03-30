@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById } from "@setupiq/shared";
-import { localDb, type LocalRaceResult, type LocalRunSession, type LocalRunSegment } from "../db/local-db.js";
+import { localDb, type LocalRunSession, type LocalRunSegment } from "../db/local-db.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
