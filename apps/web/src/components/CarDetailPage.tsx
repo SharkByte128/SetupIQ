@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById } from "@setupiq/shared";
 import { localDb, type LocalRunSession, type LocalRunSegment } from "../db/local-db.js";
@@ -319,7 +319,75 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
 
 // ─── Runs Tab ─────────────────────────────────────────────────
 
+type RunsView =
+  | { kind: "list" }
+  | { kind: "race-detail"; raceId: string }
+  | { kind: "session-detail"; sessionId: string };
+
+function computeLapStats(laps: { timeMs: number }[]) {
+  if (laps.length === 0) return null;
+  const times = laps.map((l) => l.timeMs);
+  const best = Math.min(...times);
+  const worst = Math.max(...times);
+  const total = times.reduce((a, b) => a + b, 0);
+  const avg = total / times.length;
+  const variance = times.reduce((sum, t) => sum + (t - avg) ** 2, 0) / times.length;
+  const stdDev = Math.sqrt(variance);
+  const consistency = avg > 0 ? (1 - stdDev / avg) * 100 : 0;
+  // Median
+  const sorted = [...times].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+
+  return { best, worst, avg, median, total, stdDev, consistency, count: times.length };
+}
+
+function fmt(ms: number): string {
+  return (ms / 1000).toFixed(3) + "s";
+}
+
+function fmtTotal(ms: number): string {
+  const totalSec = ms / 1000;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return min > 0 ? `${min}:${sec.toFixed(2).padStart(5, "0")}` : `${sec.toFixed(2)}s`;
+}
+
+function StatBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="rounded-lg bg-neutral-800 border border-neutral-700 p-2 text-center">
+      <p className={`text-sm font-semibold ${highlight ? "text-green-400" : "text-neutral-200"}`}>{value}</p>
+      <p className="text-[10px] text-neutral-500 uppercase">{label}</p>
+    </div>
+  );
+}
+
+function LapTable({ laps, bestMs }: { laps: { lapNumber: number; timeMs: number }[]; bestMs: number }) {
+  return (
+    <div className="max-h-64 overflow-y-auto space-y-0.5">
+      {laps.map((lap, i) => {
+        const isBest = lap.timeMs === bestMs;
+        return (
+          <div
+            key={`${lap.lapNumber}-${i}`}
+            className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
+              isBest
+                ? "bg-green-950/40 border border-green-800/50 text-green-300"
+                : "bg-neutral-900/50 text-neutral-300"
+            }`}
+          >
+            <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
+            <span className="font-mono">{fmt(lap.timeMs)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CarRunsTab({ carId }: { carId: string }) {
+  const [view, setView] = useState<RunsView>({ kind: "list" });
+
   const raceResults = useLiveQuery(
     () => localDb.raceResults.where("carId").equals(carId).reverse().sortBy("date"),
     [carId],
@@ -341,6 +409,18 @@ function CarRunsTab({ carId }: { carId: string }) {
     return <p className="px-4 py-6 text-sm text-neutral-500">Loading…</p>;
   }
 
+  if (view.kind === "race-detail") {
+    const race = raceResults.find((r) => r.id === view.raceId);
+    if (!race) return <p className="px-4 py-6 text-sm text-neutral-500">Race not found.</p>;
+    return <RaceRunDetail race={race} onBack={() => setView({ kind: "list" })} />;
+  }
+
+  if (view.kind === "session-detail") {
+    const session = sessions.find((s) => s.id === view.sessionId);
+    if (!session) return <p className="px-4 py-6 text-sm text-neutral-500">Session not found.</p>;
+    return <SessionRunDetail session={session} onBack={() => setView({ kind: "list" })} />;
+  }
+
   const hasRaces = raceResults.length > 0;
   const hasSessions = sessions.length > 0;
 
@@ -350,14 +430,14 @@ function CarRunsTab({ carId }: { carId: string }) {
 
   return (
     <div className="px-4 py-4 space-y-6">
-      {/* Race Results */}
       {hasRaces && (
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-neutral-400 uppercase">Race Results</h3>
           {raceResults.map((r) => (
-            <div
+            <button
               key={r.id}
-              className="rounded-lg bg-neutral-900 border border-neutral-800 p-3"
+              onClick={() => setView({ kind: "race-detail", raceId: r.id })}
+              className="w-full text-left rounded-lg bg-neutral-900 border border-neutral-800 p-3 hover:border-neutral-700 transition-colors"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -369,18 +449,17 @@ function CarRunsTab({ carId }: { carId: string }) {
               <div className="mt-1 flex gap-4 text-xs text-neutral-400">
                 <span>P{r.position}{r.totalEntries ? `/${r.totalEntries}` : ""}</span>
                 <span>{r.totalLaps} laps</span>
-                <span>Fast: {(r.fastLapMs / 1000).toFixed(3)}s</span>
-                {r.avgLapMs && <span>Avg: {(r.avgLapMs / 1000).toFixed(3)}s</span>}
+                <span>Fast: {fmt(r.fastLapMs)}</span>
+                {r.avgLapMs && <span>Avg: {fmt(r.avgLapMs)}</span>}
               </div>
               {r.community && (
                 <p className="text-xs text-neutral-600 mt-1">{r.community}</p>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}
 
-      {/* Run Sessions */}
       {hasSessions && (
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-neutral-400 uppercase">Practice Sessions</h3>
@@ -396,9 +475,10 @@ function CarRunsTab({ carId }: { carId: string }) {
               : null;
 
             return (
-              <div
+              <button
                 key={s.id}
-                className="rounded-lg bg-neutral-900 border border-neutral-800 p-3"
+                onClick={() => setView({ kind: "session-detail", sessionId: s.id })}
+                className="w-full text-left rounded-lg bg-neutral-900 border border-neutral-800 p-3 hover:border-neutral-700 transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-neutral-200">
@@ -411,14 +491,192 @@ function CarRunsTab({ carId }: { carId: string }) {
                 <div className="mt-1 flex gap-4 text-xs text-neutral-400">
                   <span>{segCount} segment{segCount !== 1 ? "s" : ""}</span>
                   <span>{totalLaps} laps</span>
-                  {bestLap && <span>Best: {(bestLap / 1000).toFixed(3)}s</span>}
+                  {bestLap && <span>Best: {fmt(bestLap)}</span>}
                 </div>
                 {s.notes && <p className="text-xs text-neutral-600 mt-1">{s.notes}</p>}
-              </div>
+              </button>
             );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Race Detail View ─────────────────────────────────────────
+
+function RaceRunDetail({
+  race,
+  onBack,
+}: {
+  race: { id: string; eventName: string; className: string; roundType: string; roundNumber?: number; date: string; community?: string; position: number; totalEntries?: number; totalLaps: number; totalTimeMs: number; fastLapMs: number; avgLapMs?: number; laps: { lapNumber: number; timeMs: number }[]; sourceUrl?: string; notes?: string };
+  onBack: () => void;
+}) {
+  const stats = useMemo(() => computeLapStats(race.laps), [race.laps]);
+
+  const fastIdx = useMemo(() => {
+    if (race.laps.length === 0) return -1;
+    let minMs = Infinity;
+    let idx = 0;
+    race.laps.forEach((l, i) => { if (l.timeMs < minMs) { minMs = l.timeMs; idx = i; } });
+    return idx;
+  }, [race.laps]);
+
+  return (
+    <div className="px-4 py-4 space-y-4">
+      <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">← Back to Runs</button>
+
+      {/* Header */}
+      <div>
+        <h2 className="text-base font-semibold text-neutral-200">{race.eventName}</h2>
+        <div className="flex gap-3 text-xs text-neutral-400 mt-1">
+          <span>{race.className}</span>
+          <span>{race.roundType}{race.roundNumber ? ` #${race.roundNumber}` : ""}</span>
+          <span>{new Date(race.date).toLocaleDateString()}</span>
+        </div>
+        {race.community && <p className="text-xs text-neutral-500 mt-0.5">{race.community}</p>}
+      </div>
+
+      {/* Analytics grid */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatBox label="Position" value={`P${race.position}${race.totalEntries ? `/${race.totalEntries}` : ""}`} />
+        <StatBox label="Laps" value={String(race.totalLaps)} />
+        <StatBox label="Total Time" value={fmtTotal(race.totalTimeMs)} />
+        <StatBox label="Fast Lap" value={fmt(race.fastLapMs)} highlight />
+        {stats && <StatBox label="Avg Lap" value={fmt(stats.avg)} />}
+        {stats && <StatBox label="Median" value={fmt(stats.median)} />}
+        {stats && <StatBox label="Worst Lap" value={fmt(stats.worst)} />}
+        {stats && <StatBox label="Std Dev" value={fmt(stats.stdDev)} />}
+        {stats && <StatBox label="Consistency" value={`${stats.consistency.toFixed(1)}%`} />}
+      </div>
+
+      {/* Lap times */}
+      {race.laps.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Lap Times</h3>
+          <LapTable laps={race.laps} bestMs={race.fastLapMs} />
+        </div>
+      )}
+
+      {race.sourceUrl && (
+        <a
+          href={race.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-400 hover:text-blue-300 underline"
+        >
+          View on Next Level Timing →
+        </a>
+      )}
+
+      {race.notes && <p className="text-xs text-neutral-400">{race.notes}</p>}
+    </div>
+  );
+}
+
+// ─── Session Detail View ──────────────────────────────────────
+
+function SessionRunDetail({
+  session,
+  onBack,
+}: {
+  session: LocalRunSession & { segments: LocalRunSegment[] };
+  onBack: () => void;
+}) {
+  const allLaps = useMemo(
+    () => session.segments.flatMap((seg) => seg.lapTimes ?? []),
+    [session.segments],
+  );
+  const overallStats = useMemo(() => computeLapStats(allLaps), [allLaps]);
+
+  return (
+    <div className="px-4 py-4 space-y-4">
+      <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">← Back to Runs</button>
+
+      {/* Header */}
+      <div>
+        <h2 className="text-base font-semibold text-neutral-200">
+          Practice — {new Date(session.startedAt).toLocaleDateString()}
+        </h2>
+        <div className="flex gap-3 text-xs text-neutral-400 mt-1">
+          <span>{new Date(session.startedAt).toLocaleTimeString()}</span>
+          {session.endedAt && <span>→ {new Date(session.endedAt).toLocaleTimeString()}</span>}
+          <span>{session.endedAt ? "Completed" : "In Progress"}</span>
+        </div>
+      </div>
+
+      {/* Overall analytics */}
+      {overallStats && (
+        <>
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Overall</h3>
+          <div className="grid grid-cols-3 gap-2">
+            <StatBox label="Total Laps" value={String(overallStats.count)} />
+            <StatBox label="Total Time" value={fmtTotal(overallStats.total)} />
+            <StatBox label="Fast Lap" value={fmt(overallStats.best)} highlight />
+            <StatBox label="Avg Lap" value={fmt(overallStats.avg)} />
+            <StatBox label="Median" value={fmt(overallStats.median)} />
+            <StatBox label="Worst Lap" value={fmt(overallStats.worst)} />
+            <StatBox label="Std Dev" value={fmt(overallStats.stdDev)} />
+            <StatBox label="Consistency" value={`${overallStats.consistency.toFixed(1)}%`} />
+          </div>
+        </>
+      )}
+
+      {/* Per-segment breakdown */}
+      {session.segments.map((seg) => {
+        const segLaps = seg.lapTimes ?? [];
+        const segStats = computeLapStats(segLaps);
+
+        return (
+          <div key={seg.id} className="space-y-2 border-t border-neutral-800 pt-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-neutral-400 uppercase">
+                Segment {seg.segmentNumber}
+              </h3>
+              {segStats && (
+                <span className="text-[10px] text-neutral-500">
+                  {segStats.count} laps · Best {fmt(segStats.best)} · Avg {fmt(segStats.avg)}
+                </span>
+              )}
+            </div>
+
+            {/* Segment feedback */}
+            {seg.feedback && (
+              <div className="flex flex-wrap gap-1.5">
+                {seg.feedback.handling.map((h) => (
+                  <span key={h} className="rounded bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-400">
+                    {h}
+                  </span>
+                ))}
+                <span className="rounded bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-400">
+                  Consistency: {seg.feedback.consistency}/5
+                </span>
+                {seg.feedback.notes && (
+                  <p className="text-xs text-neutral-500 w-full mt-1">{seg.feedback.notes}</p>
+                )}
+              </div>
+            )}
+
+            {/* Setup changes */}
+            {seg.setupChanges && seg.setupChanges.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {seg.setupChanges.map((c) => (
+                  <span key={c.capabilityId} className="rounded bg-blue-900/40 px-2 py-0.5 text-[10px] text-blue-300">
+                    {c.capabilityId}: {String(c.value)}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Lap times */}
+            {segLaps.length > 0 && (
+              <LapTable laps={segLaps} bestMs={segStats?.best ?? 0} />
+            )}
+          </div>
+        );
+      })}
+
+      {session.notes && <p className="text-xs text-neutral-400 mt-2">{session.notes}</p>}
     </div>
   );
 }
