@@ -75,12 +75,13 @@ function eventsToLaps(events: NltApiEvent[], participantId: number): { lapNumber
     .filter((e) => e.type === "racer_passed_gate" && e.race_participant_id === participantId && !e.deleted_at)
     .sort((a, b) => a.race_time - b.race_time);
 
+  // First gate pass is the start reference (transponder detection), not a lap.
+  // Laps are measured from the 2nd gate pass onward.
   const laps: { lapNumber: number; timeMs: number }[] = [];
-  for (let i = 0; i < gates.length; i++) {
-    const prevTime = i === 0 ? 0 : gates[i - 1].race_time;
+  for (let i = 1; i < gates.length; i++) {
     laps.push({
-      lapNumber: i + 1,
-      timeMs: gates[i].race_time - prevTime,
+      lapNumber: i,
+      timeMs: gates[i].race_time - gates[i - 1].race_time,
     });
   }
   return laps;

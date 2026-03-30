@@ -311,7 +311,7 @@ function NltImport({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
         totalLaps: d.totalLaps,
         totalTimeMs: d.totalTimeMs,
         fastLapMs: d.fastLapMs,
-        avgLapMs: d.totalLaps > 0 ? d.totalTimeMs / d.totalLaps : undefined,
+        avgLapMs: d.totalLaps > 0 ? Math.round(d.totalTimeMs / d.totalLaps) : undefined,
         laps: d.laps,
         sourceUrl: url,
         createdAt: new Date().toISOString(),
