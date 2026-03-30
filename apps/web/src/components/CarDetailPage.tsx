@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById } from "@setupiq/shared";
-import { localDb } from "../db/local-db.js";
+import { localDb, type LocalRaceResult, type LocalRunSession, type LocalRunSegment } from "../db/local-db.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
 
-type Tab = "setup" | "details";
+type Tab = "setup" | "runs" | "details";
 
 interface CarDetailPageProps {
   carId: string;
@@ -170,7 +170,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
 
       {/* Tab bar */}
       <div className="px-4 flex gap-1 border-b border-neutral-800">
-        {(["setup", "details"] as const).map((t) => (
+        {(["setup", "runs", "details"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -188,6 +188,8 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         {tab === "setup" && <SetupsPage forcedCarId={carId} />}
+
+        {tab === "runs" && <CarRunsTab carId={carId} />}
 
         {tab === "details" && (
           <div className="px-4 py-4 flex flex-col gap-4">
@@ -311,6 +313,112 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Runs Tab ─────────────────────────────────────────────────
+
+function CarRunsTab({ carId }: { carId: string }) {
+  const raceResults = useLiveQuery(
+    () => localDb.raceResults.where("carId").equals(carId).reverse().sortBy("date"),
+    [carId],
+  );
+
+  const sessions = useLiveQuery(async () => {
+    const rows = await localDb.runSessions.where("carId").equals(carId).reverse().sortBy("startedAt");
+    const results: (LocalRunSession & { segments: LocalRunSegment[] })[] = [];
+    for (const row of rows) {
+      const segs = await localDb.runSegments.where("sessionId").equals(row.id).sortBy("segmentNumber");
+      results.push({ ...row, segments: segs });
+    }
+    return results;
+  }, [carId]);
+
+  const loading = raceResults === undefined || sessions === undefined;
+
+  if (loading) {
+    return <p className="px-4 py-6 text-sm text-neutral-500">Loading…</p>;
+  }
+
+  const hasRaces = raceResults.length > 0;
+  const hasSessions = sessions.length > 0;
+
+  if (!hasRaces && !hasSessions) {
+    return <p className="px-4 py-6 text-sm text-neutral-500">No runs or race results for this car yet.</p>;
+  }
+
+  return (
+    <div className="px-4 py-4 space-y-6">
+      {/* Race Results */}
+      {hasRaces && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Race Results</h3>
+          {raceResults.map((r) => (
+            <div
+              key={r.id}
+              className="rounded-lg bg-neutral-900 border border-neutral-800 p-3"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-neutral-200">{r.eventName}</span>
+                  <span className="text-xs text-neutral-500 ml-2">{r.className}</span>
+                </div>
+                <span className="text-xs text-neutral-500">{new Date(r.date).toLocaleDateString()}</span>
+              </div>
+              <div className="mt-1 flex gap-4 text-xs text-neutral-400">
+                <span>P{r.position}{r.totalEntries ? `/${r.totalEntries}` : ""}</span>
+                <span>{r.totalLaps} laps</span>
+                <span>Fast: {(r.fastLapMs / 1000).toFixed(3)}s</span>
+                {r.avgLapMs && <span>Avg: {(r.avgLapMs / 1000).toFixed(3)}s</span>}
+              </div>
+              {r.community && (
+                <p className="text-xs text-neutral-600 mt-1">{r.community}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Run Sessions */}
+      {hasSessions && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Practice Sessions</h3>
+          {sessions.map((s) => {
+            const segCount = s.segments.length;
+            const totalLaps = s.segments.reduce(
+              (sum, seg) => sum + (seg.lapTimes?.length ?? 0),
+              0,
+            );
+            const allLapTimes = s.segments.flatMap((seg) => seg.lapTimes ?? []);
+            const bestLap = allLapTimes.length > 0
+              ? Math.min(...allLapTimes.map((l) => l.timeMs))
+              : null;
+
+            return (
+              <div
+                key={s.id}
+                className="rounded-lg bg-neutral-900 border border-neutral-800 p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-neutral-200">
+                    {new Date(s.startedAt).toLocaleDateString()}
+                  </span>
+                  <span className="text-xs text-neutral-500">
+                    {s.endedAt ? "Completed" : "In Progress"}
+                  </span>
+                </div>
+                <div className="mt-1 flex gap-4 text-xs text-neutral-400">
+                  <span>{segCount} segment{segCount !== 1 ? "s" : ""}</span>
+                  <span>{totalLaps} laps</span>
+                  {bestLap && <span>Best: {(bestLap / 1000).toFixed(3)}s</span>}
+                </div>
+                {s.notes && <p className="text-xs text-neutral-600 mt-1">{s.notes}</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
