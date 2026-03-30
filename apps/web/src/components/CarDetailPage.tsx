@@ -514,14 +514,6 @@ function RaceRunDetail({
 }) {
   const stats = useMemo(() => computeLapStats(race.laps), [race.laps]);
 
-  const fastIdx = useMemo(() => {
-    if (race.laps.length === 0) return -1;
-    let minMs = Infinity;
-    let idx = 0;
-    race.laps.forEach((l, i) => { if (l.timeMs < minMs) { minMs = l.timeMs; idx = i; } });
-    return idx;
-  }, [race.laps]);
-
   return (
     <div className="px-4 py-4 space-y-4">
       <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">← Back to Runs</button>
