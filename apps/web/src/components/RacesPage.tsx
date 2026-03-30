@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { allCars, getCarById } from "@setupiq/shared";
 import { localDb, type LocalRaceResult } from "../db/local-db.js";
+import { useNltSync } from "../hooks/use-nlt-sync.js";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -13,6 +14,7 @@ type View =
 
 export function RacesPage() {
   const [view, setView] = useState<View>({ kind: "list" });
+  const nltSync = useNltSync();
 
   const results = useLiveQuery(() =>
     localDb.raceResults.orderBy("date").reverse().toArray(),
@@ -23,6 +25,7 @@ export function RacesPage() {
       {view.kind === "list" && (
         <RaceList
           results={results ?? []}
+          nltSync={nltSync}
           onAdd={() => setView({ kind: "add" })}
           onImport={() => setView({ kind: "import" })}
           onSelect={(r) => setView({ kind: "detail", result: r })}
@@ -56,19 +59,105 @@ export function RacesPage() {
 
 // ─── Race List ────────────────────────────────────────────────
 
+interface NltSyncControls {
+  enabled: boolean;
+  raceFolder: string;
+  lastPollAt: string | null;
+  lastNewDataAt: string | null;
+  lastError: string | null;
+  importedCount: number;
+  updatedCount: number;
+  enable: (folder: string) => void;
+  disable: () => void;
+  setRaceFolder: (folder: string) => void;
+}
+
+function NltSyncBar({ sync }: { sync: NltSyncControls }) {
+  return (
+    <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-neutral-400 uppercase">NLT Auto-Sync</span>
+          {sync.enabled && (
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs text-green-400">Live</span>
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            if (sync.enabled) {
+              sync.disable();
+            } else if (sync.raceFolder) {
+              sync.enable(sync.raceFolder);
+            }
+          }}
+          disabled={!sync.raceFolder && !sync.enabled}
+          className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+            sync.enabled
+              ? "bg-red-900/60 text-red-300 hover:bg-red-800/60"
+              : "bg-green-900/60 text-green-300 hover:bg-green-800/60 disabled:opacity-40"
+          }`}
+        >
+          {sync.enabled ? "Stop" : "Start"}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-neutral-500 whitespace-nowrap">Race Folder:</label>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={8}
+          value={sync.raceFolder}
+          onChange={(e) => sync.setRaceFolder(e.target.value.replace(/\D/g, ""))}
+          disabled={sync.enabled}
+          placeholder="e.g. 123456"
+          className="w-28 rounded bg-neutral-800 border border-neutral-700 px-2 py-1 text-xs text-neutral-200 font-mono disabled:opacity-50"
+        />
+      </div>
+
+      {sync.enabled && (
+        <div className="flex flex-wrap gap-3 text-xs text-neutral-500">
+          {sync.lastPollAt && (
+            <span>Last poll: {new Date(sync.lastPollAt).toLocaleTimeString()}</span>
+          )}
+          {(sync.importedCount > 0 || sync.updatedCount > 0) && (
+            <span>
+              {sync.importedCount > 0 && `${sync.importedCount} imported`}
+              {sync.importedCount > 0 && sync.updatedCount > 0 && ", "}
+              {sync.updatedCount > 0 && `${sync.updatedCount} updated`}
+            </span>
+          )}
+        </div>
+      )}
+
+      {sync.lastError && (
+        <p className="text-xs text-red-400">{sync.lastError}</p>
+      )}
+    </div>
+  );
+}
+
 function RaceList({
   results,
+  nltSync,
   onAdd,
   onImport,
   onSelect,
 }: {
   results: LocalRaceResult[];
+  nltSync: NltSyncControls;
   onAdd: () => void;
   onImport: () => void;
   onSelect: (r: LocalRaceResult) => void;
 }) {
   return (
     <div className="space-y-4">
+      <NltSyncBar sync={nltSync} />
+
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-neutral-200">Race Results</h2>
         <div className="flex gap-2">
@@ -311,7 +400,7 @@ function NltImport({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
         totalLaps: d.totalLaps,
         totalTimeMs: d.totalTimeMs,
         fastLapMs: d.fastLapMs,
-        avgLapMs: d.totalLaps > 0 ? Math.round(d.totalTimeMs / d.totalLaps) : undefined,
+        avgLapMs: d.totalLaps > 0 ? d.totalTimeMs / d.totalLaps : undefined,
         laps: d.laps,
         sourceUrl: url,
         createdAt: new Date().toISOString(),
