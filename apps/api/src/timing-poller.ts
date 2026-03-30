@@ -2,6 +2,7 @@ import { db } from "./db/index.js";
 import { raceResults } from "./db/schema.js";
 import { eq, and } from "drizzle-orm";
 import crypto from "node:crypto";
+import { fetchNltRaceData, type NltRaceData } from "./nlt/routes.js";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -16,12 +17,6 @@ export interface NltPollerConfig {
   setupSnapshotId?: string;
   /** User ID for database ownership */
   userId: string;
-}
-
-interface ParsedLap {
-  lapNumber: number;
-  timeMs: number;
-  streak?: number;
 }
 
 interface PollerState {
@@ -40,86 +35,17 @@ const SNOOZE_THRESHOLD_MS = 90 * 60 * 1000;   // 90 minutes of no new laps
 // Singleton poller state
 let pollerState: PollerState | null = null;
 
-// ─── Time Parsing ─────────────────────────────────────────────
-
-function parseTimeToMs(raw: string): number {
-  raw = raw.trim();
-  const parts = raw.split(":");
-  if (parts.length === 2) {
-    const min = Number(parts[0]);
-    const sec = Number(parts[1]);
-    return Math.round((min * 60 + sec) * 1000);
-  }
-  if (parts.length === 3) {
-    const hr = Number(parts[0]);
-    const min = Number(parts[1]);
-    const sec = Number(parts[2]);
-    return Math.round((hr * 3600 + min * 60 + sec) * 1000);
-  }
-  return Math.round(Number(raw) * 1000);
-}
-
-// ─── HTML Scraping ────────────────────────────────────────────
-
-function parseRacerLaps(html: string, racerName: string): { laps: ParsedLap[]; totalLaps: number; elapsedMs: number; fastLapMs: number; position: number; date: string } {
-  // Extract date
-  let dateStr = new Date().toISOString();
-  const dateMatch = html.match(/Date:\s*([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?\s+\d{4})/i);
-  if (dateMatch) {
-    const cleaned = dateMatch[1].replace(/(st|nd|rd|th)/i, "");
-    const parsed = new Date(cleaned);
-    if (!isNaN(parsed.getTime())) dateStr = parsed.toISOString();
-  }
-
-  // Extract position and summary for this racer
-  // Format: "1st MS Evo2 5600kv 99 33:47.856 0:06.904 99 Active"
-  const nameEscaped = racerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const summaryRegex = new RegExp(
-    `(\\d+)(?:st|nd|rd|th)\\s+${nameEscaped}\\s+(\\d+)\\s+([\\d:]+\\.\\d+)\\s+([\\d:]+\\.\\d+)`,
-    "i"
-  );
-  const summaryMatch = summaryRegex.exec(html);
-
-  const position = summaryMatch ? Number(summaryMatch[1]) : 1;
-  const totalLaps = summaryMatch ? Number(summaryMatch[2]) : 0;
-  const elapsedMs = summaryMatch ? parseTimeToMs(summaryMatch[3]) : 0;
-  const fastLapMs = summaryMatch ? parseTimeToMs(summaryMatch[4]) : 0;
-
-  // Parse individual laps: "N) M:SS.mmm" optionally followed by a streak number
-  const laps: ParsedLap[] = [];
-  const lapPattern = /(\d+)\)\s*([\d:.]+)\s*(\d+)?/g;
-  let match: RegExpExecArray | null;
-  while ((match = lapPattern.exec(html)) !== null) {
-    laps.push({
-      lapNumber: Number(match[1]),
-      timeMs: parseTimeToMs(match[2]),
-      streak: match[3] ? Number(match[3]) : undefined,
-    });
-  }
-  laps.sort((a, b) => a.lapNumber - b.lapNumber);
-
-  return { laps, totalLaps: totalLaps || laps.length, elapsedMs, fastLapMs, position, date: dateStr };
-}
-
 // ─── Fetch + Dedup + Store ────────────────────────────────────
 
 async function fetchAndStore(config: NltPollerConfig): Promise<{ newLaps: number; totalLaps: number }> {
-  const res = await fetch(config.raceUrl, {
-    headers: {
-      "User-Agent": "SetupIQ/1.0 (NLT timing poller)",
-      "Accept": "text/html",
-    },
-    signal: AbortSignal.timeout(15000),
-  });
+  const allResults = await fetchNltRaceData(config.raceUrl);
 
-  if (!res.ok) {
-    throw new Error(`NLT returned HTTP ${res.status}`);
-  }
+  // Find the specific racer
+  const racerData = allResults.find(
+    (r) => r.className.toLowerCase() === config.racerName.toLowerCase()
+  );
 
-  const html = await res.text();
-  const { laps, totalLaps, elapsedMs, fastLapMs, position, date } = parseRacerLaps(html, config.racerName);
-
-  if (laps.length === 0) {
+  if (!racerData || racerData.laps.length === 0) {
     return { newLaps: 0, totalLaps: 0 };
   }
 
@@ -133,32 +59,26 @@ async function fetchAndStore(config: NltPollerConfig): Promise<{ newLaps: number
     .where(and(eq(raceResults.userId, config.userId), eq(raceResults.sourceUrl, sourceUrl)))
     .limit(1);
 
-  const storedLapCount = existing.length > 0 ? (existing[0].laps as ParsedLap[]).length : 0;
-  const newLapCount = laps.length - storedLapCount;
+  const storedLapCount = existing.length > 0 ? (existing[0].laps as { lapNumber: number; timeMs: number }[]).length : 0;
+  const newLapCount = racerData.laps.length - storedLapCount;
 
-  // Extract community + event name from URL
-  const communityMatch = config.raceUrl.match(/\/communities\/([^/]+)/);
-  const communitySlug = communityMatch?.[1]?.replace(/-/g, " ") ?? "";
-  const community = communitySlug.replace(/\b\w/g, (c) => c.toUpperCase());
-  const eventName = `NLT ${date.slice(0, 10)}`;
-
-  const avgLapMs = laps.length > 0
-    ? Math.round(laps.reduce((s, l) => s + l.timeMs, 0) / laps.length)
+  const avgLapMs = racerData.laps.length > 0
+    ? Math.round(racerData.laps.reduce((s, l) => s + l.timeMs, 0) / racerData.laps.length)
     : 0;
 
   const record = {
     carId: config.carId,
-    eventName,
-    community,
-    className: config.racerName,
-    roundType: "practice" as const,
-    date,
-    position,
-    totalLaps,
-    totalTimeMs: elapsedMs,
-    fastLapMs: fastLapMs || Math.min(...laps.map((l) => l.timeMs)),
+    eventName: racerData.eventName,
+    community: racerData.community,
+    className: racerData.className,
+    roundType: racerData.roundType,
+    date: racerData.date,
+    position: racerData.position,
+    totalLaps: racerData.totalLaps,
+    totalTimeMs: racerData.totalTimeMs,
+    fastLapMs: racerData.fastLapMs,
     avgLapMs,
-    laps: laps.map((l) => ({ lapNumber: l.lapNumber, timeMs: l.timeMs })),
+    laps: racerData.laps,
     sourceUrl,
     setupSnapshotId: config.setupSnapshotId ?? null,
     notes: `Auto-imported from NLT poller`,
@@ -181,7 +101,7 @@ async function fetchAndStore(config: NltPollerConfig): Promise<{ newLaps: number
     });
   }
 
-  return { newLaps: Math.max(newLapCount, 0), totalLaps: laps.length };
+  return { newLaps: Math.max(newLapCount, 0), totalLaps: racerData.laps.length };
 }
 
 // ─── Poll Tick ────────────────────────────────────────────────
