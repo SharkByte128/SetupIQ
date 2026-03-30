@@ -9,6 +9,7 @@ import { registerAuthRoutes } from "./auth/routes.js";
 import { registerSyncRoutes } from "./sync/routes.js";
 import { registerRecommendationRoutes } from "./recommendations/routes.js";
 import { registerNltRoutes } from "./nlt/routes.js";
+import { registerNltPollerRoutes } from "./nlt/poller-routes.js";
 import { registerGeminiRoutes } from "./gemini/routes.js";
 import { registerAdminRoutes } from "./admin/routes.js";
 import { registerCatalogRoutes } from "./catalog/routes.js";
@@ -32,6 +33,7 @@ async function start(): Promise<void> {
   await registerSyncRoutes(app);
   await registerRecommendationRoutes(app);
   await registerNltRoutes(app);
+  await registerNltPollerRoutes(app);
   await registerGeminiRoutes(app);
   await registerAdminRoutes(app);
   await registerCatalogRoutes(app);
