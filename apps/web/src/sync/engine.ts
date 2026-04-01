@@ -242,7 +242,7 @@ async function pushDirtyRecords(): Promise<void> {
         date: r.date, position: r.position, totalEntries: r.totalEntries,
         totalLaps: r.totalLaps, totalTimeMs: r.totalTimeMs, fastLapMs: r.fastLapMs,
         avgLapMs: r.avgLapMs, laps: r.laps, sourceUrl: r.sourceUrl,
-        setupSnapshotId: r.setupSnapshotId, notes: r.notes,
+        setupSnapshotId: r.setupSnapshotId, notes: r.notes, hidden: r.hidden ?? 0,
       },
     }));
   }
@@ -478,6 +478,7 @@ async function pullFromServer(): Promise<void> {
             sourceUrl: result.source_url || result.sourceUrl,
             setupSnapshotId: result.setup_snapshot_id || result.setupSnapshotId,
             notes: result.notes,
+            hidden: result.hidden ? 1 : 0,
             createdAt: result.created_at || result.createdAt,
             _dirty: 0,
           });
@@ -493,6 +494,7 @@ async function pullFromServer(): Promise<void> {
             avgLapMs: (result.avg_lap_ms || result.avgLapMs) ?? local.avgLapMs,
             laps: result.laps || local.laps,
             notes: result.notes ?? local.notes,
+            hidden: result.hidden !== undefined ? (result.hidden ? 1 : 0) : local.hidden,
             _dirty: 0,
           });
         }

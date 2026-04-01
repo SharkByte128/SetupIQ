@@ -371,6 +371,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             sourceUrl: record.data.sourceUrl as string | undefined,
             setupSnapshotId: record.data.setupSnapshotId as string | undefined,
             notes: record.data.notes as string | undefined,
+            hidden: Boolean(record.data.hidden),
           })
           .onConflictDoUpdate({
             target: raceResults.id,
@@ -384,6 +385,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
               fastLapMs: (record.data.fastLapMs as number) || 0,
               laps: (record.data.laps as any) || [],
               notes: record.data.notes as string | undefined,
+              hidden: Boolean(record.data.hidden),
             },
           });
       }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById } from "@setupiq/shared";
 import { localDb, type LocalRunSession, type LocalRunSegment } from "../db/local-db.js";
+import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
@@ -387,10 +388,12 @@ function LapTable({ laps, bestMs }: { laps: { lapNumber: number; timeMs: number 
 
 function CarRunsTab({ carId }: { carId: string }) {
   const [view, setView] = useState<RunsView>({ kind: "list" });
+  const [showHidden] = useShowHiddenRuns();
 
   const raceResults = useLiveQuery(
-    () => localDb.raceResults.where("carId").equals(carId).reverse().sortBy("date"),
-    [carId],
+    () => localDb.raceResults.where("carId").equals(carId).reverse().sortBy("date")
+      .then((rows) => showHidden ? rows : rows.filter((r) => !r.hidden)),
+    [carId, showHidden],
   );
 
   const sessions = useLiveQuery(async () => {

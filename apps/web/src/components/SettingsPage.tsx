@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { localDb } from "../db/local-db.js";
+import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { RacersManager } from "./RacersManager.js";
 import { loadSyncConfig, markAllDirty, performSync, startAutoSync, clearSyncConfig, stopAutoSync, wipeAndResync } from "../sync/engine.js";
 
@@ -8,6 +9,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [hideDemoData, setHideDemoData] = useState(false);
+  const [showHidden, setShowHidden] = useShowHiddenRuns();
 
   // Server sync state
   const [serverUrl, setServerUrl] = useState("");
@@ -197,6 +199,33 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
                 hideDemoData ? "translate-x-5" : ""
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Show Hidden Runs Toggle */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">👁️</span>
+            <div>
+              <h3 className="font-medium text-sm">Show Hidden Runs</h3>
+              <p className="text-xs text-neutral-500">
+                Show NLT race results that were marked as ignored
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowHidden(!showHidden)}
+            className={`relative w-11 h-6 rounded-full transition-colors ${
+              showHidden ? "bg-blue-600" : "bg-neutral-700"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                showHidden ? "translate-x-5" : ""
               }`}
             />
           </button>

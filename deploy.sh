@@ -42,6 +42,21 @@ fi
 echo "Starting SetupIQ..."
 docker compose up -d $BUILD_FLAG
 
+# Wait for postgres to be healthy
+echo "Waiting for database..."
+for i in $(seq 1 30); do
+  if docker compose exec -T postgres pg_isready -U setupiq > /dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+# Run DB schema push (drizzle-kit push)
+echo "Running database migrations..."
+docker compose exec -T api sh -c 'cd /app/apps/api && npx drizzle-kit push' \
+  && echo "✅ Migrations applied." \
+  || echo "⚠️  Migration may need manual review."
+
 echo ""
 echo "================================================"
 echo " SetupIQ is running!"

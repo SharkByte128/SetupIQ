@@ -5,7 +5,7 @@ import { allCars, getCarById } from "@setupiq/shared";
 import { localDb, type LocalRaceResult } from "../db/local-db.js";
 import { useSetups } from "../hooks/use-setups.js";
 import { useRunSessions } from "../hooks/use-run-sessions.js";
-import { useHideDemoData } from "../hooks/use-demo-filter.js";
+import { useHideDemoData, useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { DriverFeedbackForm } from "./DriverFeedbackForm.js";
 import { RecommendationsPanel } from "./RecommendationsPanel.js";
 import { exportSessionCsv, downloadCsv } from "../utils/export.js";
@@ -24,14 +24,17 @@ type View =
 export function RunsPage() {
   const [view, setView] = useState<View>({ kind: "list" });
   const hideDemoData = useHideDemoData();
+  const [showHidden] = useShowHiddenRuns();
   // Load setups and sessions across ALL cars
   const { setups } = useSetups(undefined, hideDemoData);
   const { sessions, loading, startSession, addSegment, updateSegmentFeedback, updateSegmentLapTimes, endSession } =
     useRunSessions(undefined, hideDemoData);
 
-  // Race results (all cars)
-  const raceResults = useLiveQuery(() =>
-    localDb.raceResults.orderBy("date").reverse().toArray(),
+  // Race results (all cars), filter hidden unless "show hidden" is on
+  const raceResults = useLiveQuery(
+    () => localDb.raceResults.orderBy("date").reverse().toArray()
+      .then((rows) => showHidden ? rows : rows.filter((r) => !r.hidden)),
+    [showHidden],
   );
 
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -306,7 +309,8 @@ function NltSyncMini() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<NltRaceData[] | null>(null);
-  const [selectedCars, setSelectedCars] = useState<Record<number, string>>({});
+  // "ignore" means hidden, any car id means linked
+  const [selectedCars, setSelectedCars] = useState<Record<number, string | "ignore">>({});
 
   const handleSync = async () => {
     const trimmed = raceId.trim();
@@ -332,8 +336,13 @@ function NltSyncMini() {
         return;
       }
       setPreview(data);
-      const defaults: Record<number, string> = {};
-      data.forEach((_, i) => { defaults[i] = allCars[0]?.id ?? ""; });
+      // Auto-match: compare racer name (className) against car names (case-insensitive)
+      const defaults: Record<number, string | "ignore"> = {};
+      data.forEach((d, i) => {
+        const racerLower = d.className.toLowerCase();
+        const match = allCars.find((c) => c.name.toLowerCase() === racerLower);
+        defaults[i] = match ? match.id : "ignore";
+      });
       setSelectedCars(defaults);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sync failed");
@@ -344,12 +353,15 @@ function NltSyncMini() {
 
   const handleSaveAll = async () => {
     if (!preview) return;
+    const sourceUrl = raceId.trim().startsWith("http") ? raceId.trim() : `https://nextleveltiming.com/communities/piedmont-micro-rc-racing-club/races/${raceId.trim()}`;
     for (let i = 0; i < preview.length; i++) {
       const d = preview[i];
+      const choice = selectedCars[i] ?? "ignore";
+      const isIgnored = choice === "ignore";
       const result: LocalRaceResult = {
         id: crypto.randomUUID(),
         userId: "local",
-        carId: selectedCars[i] ?? allCars[0]?.id ?? "",
+        carId: isIgnored ? "" : choice,
         eventName: d.eventName,
         community: d.community || undefined,
         className: d.className,
@@ -362,7 +374,8 @@ function NltSyncMini() {
         fastLapMs: d.fastLapMs,
         avgLapMs: d.totalLaps > 0 ? Math.round(d.totalTimeMs / d.totalLaps) : undefined,
         laps: d.laps,
-        sourceUrl: raceId.trim().startsWith("http") ? raceId.trim() : `https://nextleveltiming.com/communities/piedmont-micro-rc-racing-club/races/${raceId.trim()}`,
+        sourceUrl,
+        hidden: isIgnored ? 1 : 0,
         createdAt: new Date().toISOString(),
         _dirty: 1,
       };
@@ -371,6 +384,8 @@ function NltSyncMini() {
     setPreview(null);
     setExpanded(false);
   };
+
+  const linkedCount = preview ? Object.values(selectedCars).filter((v) => v !== "ignore").length : 0;
 
   return (
     <div className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden">
@@ -404,31 +419,35 @@ function NltSyncMini() {
 
           {preview && preview.length > 0 && (
             <div className="space-y-2">
-              {preview.map((d, i) => (
-                <div key={i} className="rounded bg-neutral-800/50 p-2 space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-neutral-200 font-medium">{d.className}</span>
-                    <span className="text-neutral-500">P{d.position} · {d.totalLaps} laps · Fast {(d.fastLapMs / 1000).toFixed(3)}s</span>
+              {preview.map((d, i) => {
+                const choice = selectedCars[i] ?? "ignore";
+                const isIgnored = choice === "ignore";
+                return (
+                  <div key={i} className={`rounded p-2 space-y-1 ${isIgnored ? "bg-neutral-800/30 opacity-60" : "bg-neutral-800/50"}`}>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-neutral-200 font-medium">{d.className}</span>
+                      <span className="text-neutral-500">P{d.position} · {d.totalLaps} laps · Fast {(d.fastLapMs / 1000).toFixed(3)}s</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={choice}
+                        onChange={(e) => setSelectedCars((s) => ({ ...s, [i]: e.target.value }))}
+                        className="flex-1 rounded bg-neutral-800 border border-neutral-700 px-1.5 py-0.5 text-[10px] text-neutral-200"
+                      >
+                        <option value="ignore">Ignore (hide)</option>
+                        {allCars.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-[10px] text-neutral-500">Car:</label>
-                    <select
-                      value={selectedCars[i] ?? ""}
-                      onChange={(e) => setSelectedCars((s) => ({ ...s, [i]: e.target.value }))}
-                      className="rounded bg-neutral-800 border border-neutral-700 px-1.5 py-0.5 text-[10px] text-neutral-200"
-                    >
-                      {allCars.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <button
                 onClick={handleSaveAll}
                 className="w-full rounded bg-blue-600 text-white py-1.5 text-xs font-medium hover:bg-blue-500"
               >
-                Save {preview.length} Result{preview.length > 1 ? "s" : ""}
+                Save {preview.length} Result{preview.length > 1 ? "s" : ""} ({linkedCount} linked, {preview.length - linkedCount} hidden)
               </button>
             </div>
           )}

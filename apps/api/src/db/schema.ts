@@ -170,6 +170,7 @@ export const raceResults = pgTable("race_results", {
   sourceUrl: text("source_url"),
   setupSnapshotId: text("setup_snapshot_id"),
   notes: text("notes"),
+  hidden: boolean("hidden").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -63,3 +63,13 @@ export async function getSyncUsername(): Promise<string | null> {
   const row = await localDb.syncMeta.get("sync_username");
   return row?.value?.toLowerCase() ?? null;
 }
+
+/** Read the "show hidden runs" preference from localStorage. */
+export function useShowHiddenRuns(): [boolean, (v: boolean) => void] {
+  const [show, setShow] = useState(() => localStorage.getItem("show_hidden_runs") === "true");
+  const toggle = (v: boolean) => {
+    localStorage.setItem("show_hidden_runs", v ? "true" : "false");
+    setShow(v);
+  };
+  return [show, toggle];
+}
