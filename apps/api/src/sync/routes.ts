@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
 import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages } from "../db/schema.js";
-import { eq, gt, and } from "drizzle-orm";
+import { eq, gt, and, inArray } from "drizzle-orm";
 
 type AuthUser = { id: string; email: string; displayName: string };
 
@@ -41,7 +41,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user as AuthUser;
     const since = request.query.since ? new Date(request.query.since) : new Date(0);
 
-    const [userSetups, userTracks, userComponents, userSessions, userSegments, userMeasurements, userParts, userRaceResults, userCustomCars, userCarImages] = await Promise.all([
+    const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages] = await Promise.all([
       db.select().from(setupSnapshots).where(
         and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
       ),
@@ -49,18 +49,18 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         and(eq(tracks.userId, user.id), gt(tracks.updatedAt, since))
       ),
       db.select().from(components).where(
-        and(eq(components.userId, user.id), gt(components.createdAt, since))
+        eq(components.userId, user.id)
       ),
       db.select().from(runSessions).where(
-        and(eq(runSessions.userId, user.id), gt(runSessions.startedAt, since))
+        eq(runSessions.userId, user.id)
       ),
-      db.select().from(runSegments).where(gt(runSegments.startedAt, since)),
-      db.select().from(measurements).where(gt(measurements.measuredAt, since)),
+      Promise.resolve([]), // placeholder — segments queried below
+      Promise.resolve([]), // placeholder — measurements queried below
       db.select().from(parts).where(
         and(eq(parts.userId, user.id), gt(parts.updatedAt, since))
       ),
       db.select().from(raceResults).where(
-        and(eq(raceResults.userId, user.id), gt(raceResults.createdAt, since))
+        eq(raceResults.userId, user.id)
       ),
       db.select().from(customCars).where(
         and(eq(customCars.userId, user.id), gt(customCars.updatedAt, since))
@@ -69,6 +69,23 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         and(eq(carImages.userId, user.id), gt(carImages.updatedAt, since))
       ),
     ]);
+
+    // Segments & measurements scoped to user's sessions/setups
+    const allUserSessions = await db.select({ id: runSessions.id }).from(runSessions).where(eq(runSessions.userId, user.id));
+    const sessionIds = allUserSessions.map((s) => s.id);
+    const userSegments = sessionIds.length > 0
+      ? await db.select().from(runSegments).where(
+          inArray(runSegments.sessionId, sessionIds)
+        )
+      : [];
+
+    const allUserSetups = await db.select({ id: setupSnapshots.id }).from(setupSnapshots).where(eq(setupSnapshots.userId, user.id));
+    const setupIds = allUserSetups.map((s) => s.id);
+    const userMeasurements = setupIds.length > 0
+      ? await db.select().from(measurements).where(
+          inArray(measurements.setupId, setupIds)
+        )
+      : [];
 
     return {
       setupSnapshots: userSetups,
@@ -111,7 +128,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             entries: (record.data.entries as any) || [],
             wheelTireSetups: (record.data.wheelTireSetups as any) || [],
             notes: record.data.notes as string | undefined,
-            updatedAt: new Date(record.updatedAt),
+            updatedAt: new Date(),
           })
           .onConflictDoUpdate({
             target: setupSnapshots.id,
@@ -120,7 +137,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
               entries: (record.data.entries as any) || [],
               wheelTireSetups: (record.data.wheelTireSetups as any) || [],
               notes: record.data.notes as string | undefined,
-              updatedAt: new Date(record.updatedAt),
+              updatedAt: new Date(),
             },
           });
       }
@@ -146,7 +163,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             dimensions: record.data.dimensions as string | undefined,
             layoutDescription: record.data.layoutDescription as string | undefined,
             notes: record.data.notes as string | undefined,
-            updatedAt: new Date(record.updatedAt),
+            updatedAt: new Date(),
           })
           .onConflictDoUpdate({
             target: tracks.id,
@@ -162,7 +179,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
               dimensions: record.data.dimensions as string | undefined,
               layoutDescription: record.data.layoutDescription as string | undefined,
               notes: record.data.notes as string | undefined,
-              updatedAt: new Date(record.updatedAt),
+              updatedAt: new Date(),
             },
           });
       }
@@ -194,6 +211,106 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       results.runSessions = body.runSessions.length;
     }
 
+    // Upsert run segments
+    if (body.runSegments?.length) {
+      for (const record of body.runSegments) {
+        await db
+          .insert(runSegments)
+          .values({
+            id: record.id,
+            sessionId: (record.data.sessionId as string) || "",
+            setupSnapshotId: (record.data.setupSnapshotId as string) || "",
+            segmentNumber: (record.data.segmentNumber as number) || 1,
+            feedback: record.data.feedback as any,
+            lapTimes: record.data.lapTimes as any,
+            setupChanges: record.data.setupChanges as any,
+            startedAt: new Date(record.data.startedAt as string || record.updatedAt),
+            endedAt: record.data.endedAt ? new Date(record.data.endedAt as string) : null,
+          })
+          .onConflictDoUpdate({
+            target: runSegments.id,
+            set: {
+              feedback: record.data.feedback as any,
+              lapTimes: record.data.lapTimes as any,
+              setupChanges: record.data.setupChanges as any,
+              endedAt: record.data.endedAt ? new Date(record.data.endedAt as string) : null,
+            },
+          });
+      }
+      results.runSegments = body.runSegments.length;
+    }
+
+    // Upsert components
+    if (body.components?.length) {
+      for (const record of body.components) {
+        await db
+          .insert(components)
+          .values({
+            id: record.id,
+            userId: user.id,
+            type: (record.data.type as string) || "",
+            brand: (record.data.brand as string) || "",
+            name: (record.data.name as string) || "",
+            sku: record.data.sku as string | undefined,
+            position: record.data.position as string | undefined,
+            widthMm: record.data.widthMm as number | undefined,
+            offset: record.data.offset as number | undefined,
+            compound: record.data.compound as string | undefined,
+            diameterMm: record.data.diameterMm as number | undefined,
+            color: record.data.color as string | undefined,
+            notes: record.data.notes as string | undefined,
+          })
+          .onConflictDoUpdate({
+            target: components.id,
+            set: {
+              type: (record.data.type as string) || "",
+              brand: (record.data.brand as string) || "",
+              name: (record.data.name as string) || "",
+              sku: record.data.sku as string | undefined,
+              position: record.data.position as string | undefined,
+              widthMm: record.data.widthMm as number | undefined,
+              offset: record.data.offset as number | undefined,
+              compound: record.data.compound as string | undefined,
+              diameterMm: record.data.diameterMm as number | undefined,
+              color: record.data.color as string | undefined,
+              notes: record.data.notes as string | undefined,
+            },
+          });
+      }
+      results.components = body.components.length;
+    }
+
+    // Upsert measurements
+    if (body.measurements?.length) {
+      for (const record of body.measurements) {
+        await db
+          .insert(measurements)
+          .values({
+            id: record.id,
+            setupId: (record.data.setupId as string) || "",
+            runSessionId: record.data.runSessionId as string | undefined,
+            cornerWeights: record.data.cornerWeights as any,
+            totalWeight: record.data.totalWeight as number | undefined,
+            frontBiasPercent: record.data.frontBiasPercent as number | undefined,
+            leftBiasPercent: record.data.leftBiasPercent as number | undefined,
+            crossWeightPercent: record.data.crossWeightPercent as number | undefined,
+            measuredAt: new Date(record.data.measuredAt as string || record.updatedAt),
+            source: (record.data.source as string) || "manual",
+          })
+          .onConflictDoUpdate({
+            target: measurements.id,
+            set: {
+              cornerWeights: record.data.cornerWeights as any,
+              totalWeight: record.data.totalWeight as number | undefined,
+              frontBiasPercent: record.data.frontBiasPercent as number | undefined,
+              leftBiasPercent: record.data.leftBiasPercent as number | undefined,
+              crossWeightPercent: record.data.crossWeightPercent as number | undefined,
+            },
+          });
+      }
+      results.measurements = body.measurements.length;
+    }
+
     // Upsert parts
     if (body.parts?.length) {
       for (const record of body.parts) {
@@ -209,7 +326,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             compatibleChassisIds: (record.data.compatibleChassisIds as any) || [],
             attributes: (record.data.attributes as any) || {},
             notes: record.data.notes as string | undefined,
-            updatedAt: new Date(record.updatedAt),
+            updatedAt: new Date(),
           })
           .onConflictDoUpdate({
             target: parts.id,
@@ -221,7 +338,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
               compatibleChassisIds: (record.data.compatibleChassisIds as any) || [],
               attributes: (record.data.attributes as any) || {},
               notes: record.data.notes as string | undefined,
-              updatedAt: new Date(record.updatedAt),
+              updatedAt: new Date(),
             },
           });
       }
@@ -286,7 +403,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             scale: (record.data.scale as string) || "",
             driveType: (record.data.driveType as string) || "RWD",
             notes: record.data.notes as string | undefined,
-            updatedAt: new Date(record.updatedAt),
+            updatedAt: new Date(),
           })
           .onConflictDoUpdate({
             target: customCars.id,
@@ -296,7 +413,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
               scale: (record.data.scale as string) || "",
               driveType: (record.data.driveType as string) || "RWD",
               notes: record.data.notes as string | undefined,
-              updatedAt: new Date(record.updatedAt),
+              updatedAt: new Date(),
             },
           });
       }
@@ -315,7 +432,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             imageBase64: (record.data.imageBase64 as string) || "",
             name: record.data.name as string | undefined,
             mimeType: record.data.mimeType as string | undefined,
-            updatedAt: new Date(record.updatedAt),
+            updatedAt: new Date(),
           })
           .onConflictDoUpdate({
             target: carImages.id,
@@ -324,7 +441,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
               imageBase64: (record.data.imageBase64 as string) || "",
               name: record.data.name as string | undefined,
               mimeType: record.data.mimeType as string | undefined,
-              updatedAt: new Date(record.updatedAt),
+              updatedAt: new Date(),
             },
           });
       }

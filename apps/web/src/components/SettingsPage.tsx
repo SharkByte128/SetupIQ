@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { localDb } from "../db/local-db.js";
 import { RacersManager } from "./RacersManager.js";
-import { loadSyncConfig, markAllDirty, performSync, startAutoSync, clearSyncConfig, stopAutoSync } from "../sync/engine.js";
+import { loadSyncConfig, markAllDirty, performSync, startAutoSync, clearSyncConfig, stopAutoSync, wipeAndResync } from "../sync/engine.js";
 
 export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [geminiKey, setGeminiKey] = useState("");
@@ -387,6 +387,64 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
+
+      {/* Force Refresh */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-lg">🔄</span>
+          <div>
+            <h3 className="font-medium text-sm">App Update</h3>
+            <p className="text-xs text-neutral-500">
+              Force the app to check for new code and reload
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={async () => {
+            if ("serviceWorker" in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(registrations.map((r) => r.unregister()));
+            }
+            if ("caches" in window) {
+              const names = await caches.keys();
+              await Promise.all(names.map((n) => caches.delete(n)));
+            }
+            window.location.reload();
+          }}
+          className="w-full py-2 text-sm font-medium text-white bg-neutral-700 hover:bg-neutral-600 rounded-lg transition-colors"
+        >
+          Force Refresh
+        </button>
+      </div>
+
+      {/* Wipe & Re-sync */}
+      {isConnected && (
+        <div className="bg-neutral-900 border border-red-900/50 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">⚠️</span>
+            <div>
+              <h3 className="font-medium text-sm text-red-400">Wipe &amp; Re-sync from Server</h3>
+              <p className="text-xs text-neutral-500">
+                Delete all local data on this device and re-download from the server. Use when this device is out of sync.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              if (!confirm("This will delete ALL local data on this device and replace it with the server copy. Continue?")) return;
+              try {
+                await wipeAndResync();
+                alert("Re-sync complete! All data refreshed from server.");
+              } catch (err) {
+                alert("Re-sync failed: " + (err instanceof Error ? err.message : "Unknown error"));
+              }
+            }}
+            className="w-full py-2 text-sm font-medium text-white bg-red-700 hover:bg-red-600 rounded-lg transition-colors"
+          >
+            Wipe &amp; Re-sync
+          </button>
+        </div>
+      )}
 
       <p className="text-[11px] text-neutral-600 mt-4 text-center">
         {isConnected
