@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { getCarById } from "@setupiq/shared";
-import { localDb, type LocalRunSession, type LocalRunSegment } from "../db/local-db.js";
+import { allCars, getCarById } from "@setupiq/shared";
+import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
 type Tab = "setup" | "runs" | "details";
 
@@ -322,6 +324,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
 
 type RunsView =
   | { kind: "list" }
+  | { kind: "addRace" }
   | { kind: "race-detail"; raceId: string }
   | { kind: "session-detail"; sessionId: string };
 
@@ -389,6 +392,7 @@ function LapTable({ laps, bestMs }: { laps: { lapNumber: number; timeMs: number 
 function CarRunsTab({ carId }: { carId: string }) {
   const [view, setView] = useState<RunsView>({ kind: "list" });
   const [showHidden] = useShowHiddenRuns();
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const raceResults = useLiveQuery(
     () => localDb.raceResults.where("carId").equals(carId).reverse().sortBy("date")
@@ -412,6 +416,14 @@ function CarRunsTab({ carId }: { carId: string }) {
     return <p className="px-4 py-6 text-sm text-neutral-500">Loading…</p>;
   }
 
+  if (view.kind === "addRace") {
+    return (
+      <div className="px-4 py-4">
+        <CarManualRaceEntry carId={carId} onSave={() => setView({ kind: "list" })} onCancel={() => setView({ kind: "list" })} />
+      </div>
+    );
+  }
+
   if (view.kind === "race-detail") {
     const race = raceResults.find((r) => r.id === view.raceId);
     if (!race) return <p className="px-4 py-6 text-sm text-neutral-500">Race not found.</p>;
@@ -427,12 +439,37 @@ function CarRunsTab({ carId }: { carId: string }) {
   const hasRaces = raceResults.length > 0;
   const hasSessions = sessions.length > 0;
 
-  if (!hasRaces && !hasSessions) {
-    return <p className="px-4 py-6 text-sm text-neutral-500">No runs or race results for this car yet.</p>;
-  }
-
   return (
-    <div className="px-4 py-4 space-y-6">
+    <div className="px-4 py-4 space-y-4">
+      {/* Header with + Add Run */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-neutral-400 uppercase">Runs</h3>
+        <div className="relative">
+          <button
+            onClick={() => setAddMenuOpen((o) => !o)}
+            className="rounded-md bg-blue-600 text-white px-3 py-1 text-xs font-medium hover:bg-blue-500"
+          >
+            + Add Run
+          </button>
+          {addMenuOpen && (
+            <div className="absolute right-0 mt-1 w-44 rounded-lg bg-neutral-800 border border-neutral-700 shadow-lg z-20 overflow-hidden">
+              <button
+                onClick={() => { setAddMenuOpen(false); setView({ kind: "addRace" }); }}
+                className="w-full text-left px-3 py-2 text-xs text-neutral-200 hover:bg-neutral-700"
+              >
+                Add Race Result
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* NLT Sync */}
+      <CarNltSync carId={carId} />
+
+      {!hasRaces && !hasSessions && (
+        <p className="text-center text-neutral-500 text-sm py-8">No runs or race results for this car yet.</p>
+      )}
       {hasRaces && (
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-neutral-400 uppercase">Race Results</h3>
@@ -504,6 +541,294 @@ function CarRunsTab({ carId }: { carId: string }) {
       )}
     </div>
   );
+}
+
+// ─── NLT Sync for Car ─────────────────────────────────────────
+
+interface NltRaceData {
+  eventName: string;
+  community: string;
+  className: string;
+  roundType: string;
+  date: string;
+  position: number;
+  totalEntries?: number;
+  totalLaps: number;
+  totalTimeMs: number;
+  fastLapMs: number;
+  laps: { lapNumber: number; timeMs: number }[];
+}
+
+function CarNltSync({ carId }: { carId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [raceId, setRaceId] = useState(() => localStorage.getItem("nlt_last_race_id") ?? "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<NltRaceData[] | null>(null);
+  const [selectedMap, setSelectedMap] = useState<Record<number, "link" | "ignore">>({});
+
+  const car = getCarById(carId);
+  const carName = car?.name ?? "";
+
+  const handleSync = async () => {
+    const trimmed = raceId.trim();
+    if (!trimmed) return;
+    localStorage.setItem("nlt_last_race_id", trimmed);
+    setLoading(true);
+    setError(null);
+    setPreview(null);
+    try {
+      const url = trimmed.startsWith("http") ? trimmed : `https://nextleveltiming.com/communities/piedmont-micro-rc-racing-club/races/${trimmed}`;
+      const res = await fetch(`${API_BASE}/api/nlt/scrape`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Sync failed" }));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      const data: NltRaceData[] = await res.json();
+      if (data.length === 0) { setError("No results found."); return; }
+      setPreview(data);
+      // Auto-match: if racer name matches this car's name, link it; otherwise ignore
+      const defaults: Record<number, "link" | "ignore"> = {};
+      data.forEach((d, i) => {
+        defaults[i] = d.className.toLowerCase() === carName.toLowerCase() ? "link" : "ignore";
+      });
+      setSelectedMap(defaults);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    if (!preview) return;
+    const sourceUrl = raceId.trim().startsWith("http") ? raceId.trim() : `https://nextleveltiming.com/communities/piedmont-micro-rc-racing-club/races/${raceId.trim()}`;
+    for (let i = 0; i < preview.length; i++) {
+      const d = preview[i];
+      const isLinked = selectedMap[i] === "link";
+      const result: LocalRaceResult = {
+        id: crypto.randomUUID(),
+        userId: "local",
+        carId: isLinked ? carId : "",
+        eventName: d.eventName,
+        community: d.community || undefined,
+        className: d.className,
+        roundType: d.roundType,
+        date: d.date,
+        position: d.position,
+        totalEntries: d.totalEntries,
+        totalLaps: d.totalLaps,
+        totalTimeMs: d.totalTimeMs,
+        fastLapMs: d.fastLapMs,
+        avgLapMs: d.totalLaps > 0 ? Math.round(d.totalTimeMs / d.totalLaps) : undefined,
+        laps: d.laps,
+        sourceUrl,
+        hidden: isLinked ? 0 : 1,
+        createdAt: new Date().toISOString(),
+        _dirty: 1,
+      };
+      await localDb.raceResults.add(result);
+    }
+    setPreview(null);
+    setExpanded(false);
+  };
+
+  const linkedCount = preview ? Object.values(selectedMap).filter((v) => v === "link").length : 0;
+
+  return (
+    <div className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden">
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-neutral-300 hover:bg-neutral-800"
+      >
+        <span>NLT Sync</span>
+        <span className="text-neutral-600">{expanded ? "▲" : "▼"}</span>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 space-y-2 border-t border-neutral-800 pt-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={raceId}
+              onChange={(e) => setRaceId(e.target.value)}
+              placeholder="Race ID or URL"
+              className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+            />
+            <button
+              onClick={handleSync}
+              disabled={loading || !raceId.trim()}
+              className="rounded bg-blue-600 text-white px-4 py-1.5 text-xs font-medium hover:bg-blue-500 disabled:opacity-50"
+            >
+              {loading ? "Syncing…" : "Start"}
+            </button>
+          </div>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          {preview && preview.length > 0 && (
+            <div className="space-y-2">
+              {preview.map((d, i) => {
+                const isLinked = selectedMap[i] === "link";
+                return (
+                  <div key={i} className={`rounded p-2 space-y-1 ${isLinked ? "bg-neutral-800/50" : "bg-neutral-800/30 opacity-60"}`}>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-neutral-200 font-medium">{d.className}</span>
+                      <span className="text-neutral-500">P{d.position} · {d.totalLaps} laps · Fast {(d.fastLapMs / 1000).toFixed(3)}s</span>
+                    </div>
+                    <button
+                      onClick={() => setSelectedMap((s) => ({ ...s, [i]: isLinked ? "ignore" : "link" }))}
+                      className={`text-[10px] px-2 py-0.5 rounded ${isLinked ? "bg-green-900/50 text-green-400" : "bg-neutral-700 text-neutral-500"}`}
+                    >
+                      {isLinked ? `✓ Linked to ${carName}` : "Ignored — tap to link"}
+                    </button>
+                  </div>
+                );
+              })}
+              <button
+                onClick={handleSaveAll}
+                className="w-full rounded bg-blue-600 text-white py-1.5 text-xs font-medium hover:bg-blue-500"
+              >
+                Save {preview.length} Result{preview.length > 1 ? "s" : ""} ({linkedCount} linked, {preview.length - linkedCount} hidden)
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Manual Race Entry (for car) ──────────────────────────────
+
+function CarManualRaceEntry({ carId, onSave, onCancel }: { carId: string; onSave: () => void; onCancel: () => void }) {
+  const car = getCarById(carId);
+  const [form, setForm] = useState({
+    eventName: "",
+    community: "",
+    className: "",
+    roundType: "main" as string,
+    roundNumber: 1,
+    date: new Date().toISOString().slice(0, 10),
+    position: 1,
+    totalEntries: undefined as number | undefined,
+    fastLapMs: 0,
+    lapsText: "",
+    notes: "",
+  });
+
+  const handleSubmit = async () => {
+    const laps = parseLapTimesText(form.lapsText);
+    const fastLapMs = laps.length > 0 ? Math.min(...laps.map((l) => l.timeMs)) : form.fastLapMs;
+    const totalTimeMs = laps.length > 0 ? laps.reduce((s, l) => s + l.timeMs, 0) : 0;
+    const totalLaps = laps.length > 0 ? laps.length : 0;
+    const avgLapMs = totalLaps > 0 ? Math.round(totalTimeMs / totalLaps) : undefined;
+
+    const result: LocalRaceResult = {
+      id: crypto.randomUUID(),
+      userId: "local",
+      carId,
+      eventName: form.eventName || "Race",
+      community: form.community || undefined,
+      className: form.className || "Open",
+      roundType: form.roundType,
+      roundNumber: form.roundNumber,
+      date: new Date(form.date).toISOString(),
+      position: form.position,
+      totalEntries: form.totalEntries,
+      totalLaps,
+      totalTimeMs,
+      fastLapMs,
+      avgLapMs,
+      laps,
+      notes: form.notes || undefined,
+      createdAt: new Date().toISOString(),
+      _dirty: 1,
+    };
+    await localDb.raceResults.add(result);
+    onSave();
+  };
+
+  const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-neutral-200">Add Race Result</h2>
+        <button onClick={onCancel} className="text-xs text-neutral-500 hover:text-neutral-300">Cancel</button>
+      </div>
+      {car && <p className="text-xs text-neutral-500">Car: {car.name}</p>}
+      <div className="space-y-3">
+        <CarField label="Event Name" value={form.eventName} onChange={(v) => set("eventName", v)} placeholder="e.g. Saturday Night Race" />
+        <CarField label="Community / Club" value={form.community} onChange={(v) => set("community", v)} placeholder="e.g. Piedmont Micro RC" />
+        <CarField label="Class Name" value={form.className} onChange={(v) => set("className", v)} placeholder="e.g. Evo2 5600kv" />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-neutral-400 block mb-1">Round Type</label>
+            <select value={form.roundType} onChange={(e) => set("roundType", e.target.value)}
+              className="w-full rounded bg-neutral-900 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-200">
+              <option value="practice">Practice</option>
+              <option value="qualifying">Qualifying</option>
+              <option value="main">Main</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <CarField label="Round #" value={String(form.roundNumber)} onChange={(v) => set("roundNumber", Number(v) || 1)} type="number" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <CarField label="Date" value={form.date} onChange={(v) => set("date", v)} type="date" />
+          <CarField label="Position" value={String(form.position)} onChange={(v) => set("position", Number(v) || 1)} type="number" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <CarField label="Entries" value={form.totalEntries != null ? String(form.totalEntries) : ""} onChange={(v) => set("totalEntries", v ? Number(v) : undefined)} type="number" placeholder="#" />
+          <CarField label="Fast Lap (s)" value={form.fastLapMs ? String(form.fastLapMs / 1000) : ""} onChange={(v) => set("fastLapMs", Number(v) * 1000 || 0)} type="number" placeholder="6.861" />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-neutral-400 block mb-1">Lap Times (one per line, in seconds)</label>
+          <textarea value={form.lapsText} onChange={(e) => set("lapsText", e.target.value)} rows={4}
+            placeholder={"7.236\n7.352\n6.861\n7.419"}
+            className="w-full rounded bg-neutral-900 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-200 font-mono" />
+        </div>
+        <CarField label="Notes" value={form.notes} onChange={(v) => set("notes", v)} placeholder="Optional notes" />
+        <button onClick={handleSubmit} className="w-full rounded bg-blue-600 text-white py-2 text-sm font-medium hover:bg-blue-500">
+          Save Result
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CarField({ label, value, onChange, type = "text", placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-neutral-400 block mb-1">{label}</label>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        className="w-full rounded bg-neutral-900 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-200" />
+    </div>
+  );
+}
+
+function parseLapTimesText(text: string): { lapNumber: number; timeMs: number }[] {
+  return text
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line, i) => {
+      const colonMatch = line.match(/^(\d+):(\d+\.?\d*)$/);
+      if (colonMatch) {
+        const min = Number(colonMatch[1]);
+        const sec = Number(colonMatch[2]);
+        return { lapNumber: i + 1, timeMs: Math.round((min * 60 + sec) * 1000) };
+      }
+      const num = Number(line);
+      if (isNaN(num)) return null;
+      const timeMs = num > 100 ? Math.round(num) : Math.round(num * 1000);
+      return { lapNumber: i + 1, timeMs };
+    })
+    .filter((l): l is { lapNumber: number; timeMs: number } => l !== null);
 }
 
 // ─── Race Detail View ─────────────────────────────────────────

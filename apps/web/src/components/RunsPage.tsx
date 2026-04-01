@@ -179,6 +179,30 @@ function AnalyticsDashboard({
   ];
   const bestLap = allFastLaps.length > 0 ? Math.min(...allFastLaps) : null;
 
+  // Enhanced analytics
+  const linkedRaces = raceResults.filter((r) => r.carId);
+  const avgPosition = linkedRaces.length > 0
+    ? (linkedRaces.reduce((t, r) => t + r.position, 0) / linkedRaces.length).toFixed(1)
+    : null;
+  const avgLapMs = allRaceLaps > 0
+    ? Math.round(raceResults.reduce((t, r) => t + (r.avgLapMs ?? 0) * r.totalLaps, 0) / allRaceLaps)
+    : null;
+
+  // Per-car breakdown
+  const perCarStats = useMemo(() => {
+    const map = new Map<string, { name: string; races: number; bestLap: number; totalLaps: number }>();
+    for (const r of raceResults) {
+      if (!r.carId) continue;
+      const car = getCarById(r.carId);
+      const entry = map.get(r.carId) ?? { name: car?.name ?? r.carId, races: 0, bestLap: Infinity, totalLaps: 0 };
+      entry.races++;
+      entry.totalLaps += r.totalLaps;
+      if (r.fastLapMs > 0 && r.fastLapMs < entry.bestLap) entry.bestLap = r.fastLapMs;
+      map.set(r.carId, entry);
+    }
+    return [...map.values()].sort((a, b) => b.races - a.races);
+  }, [raceResults]);
+
   // Build unified timeline
   type TimelineEntry =
     | { type: "session"; date: string; item: RunSession }
@@ -232,6 +256,30 @@ function AnalyticsDashboard({
         <StatCard label="Total Laps" value={String(totalLaps)} />
         <StatCard label="Best Lap" value={bestLap ? `${(bestLap / 1000).toFixed(3)}s` : "—"} />
       </div>
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard label="Avg Lap" value={avgLapMs ? `${(avgLapMs / 1000).toFixed(3)}s` : "—"} />
+        <StatCard label="Avg Position" value={avgPosition ?? "—"} />
+        <StatCard label="Linked" value={`${linkedRaces.length}/${totalRaces}`} />
+      </div>
+
+      {/* Per-car breakdown */}
+      {perCarStats.length > 0 && (
+        <div className="space-y-1">
+          <h3 className="text-xs font-medium text-neutral-400">Per Car</h3>
+          <div className="grid gap-1.5">
+            {perCarStats.map((c) => (
+              <div key={c.name} className="flex items-center justify-between rounded bg-neutral-900 border border-neutral-800 px-3 py-2">
+                <span className="text-xs font-medium text-neutral-200">{c.name}</span>
+                <div className="flex gap-3 text-[10px] text-neutral-500">
+                  <span>{c.races} race{c.races !== 1 ? "s" : ""}</span>
+                  <span>{c.totalLaps} laps</span>
+                  <span>Best: {c.bestLap < Infinity ? `${(c.bestLap / 1000).toFixed(3)}s` : "—"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Unified timeline */}
       {timeline.length === 0 ? (
@@ -271,11 +319,12 @@ function AnalyticsDashboard({
             } else {
               const r = entry.item;
               const car = getCarById(r.carId);
+              const isUnlinked = !r.carId;
               return (
                 <li key={`r-${r.id}`}>
                   <button
                     onClick={() => onSelectRace(r)}
-                    className="w-full text-left rounded-lg bg-neutral-900 border border-neutral-800 p-3 hover:border-neutral-700"
+                    className={`w-full text-left rounded-lg bg-neutral-900 border p-3 hover:border-neutral-700 ${isUnlinked ? "border-amber-800/50" : "border-neutral-800"}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -289,8 +338,36 @@ function AnalyticsDashboard({
                       <span>{r.totalLaps} laps</span>
                       <span>Fast: {(r.fastLapMs / 1000).toFixed(3)}s</span>
                       {car && <span className="text-neutral-600">{car.name}</span>}
+                      {isUnlinked && <span className="text-amber-500/70 italic">Unlinked</span>}
                     </div>
                   </button>
+                  {isUnlinked && (
+                    <div className="flex items-center gap-2 mt-1 px-1" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        defaultValue=""
+                        onChange={async (e) => {
+                          const carId = e.target.value;
+                          if (!carId) return;
+                          await localDb.raceResults.update(r.id, { carId, hidden: 0, _dirty: 1 });
+                          e.target.value = "";
+                        }}
+                        className="flex-1 rounded bg-neutral-800 border border-neutral-700 px-1.5 py-1 text-[10px] text-neutral-300"
+                      >
+                        <option value="">Link to car…</option>
+                        {allCars.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={async () => {
+                          await localDb.raceResults.update(r.id, { hidden: 1, _dirty: 1 });
+                        }}
+                        className="rounded bg-neutral-800 border border-neutral-700 px-2 py-1 text-[10px] text-red-400 hover:bg-red-900/30"
+                      >
+                        Hide
+                      </button>
+                    </div>
+                  )}
                 </li>
               );
             }
