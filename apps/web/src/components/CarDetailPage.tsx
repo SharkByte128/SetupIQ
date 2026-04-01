@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { allCars, getCarById } from "@setupiq/shared";
+import { getCarById } from "@setupiq/shared";
 import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
