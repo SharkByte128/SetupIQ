@@ -8,7 +8,6 @@ import { PartsBinPage } from "./PartsBinPage.js";
 import { CatalogPage } from "./CatalogPage.js";
 import { AddCarPage } from "./AddCarPage.js";
 import { resizeImage } from "../lib/resize-image.js";
-import { useHideDemoData } from "../hooks/use-demo-filter.js";
 import { v4 as uuid } from "uuid";
 
 type GarageView = "cars" | "setups" | "parts" | "catalog" | "addCar" | "editCar";
@@ -25,7 +24,6 @@ export function GaragePage() {
   const [images, setImages] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetCarId, setUploadTargetCarId] = useState<string | null>(null);
-  const hideDemoData = useHideDemoData();
 
   // Live-query custom cars from Dexie
   const customCars = useLiveQuery(() => localDb.customCars.toArray()) ?? [];
