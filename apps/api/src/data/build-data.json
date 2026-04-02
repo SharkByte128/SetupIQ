@@ -1,0 +1,5937 @@
+{
+  "sessions": [
+    {
+      "sessionId": "1665ef9d-3fde-48cc-accc-7099503369ea",
+      "date": "2025-12-28",
+      "carId": "car-mrx-me",
+      "trackId": "track-the-cave",
+      "snapshotId": "6734b5a9-1dd9-4937-b201-3c25afb678bf",
+      "snapshotName": "MRX ME — 2025-12-28",
+      "setupEntries": [
+        {
+          "capabilityId": "front-ride-height",
+          "value": 2.1
+        },
+        {
+          "capabilityId": "front-damper-grease",
+          "value": "Atomic 25000"
+        },
+        {
+          "capabilityId": "daa-spring",
+          "value": "Yellow (Med)"
+        },
+        {
+          "capabilityId": "front-toe",
+          "value": "4 degrees out"
+        },
+        {
+          "capabilityId": "caster",
+          "value": "Bottom Kingpin Shim: 2"
+        },
+        {
+          "capabilityId": "camber",
+          "value": "2"
+        },
+        {
+          "capabilityId": "damper-shim",
+          "value": "1"
+        },
+        {
+          "capabilityId": "axles",
+          "value": "v2"
+        },
+        {
+          "capabilityId": "rear-ride-height",
+          "value": 3.2
+        },
+        {
+          "capabilityId": "rear-spring-style",
+          "value": "Horizontal"
+        },
+        {
+          "capabilityId": "center-damper-grease",
+          "value": ": Atomic 45000"
+        },
+        {
+          "capabilityId": "side-spring-damper-grease",
+          "value": "Atomic 25000"
+        },
+        {
+          "capabilityId": "vertical-side-spring",
+          "value": "n/a"
+        },
+        {
+          "capabilityId": "rear-top-spring",
+          "value": "Medium (Yellow) + 0 Turn"
+        },
+        {
+          "capabilityId": "pinion-gear",
+          "value": "12T"
+        },
+        {
+          "capabilityId": "spur-gear",
+          "value": "Kyosho 53T"
+        },
+        {
+          "capabilityId": "diff-type",
+          "value": "Kyosho Ball Diff"
+        },
+        {
+          "capabilityId": "motor",
+          "value": "PN 2500kv Anima v4"
+        }
+      ],
+      "segments": [
+        {
+          "id": "a98ca286-d48e-4f17-a374-688309371ee0",
+          "segmentNumber": 1,
+          "description": "New Battery / New Tires",
+          "startLap": 1,
+          "endLap": 22,
+          "repeat": "11 / 22",
+          "fastLapSec": 6.2,
+          "avgInfo": "6.5(13)",
+          "feedback": "Steering wide and unpredictable",
+          "lapTimes": [
+            {
+              "lapNumber": 1,
+              "timeMs": 7489
+            },
+            {
+              "lapNumber": 2,
+              "timeMs": 8674
+            },
+            {
+              "lapNumber": 3,
+              "timeMs": 9044
+            },
+            {
+              "lapNumber": 4,
+              "timeMs": 7128
+            },
+            {
+              "lapNumber": 5,
+              "timeMs": 6562
+            },
+            {
+              "lapNumber": 6,
+              "timeMs": 9063
+            },
+            {
+              "lapNumber": 7,
+              "timeMs": 9655
+            },
+            {
+              "lapNumber": 8,
+              "timeMs": 15555
+            },
+            {
+              "lapNumber": 9,
+              "timeMs": 8561
+            },
+            {
+              "lapNumber": 10,
+              "timeMs": 7049
+            },
+            {
+              "lapNumber": 11,
+              "timeMs": 10146
+            },
+            {
+              "lapNumber": 12,
+              "timeMs": 7193
+            },
+            {
+              "lapNumber": 13,
+              "timeMs": 7462
+            },
+            {
+              "lapNumber": 14,
+              "timeMs": 6691
+            },
+            {
+              "lapNumber": 15,
+              "timeMs": 6582
+            },
+            {
+              "lapNumber": 16,
+              "timeMs": 6674
+            },
+            {
+              "lapNumber": 17,
+              "timeMs": 6440
+            },
+            {
+              "lapNumber": 18,
+              "timeMs": 6358
+            },
+            {
+              "lapNumber": 19,
+              "timeMs": 6638
+            },
+            {
+              "lapNumber": 20,
+              "timeMs": 6202
+            },
+            {
+              "lapNumber": 21,
+              "timeMs": 6952
+            },
+            {
+              "lapNumber": 22,
+              "timeMs": 6746
+            }
+          ]
+        },
+        {
+          "id": "c4775fc6-a987-4dd4-88ce-1d0cbb99c620",
+          "segmentNumber": 2,
+          "description": "Front DAA Springs: White (Soft)",
+          "startLap": 23,
+          "endLap": 62,
+          "repeat": "7 / 30",
+          "fastLapSec": 6.2,
+          "avgInfo": "6.7 (11)",
+          "feedback": "Steering wide and unpredictable",
+          "lapTimes": [
+            {
+              "lapNumber": 23,
+              "timeMs": 1661523
+            },
+            {
+              "lapNumber": 24,
+              "timeMs": 75914
+            },
+            {
+              "lapNumber": 25,
+              "timeMs": 8800
+            },
+            {
+              "lapNumber": 26,
+              "timeMs": 6864
+            },
+            {
+              "lapNumber": 27,
+              "timeMs": 10316
+            },
+            {
+              "lapNumber": 28,
+              "timeMs": 8968
+            },
+            {
+              "lapNumber": 29,
+              "timeMs": 7027
+            },
+            {
+              "lapNumber": 30,
+              "timeMs": 6992
+            },
+            {
+              "lapNumber": 31,
+              "timeMs": 6861
+            },
+            {
+              "lapNumber": 32,
+              "timeMs": 6582
+            },
+            {
+              "lapNumber": 33,
+              "timeMs": 23352
+            },
+            {
+              "lapNumber": 34,
+              "timeMs": 9519
+            },
+            {
+              "lapNumber": 35,
+              "timeMs": 6374
+            },
+            {
+              "lapNumber": 36,
+              "timeMs": 6270
+            },
+            {
+              "lapNumber": 37,
+              "timeMs": 9286
+            },
+            {
+              "lapNumber": 38,
+              "timeMs": 8929
+            },
+            {
+              "lapNumber": 39,
+              "timeMs": 6427
+            },
+            {
+              "lapNumber": 40,
+              "timeMs": 7091
+            },
+            {
+              "lapNumber": 41,
+              "timeMs": 6640
+            },
+            {
+              "lapNumber": 42,
+              "timeMs": 6522
+            },
+            {
+              "lapNumber": 43,
+              "timeMs": 7396
+            },
+            {
+              "lapNumber": 44,
+              "timeMs": 6606
+            },
+            {
+              "lapNumber": 45,
+              "timeMs": 20112
+            },
+            {
+              "lapNumber": 46,
+              "timeMs": 12372
+            },
+            {
+              "lapNumber": 47,
+              "timeMs": 7040
+            },
+            {
+              "lapNumber": 48,
+              "timeMs": 8631
+            },
+            {
+              "lapNumber": 49,
+              "timeMs": 6667
+            },
+            {
+              "lapNumber": 50,
+              "timeMs": 7525
+            },
+            {
+              "lapNumber": 51,
+              "timeMs": 10844
+            },
+            {
+              "lapNumber": 52,
+              "timeMs": 9171
+            },
+            {
+              "lapNumber": 53,
+              "timeMs": 7158
+            },
+            {
+              "lapNumber": 54,
+              "timeMs": 6964
+            },
+            {
+              "lapNumber": 55,
+              "timeMs": 6637
+            },
+            {
+              "lapNumber": 56,
+              "timeMs": 6810
+            },
+            {
+              "lapNumber": 57,
+              "timeMs": 299728
+            },
+            {
+              "lapNumber": 58,
+              "timeMs": 7123
+            },
+            {
+              "lapNumber": 59,
+              "timeMs": 7010
+            },
+            {
+              "lapNumber": 60,
+              "timeMs": 10550
+            },
+            {
+              "lapNumber": 61,
+              "timeMs": 11409
+            },
+            {
+              "lapNumber": 62,
+              "timeMs": 6754
+            }
+          ]
+        },
+        {
+          "id": "b1e22097-bc37-48d2-8c62-5e56f6d22335",
+          "segmentNumber": 3,
+          "description": "Front DAA Springs: Red (Super Soft)",
+          "startLap": 63,
+          "endLap": 74,
+          "repeat": "8 /12 (66%)",
+          "fastLapSec": 6.2,
+          "avgInfo": "6.8 (9)",
+          "feedback": "Steering wide and unpredictable",
+          "lapTimes": [
+            {
+              "lapNumber": 63,
+              "timeMs": 6948
+            },
+            {
+              "lapNumber": 64,
+              "timeMs": 6493
+            },
+            {
+              "lapNumber": 65,
+              "timeMs": 6862
+            },
+            {
+              "lapNumber": 66,
+              "timeMs": 6490
+            },
+            {
+              "lapNumber": 67,
+              "timeMs": 6853
+            },
+            {
+              "lapNumber": 68,
+              "timeMs": 9496
+            },
+            {
+              "lapNumber": 69,
+              "timeMs": 6800
+            },
+            {
+              "lapNumber": 70,
+              "timeMs": 6740
+            },
+            {
+              "lapNumber": 71,
+              "timeMs": 6254
+            },
+            {
+              "lapNumber": 72,
+              "timeMs": 7653
+            },
+            {
+              "lapNumber": 73,
+              "timeMs": 8312
+            },
+            {
+              "lapNumber": 74,
+              "timeMs": 6541
+            }
+          ]
+        },
+        {
+          "id": "95303117-2233-4f6e-96d4-b63a1a545468",
+          "segmentNumber": 4,
+          "description": "Front Tires: Gekko FS-GK-001 (soft) (Black)",
+          "startLap": 75,
+          "endLap": 78,
+          "repeat": "1 / 4 (25%)",
+          "fastLapSec": 0,
+          "avgInfo": "n/a",
+          "feedback": "Steering better, but bites hard – car flips",
+          "lapTimes": [
+            {
+              "lapNumber": 75,
+              "timeMs": 535048
+            },
+            {
+              "lapNumber": 76,
+              "timeMs": 9515
+            },
+            {
+              "lapNumber": 77,
+              "timeMs": 9110
+            },
+            {
+              "lapNumber": 78,
+              "timeMs": 11062
+            }
+          ]
+        },
+        {
+          "id": "ff24a2ce-edbf-4ee2-aa8b-bc759922e568",
+          "segmentNumber": 5,
+          "description": "Front Ride Height: 1.8",
+          "startLap": 79,
+          "endLap": 94,
+          "repeat": "4 / 16 (25%)",
+          "fastLapSec": 6.5,
+          "avgInfo": "6.6 (5)",
+          "feedback": "Bites hard – car flips",
+          "lapTimes": [
+            {
+              "lapNumber": 79,
+              "timeMs": 8597
+            },
+            {
+              "lapNumber": 80,
+              "timeMs": 6606
+            },
+            {
+              "lapNumber": 81,
+              "timeMs": 6883
+            },
+            {
+              "lapNumber": 82,
+              "timeMs": 409497
+            },
+            {
+              "lapNumber": 83,
+              "timeMs": 7786
+            },
+            {
+              "lapNumber": 84,
+              "timeMs": 7105
+            },
+            {
+              "lapNumber": 85,
+              "timeMs": 14756
+            },
+            {
+              "lapNumber": 86,
+              "timeMs": 11546
+            },
+            {
+              "lapNumber": 87,
+              "timeMs": 6739
+            },
+            {
+              "lapNumber": 88,
+              "timeMs": 7372
+            },
+            {
+              "lapNumber": 89,
+              "timeMs": 6629
+            },
+            {
+              "lapNumber": 90,
+              "timeMs": 12227
+            },
+            {
+              "lapNumber": 91,
+              "timeMs": 10357
+            },
+            {
+              "lapNumber": 92,
+              "timeMs": 7022
+            },
+            {
+              "lapNumber": 93,
+              "timeMs": 6544
+            },
+            {
+              "lapNumber": 94,
+              "timeMs": 8765
+            }
+          ]
+        },
+        {
+          "id": "fa9c4b13-bdae-4e1e-a010-a3941d0ea717",
+          "segmentNumber": 6,
+          "description": "Gekko FM-GK-002 (Med) (Red)",
+          "startLap": 95,
+          "endLap": 108,
+          "repeat": "2 / 14 (14%)",
+          "fastLapSec": 6.6,
+          "avgInfo": "6.8 (2)",
+          "feedback": "Bites hard – car flips in turns",
+          "lapTimes": [
+            {
+              "lapNumber": 95,
+              "timeMs": 16142
+            },
+            {
+              "lapNumber": 96,
+              "timeMs": 6401545
+            },
+            {
+              "lapNumber": 97,
+              "timeMs": 9968
+            },
+            {
+              "lapNumber": 98,
+              "timeMs": 6646
+            },
+            {
+              "lapNumber": 99,
+              "timeMs": 14276
+            },
+            {
+              "lapNumber": 100,
+              "timeMs": 10180
+            },
+            {
+              "lapNumber": 101,
+              "timeMs": 8187
+            },
+            {
+              "lapNumber": 102,
+              "timeMs": 7405
+            },
+            {
+              "lapNumber": 103,
+              "timeMs": 18982
+            },
+            {
+              "lapNumber": 104,
+              "timeMs": 13899
+            },
+            {
+              "lapNumber": 105,
+              "timeMs": 9841
+            },
+            {
+              "lapNumber": 106,
+              "timeMs": 6997
+            },
+            {
+              "lapNumber": 107,
+              "timeMs": 8551
+            },
+            {
+              "lapNumber": 108,
+              "timeMs": 8594
+            }
+          ]
+        },
+        {
+          "id": "a28021df-5e1f-42e3-b275-93ea75580373",
+          "segmentNumber": 7,
+          "description": "Marka V5 Front 25° / 11 mm (Medium) (White) Marka MZR V1RR15 (Medium/soft) (White) Front Ride Height not measured",
+          "startLap": 109,
+          "endLap": 146,
+          "repeat": "17 / 38 (44%)",
+          "fastLapSec": 5.8,
+          "avgInfo": "6.4 (23)",
+          "feedback": "Could be driver – Steering",
+          "lapTimes": [
+            {
+              "lapNumber": 109,
+              "timeMs": 1832928
+            },
+            {
+              "lapNumber": 110,
+              "timeMs": 6877
+            },
+            {
+              "lapNumber": 111,
+              "timeMs": 7043
+            },
+            {
+              "lapNumber": 112,
+              "timeMs": 12223
+            },
+            {
+              "lapNumber": 113,
+              "timeMs": 8186
+            },
+            {
+              "lapNumber": 114,
+              "timeMs": 6629
+            },
+            {
+              "lapNumber": 115,
+              "timeMs": 6768
+            },
+            {
+              "lapNumber": 116,
+              "timeMs": 6682
+            },
+            {
+              "lapNumber": 117,
+              "timeMs": 7867
+            },
+            {
+              "lapNumber": 118,
+              "timeMs": 6160
+            },
+            {
+              "lapNumber": 119,
+              "timeMs": 11298
+            },
+            {
+              "lapNumber": 120,
+              "timeMs": 6735
+            },
+            {
+              "lapNumber": 121,
+              "timeMs": 6500
+            },
+            {
+              "lapNumber": 122,
+              "timeMs": 6089
+            },
+            {
+              "lapNumber": 123,
+              "timeMs": 6149
+            },
+            {
+              "lapNumber": 124,
+              "timeMs": 6436
+            },
+            {
+              "lapNumber": 125,
+              "timeMs": 6870
+            },
+            {
+              "lapNumber": 126,
+              "timeMs": 6946
+            },
+            {
+              "lapNumber": 127,
+              "timeMs": 6717
+            },
+            {
+              "lapNumber": 128,
+              "timeMs": 7470
+            },
+            {
+              "lapNumber": 129,
+              "timeMs": 11428
+            },
+            {
+              "lapNumber": 130,
+              "timeMs": 6109
+            },
+            {
+              "lapNumber": 131,
+              "timeMs": 5852
+            },
+            {
+              "lapNumber": 132,
+              "timeMs": 7461
+            },
+            {
+              "lapNumber": 133,
+              "timeMs": 8633
+            },
+            {
+              "lapNumber": 134,
+              "timeMs": 7748
+            },
+            {
+              "lapNumber": 135,
+              "timeMs": 7503
+            },
+            {
+              "lapNumber": 136,
+              "timeMs": 6458
+            },
+            {
+              "lapNumber": 137,
+              "timeMs": 6067
+            },
+            {
+              "lapNumber": 138,
+              "timeMs": 8563
+            },
+            {
+              "lapNumber": 139,
+              "timeMs": 6195
+            },
+            {
+              "lapNumber": 140,
+              "timeMs": 6269
+            },
+            {
+              "lapNumber": 141,
+              "timeMs": 8415
+            },
+            {
+              "lapNumber": 142,
+              "timeMs": 8490
+            },
+            {
+              "lapNumber": 143,
+              "timeMs": 5951
+            },
+            {
+              "lapNumber": 144,
+              "timeMs": 6056
+            },
+            {
+              "lapNumber": 145,
+              "timeMs": 5951
+            },
+            {
+              "lapNumber": 146,
+              "timeMs": 6623
+            }
+          ]
+        },
+        {
+          "id": "f5b1edb3-4a48-4c56-a925-9d68217f7a87",
+          "segmentNumber": 8,
+          "description": "Front Ride Height: 1.8",
+          "startLap": 147,
+          "endLap": 174,
+          "repeat": "18 / 28 (64%)",
+          "fastLapSec": 5.8,
+          "avgInfo": "6.2 (24)",
+          "feedback": "Drives great – Looking for what if",
+          "lapTimes": [
+            {
+              "lapNumber": 147,
+              "timeMs": 741901
+            },
+            {
+              "lapNumber": 148,
+              "timeMs": 6299
+            },
+            {
+              "lapNumber": 149,
+              "timeMs": 7563
+            },
+            {
+              "lapNumber": 150,
+              "timeMs": 6362
+            },
+            {
+              "lapNumber": 151,
+              "timeMs": 6022
+            },
+            {
+              "lapNumber": 152,
+              "timeMs": 5924
+            },
+            {
+              "lapNumber": 153,
+              "timeMs": 6318
+            },
+            {
+              "lapNumber": 154,
+              "timeMs": 6074
+            },
+            {
+              "lapNumber": 155,
+              "timeMs": 6339
+            },
+            {
+              "lapNumber": 156,
+              "timeMs": 5906
+            },
+            {
+              "lapNumber": 157,
+              "timeMs": 6905
+            },
+            {
+              "lapNumber": 158,
+              "timeMs": 6358
+            },
+            {
+              "lapNumber": 159,
+              "timeMs": 6116
+            },
+            {
+              "lapNumber": 160,
+              "timeMs": 5988
+            },
+            {
+              "lapNumber": 161,
+              "timeMs": 5805
+            },
+            {
+              "lapNumber": 162,
+              "timeMs": 6064
+            },
+            {
+              "lapNumber": 163,
+              "timeMs": 6980
+            },
+            {
+              "lapNumber": 164,
+              "timeMs": 6139
+            },
+            {
+              "lapNumber": 165,
+              "timeMs": 8267
+            },
+            {
+              "lapNumber": 166,
+              "timeMs": 8479
+            },
+            {
+              "lapNumber": 167,
+              "timeMs": 6044
+            },
+            {
+              "lapNumber": 168,
+              "timeMs": 6601
+            },
+            {
+              "lapNumber": 169,
+              "timeMs": 5901
+            },
+            {
+              "lapNumber": 170,
+              "timeMs": 6412
+            },
+            {
+              "lapNumber": 171,
+              "timeMs": 6052
+            },
+            {
+              "lapNumber": 172,
+              "timeMs": 6336
+            },
+            {
+              "lapNumber": 173,
+              "timeMs": 6082
+            },
+            {
+              "lapNumber": 174,
+              "timeMs": 6325
+            }
+          ]
+        },
+        {
+          "id": "c993c85b-b2f3-457b-802f-dc0dab285c4f",
+          "segmentNumber": 9,
+          "description": "Front DAA Springs: White (Soft) Front Ride Height: 1.8",
+          "startLap": 175,
+          "endLap": 207,
+          "repeat": "18 / 33 (54%)",
+          "fastLapSec": 6,
+          "avgInfo": "6.2 (18)",
+          "feedback": "Steering not as predictable",
+          "lapTimes": [
+            {
+              "lapNumber": 175,
+              "timeMs": 482898
+            },
+            {
+              "lapNumber": 176,
+              "timeMs": 7196
+            },
+            {
+              "lapNumber": 177,
+              "timeMs": 7925
+            },
+            {
+              "lapNumber": 178,
+              "timeMs": 11159
+            },
+            {
+              "lapNumber": 179,
+              "timeMs": 7119
+            },
+            {
+              "lapNumber": 180,
+              "timeMs": 7016
+            },
+            {
+              "lapNumber": 181,
+              "timeMs": 7277
+            },
+            {
+              "lapNumber": 182,
+              "timeMs": 8685
+            },
+            {
+              "lapNumber": 183,
+              "timeMs": 6772
+            },
+            {
+              "lapNumber": 184,
+              "timeMs": 6415
+            },
+            {
+              "lapNumber": 185,
+              "timeMs": 6309
+            },
+            {
+              "lapNumber": 186,
+              "timeMs": 7017
+            },
+            {
+              "lapNumber": 187,
+              "timeMs": 7441
+            },
+            {
+              "lapNumber": 188,
+              "timeMs": 6572
+            },
+            {
+              "lapNumber": 189,
+              "timeMs": 7574
+            },
+            {
+              "lapNumber": 190,
+              "timeMs": 7599
+            },
+            {
+              "lapNumber": 191,
+              "timeMs": 6093
+            },
+            {
+              "lapNumber": 192,
+              "timeMs": 6501
+            },
+            {
+              "lapNumber": 193,
+              "timeMs": 6446
+            },
+            {
+              "lapNumber": 194,
+              "timeMs": 6873
+            },
+            {
+              "lapNumber": 195,
+              "timeMs": 6368
+            },
+            {
+              "lapNumber": 196,
+              "timeMs": 6373
+            },
+            {
+              "lapNumber": 197,
+              "timeMs": 6138
+            },
+            {
+              "lapNumber": 198,
+              "timeMs": 7020
+            },
+            {
+              "lapNumber": 199,
+              "timeMs": 6067
+            },
+            {
+              "lapNumber": 200,
+              "timeMs": 9072
+            },
+            {
+              "lapNumber": 201,
+              "timeMs": 6218
+            },
+            {
+              "lapNumber": 202,
+              "timeMs": 6667
+            },
+            {
+              "lapNumber": 203,
+              "timeMs": 6295
+            },
+            {
+              "lapNumber": 204,
+              "timeMs": 6184
+            },
+            {
+              "lapNumber": 205,
+              "timeMs": 6274
+            },
+            {
+              "lapNumber": 206,
+              "timeMs": 6129
+            },
+            {
+              "lapNumber": 207,
+              "timeMs": 6032
+            }
+          ]
+        },
+        {
+          "id": "ade1a7f3-b6a2-47b3-862a-a1a63ba00567",
+          "segmentNumber": 10,
+          "description": "Front Ride Height: 2.0",
+          "startLap": 208,
+          "endLap": 229,
+          "repeat": "10 /22 (45%)",
+          "fastLapSec": 6.1,
+          "avgInfo": "6.3 (13)",
+          "feedback": "Steering more predicable but car is slower",
+          "lapTimes": [
+            {
+              "lapNumber": 208,
+              "timeMs": 6169
+            },
+            {
+              "lapNumber": 209,
+              "timeMs": 6192
+            },
+            {
+              "lapNumber": 210,
+              "timeMs": 601268
+            },
+            {
+              "lapNumber": 211,
+              "timeMs": 8455
+            },
+            {
+              "lapNumber": 212,
+              "timeMs": 6672
+            },
+            {
+              "lapNumber": 213,
+              "timeMs": 8776
+            },
+            {
+              "lapNumber": 214,
+              "timeMs": 8314
+            },
+            {
+              "lapNumber": 215,
+              "timeMs": 6388
+            },
+            {
+              "lapNumber": 216,
+              "timeMs": 6117
+            },
+            {
+              "lapNumber": 217,
+              "timeMs": 7009
+            },
+            {
+              "lapNumber": 218,
+              "timeMs": 14541
+            },
+            {
+              "lapNumber": 219,
+              "timeMs": 6169
+            },
+            {
+              "lapNumber": 220,
+              "timeMs": 6283
+            },
+            {
+              "lapNumber": 221,
+              "timeMs": 6273
+            },
+            {
+              "lapNumber": 222,
+              "timeMs": 12424
+            },
+            {
+              "lapNumber": 223,
+              "timeMs": 9359
+            },
+            {
+              "lapNumber": 224,
+              "timeMs": 7674
+            },
+            {
+              "lapNumber": 225,
+              "timeMs": 6483
+            },
+            {
+              "lapNumber": 226,
+              "timeMs": 6353
+            },
+            {
+              "lapNumber": 227,
+              "timeMs": 6151
+            },
+            {
+              "lapNumber": 228,
+              "timeMs": 6523
+            },
+            {
+              "lapNumber": 229,
+              "timeMs": 6221
+            }
+          ]
+        },
+        {
+          "id": "0a7d7098-47c9-4535-a71e-f3e08f1c9d7c",
+          "segmentNumber": 11,
+          "description": "Front Ride Height: 2.1 (by damper)",
+          "startLap": 230,
+          "endLap": 249,
+          "repeat": "12 / 20 (60%)",
+          "fastLapSec": 5.9,
+          "avgInfo": "6.2 (16)",
+          "feedback": "Battery died",
+          "lapTimes": [
+            {
+              "lapNumber": 230,
+              "timeMs": 978748
+            },
+            {
+              "lapNumber": 231,
+              "timeMs": 6225
+            },
+            {
+              "lapNumber": 232,
+              "timeMs": 5943
+            },
+            {
+              "lapNumber": 233,
+              "timeMs": 6156
+            },
+            {
+              "lapNumber": 234,
+              "timeMs": 6497
+            },
+            {
+              "lapNumber": 235,
+              "timeMs": 6241
+            },
+            {
+              "lapNumber": 236,
+              "timeMs": 6361
+            },
+            {
+              "lapNumber": 237,
+              "timeMs": 6042
+            },
+            {
+              "lapNumber": 238,
+              "timeMs": 6039
+            },
+            {
+              "lapNumber": 239,
+              "timeMs": 6191
+            },
+            {
+              "lapNumber": 240,
+              "timeMs": 10338
+            },
+            {
+              "lapNumber": 241,
+              "timeMs": 6536
+            },
+            {
+              "lapNumber": 242,
+              "timeMs": 6265
+            },
+            {
+              "lapNumber": 243,
+              "timeMs": 6164
+            },
+            {
+              "lapNumber": 244,
+              "timeMs": 8362
+            },
+            {
+              "lapNumber": 245,
+              "timeMs": 6126
+            },
+            {
+              "lapNumber": 246,
+              "timeMs": 6254
+            },
+            {
+              "lapNumber": 247,
+              "timeMs": 9562
+            },
+            {
+              "lapNumber": 248,
+              "timeMs": 6403
+            },
+            {
+              "lapNumber": 249,
+              "timeMs": 6429
+            }
+          ]
+        },
+        {
+          "id": "702dca21-22db-4260-b363-f26d764fb4bf",
+          "segmentNumber": 12,
+          "description": "New Battery",
+          "startLap": 250,
+          "endLap": 281,
+          "repeat": "16/32 (50%)",
+          "fastLapSec": 5.9,
+          "avgInfo": "5.9 (22)",
+          "feedback": "Drives Great – Looking for what if",
+          "lapTimes": [
+            {
+              "lapNumber": 250,
+              "timeMs": 113824
+            },
+            {
+              "lapNumber": 251,
+              "timeMs": 7713
+            },
+            {
+              "lapNumber": 252,
+              "timeMs": 7015
+            },
+            {
+              "lapNumber": 253,
+              "timeMs": 8343
+            },
+            {
+              "lapNumber": 254,
+              "timeMs": 6161
+            },
+            {
+              "lapNumber": 255,
+              "timeMs": 8068
+            },
+            {
+              "lapNumber": 256,
+              "timeMs": 6365
+            },
+            {
+              "lapNumber": 257,
+              "timeMs": 8887
+            },
+            {
+              "lapNumber": 258,
+              "timeMs": 8308
+            },
+            {
+              "lapNumber": 259,
+              "timeMs": 6715
+            },
+            {
+              "lapNumber": 260,
+              "timeMs": 6217
+            },
+            {
+              "lapNumber": 261,
+              "timeMs": 9015
+            },
+            {
+              "lapNumber": 262,
+              "timeMs": 6354
+            },
+            {
+              "lapNumber": 263,
+              "timeMs": 7004
+            },
+            {
+              "lapNumber": 264,
+              "timeMs": 6727
+            },
+            {
+              "lapNumber": 265,
+              "timeMs": 5954
+            },
+            {
+              "lapNumber": 266,
+              "timeMs": 7146
+            },
+            {
+              "lapNumber": 267,
+              "timeMs": 10104
+            },
+            {
+              "lapNumber": 268,
+              "timeMs": 6245
+            },
+            {
+              "lapNumber": 269,
+              "timeMs": 6497
+            },
+            {
+              "lapNumber": 270,
+              "timeMs": 6725
+            },
+            {
+              "lapNumber": 271,
+              "timeMs": 6872
+            },
+            {
+              "lapNumber": 272,
+              "timeMs": 6011
+            },
+            {
+              "lapNumber": 273,
+              "timeMs": 5963
+            },
+            {
+              "lapNumber": 274,
+              "timeMs": 5948
+            },
+            {
+              "lapNumber": 275,
+              "timeMs": 6057
+            },
+            {
+              "lapNumber": 276,
+              "timeMs": 6020
+            },
+            {
+              "lapNumber": 277,
+              "timeMs": 6134
+            },
+            {
+              "lapNumber": 278,
+              "timeMs": 6146
+            },
+            {
+              "lapNumber": 279,
+              "timeMs": 6458
+            },
+            {
+              "lapNumber": 280,
+              "timeMs": 6113
+            },
+            {
+              "lapNumber": 281,
+              "timeMs": 6095
+            }
+          ]
+        },
+        {
+          "id": "4c5aa4e0-a289-4d57-bd44-bc50801ebfef",
+          "segmentNumber": 13,
+          "description": "Front DAA Springs: Yellow (Med) Front Ride Height: 2.1",
+          "startLap": 282,
+          "endLap": 301,
+          "repeat": "10/20 (50%)",
+          "fastLapSec": 5.8,
+          "avgInfo": "6.0 (13)",
+          "feedback": "Drives Great – Looking for more speed",
+          "lapTimes": [
+            {
+              "lapNumber": 282,
+              "timeMs": 563829
+            },
+            {
+              "lapNumber": 283,
+              "timeMs": 9121
+            },
+            {
+              "lapNumber": 284,
+              "timeMs": 6604
+            },
+            {
+              "lapNumber": 285,
+              "timeMs": 8539
+            },
+            {
+              "lapNumber": 286,
+              "timeMs": 7768
+            },
+            {
+              "lapNumber": 287,
+              "timeMs": 6249
+            },
+            {
+              "lapNumber": 288,
+              "timeMs": 10146
+            },
+            {
+              "lapNumber": 289,
+              "timeMs": 8127
+            },
+            {
+              "lapNumber": 290,
+              "timeMs": 6229
+            },
+            {
+              "lapNumber": 291,
+              "timeMs": 6218
+            },
+            {
+              "lapNumber": 292,
+              "timeMs": 6820
+            },
+            {
+              "lapNumber": 293,
+              "timeMs": 8561
+            },
+            {
+              "lapNumber": 294,
+              "timeMs": 5862
+            },
+            {
+              "lapNumber": 295,
+              "timeMs": 6216
+            },
+            {
+              "lapNumber": 296,
+              "timeMs": 6192
+            },
+            {
+              "lapNumber": 297,
+              "timeMs": 5997
+            },
+            {
+              "lapNumber": 298,
+              "timeMs": 6507
+            },
+            {
+              "lapNumber": 299,
+              "timeMs": 6100
+            },
+            {
+              "lapNumber": 300,
+              "timeMs": 6023
+            },
+            {
+              "lapNumber": 301,
+              "timeMs": 6022
+            }
+          ]
+        },
+        {
+          "id": "47729c61-f614-4fa2-a73c-f0f554566cce",
+          "segmentNumber": 14,
+          "description": "Toe Angle: 2 degrees out",
+          "startLap": 302,
+          "endLap": 362,
+          "repeat": "21/61 (34%)",
+          "fastLapSec": 5.8,
+          "avgInfo": "6.2 (38)",
+          "lapTimes": [
+            {
+              "lapNumber": 302,
+              "timeMs": 1462613
+            },
+            {
+              "lapNumber": 303,
+              "timeMs": 6638
+            },
+            {
+              "lapNumber": 304,
+              "timeMs": 7133
+            },
+            {
+              "lapNumber": 305,
+              "timeMs": 7998
+            },
+            {
+              "lapNumber": 306,
+              "timeMs": 6079
+            },
+            {
+              "lapNumber": 307,
+              "timeMs": 6311
+            },
+            {
+              "lapNumber": 308,
+              "timeMs": 9339
+            },
+            {
+              "lapNumber": 309,
+              "timeMs": 6154
+            },
+            {
+              "lapNumber": 310,
+              "timeMs": 10799
+            },
+            {
+              "lapNumber": 311,
+              "timeMs": 6133
+            },
+            {
+              "lapNumber": 312,
+              "timeMs": 8951
+            },
+            {
+              "lapNumber": 313,
+              "timeMs": 9816
+            },
+            {
+              "lapNumber": 314,
+              "timeMs": 9985
+            },
+            {
+              "lapNumber": 315,
+              "timeMs": 5932
+            },
+            {
+              "lapNumber": 316,
+              "timeMs": 11864
+            },
+            {
+              "lapNumber": 317,
+              "timeMs": 6024
+            },
+            {
+              "lapNumber": 318,
+              "timeMs": 6488
+            },
+            {
+              "lapNumber": 319,
+              "timeMs": 7850
+            },
+            {
+              "lapNumber": 320,
+              "timeMs": 6334
+            },
+            {
+              "lapNumber": 321,
+              "timeMs": 5816
+            },
+            {
+              "lapNumber": 322,
+              "timeMs": 6405
+            },
+            {
+              "lapNumber": 323,
+              "timeMs": 7389
+            },
+            {
+              "lapNumber": 324,
+              "timeMs": 6470
+            },
+            {
+              "lapNumber": 325,
+              "timeMs": 7549
+            },
+            {
+              "lapNumber": 326,
+              "timeMs": 6117
+            },
+            {
+              "lapNumber": 327,
+              "timeMs": 5947
+            },
+            {
+              "lapNumber": 328,
+              "timeMs": 5875
+            },
+            {
+              "lapNumber": 329,
+              "timeMs": 7233
+            },
+            {
+              "lapNumber": 330,
+              "timeMs": 8436
+            },
+            {
+              "lapNumber": 331,
+              "timeMs": 21937
+            },
+            {
+              "lapNumber": 332,
+              "timeMs": 7795
+            },
+            {
+              "lapNumber": 333,
+              "timeMs": 6007
+            },
+            {
+              "lapNumber": 334,
+              "timeMs": 6790
+            },
+            {
+              "lapNumber": 335,
+              "timeMs": 10485
+            },
+            {
+              "lapNumber": 336,
+              "timeMs": 8197
+            },
+            {
+              "lapNumber": 337,
+              "timeMs": 12608
+            },
+            {
+              "lapNumber": 338,
+              "timeMs": 6587
+            },
+            {
+              "lapNumber": 339,
+              "timeMs": 6422
+            },
+            {
+              "lapNumber": 340,
+              "timeMs": 10645
+            },
+            {
+              "lapNumber": 341,
+              "timeMs": 6378
+            },
+            {
+              "lapNumber": 342,
+              "timeMs": 7805
+            },
+            {
+              "lapNumber": 343,
+              "timeMs": 6486
+            },
+            {
+              "lapNumber": 344,
+              "timeMs": 6644
+            },
+            {
+              "lapNumber": 345,
+              "timeMs": 6992
+            },
+            {
+              "lapNumber": 346,
+              "timeMs": 6231
+            },
+            {
+              "lapNumber": 347,
+              "timeMs": 6403
+            },
+            {
+              "lapNumber": 348,
+              "timeMs": 6344
+            },
+            {
+              "lapNumber": 349,
+              "timeMs": 5959
+            },
+            {
+              "lapNumber": 350,
+              "timeMs": 9480
+            },
+            {
+              "lapNumber": 351,
+              "timeMs": 6273
+            },
+            {
+              "lapNumber": 352,
+              "timeMs": 9587
+            },
+            {
+              "lapNumber": 353,
+              "timeMs": 6621
+            },
+            {
+              "lapNumber": 354,
+              "timeMs": 6289
+            },
+            {
+              "lapNumber": 355,
+              "timeMs": 6084
+            },
+            {
+              "lapNumber": 356,
+              "timeMs": 6095
+            },
+            {
+              "lapNumber": 357,
+              "timeMs": 7551
+            },
+            {
+              "lapNumber": 358,
+              "timeMs": 6003
+            },
+            {
+              "lapNumber": 359,
+              "timeMs": 6051
+            },
+            {
+              "lapNumber": 360,
+              "timeMs": 6223
+            },
+            {
+              "lapNumber": 361,
+              "timeMs": 6787
+            },
+            {
+              "lapNumber": 362,
+              "timeMs": 6410
+            }
+          ]
+        },
+        {
+          "id": "a86946f0-3b61-4d3c-b1bc-70cc05736f4c",
+          "segmentNumber": 15,
+          "description": "New Battery",
+          "startLap": 363,
+          "endLap": 395,
+          "repeat": "14/33 (44%)",
+          "fastLapSec": 5.8,
+          "avgInfo": "6.3 (15)",
+          "feedback": "Steering is improved but unpredictable on throttle",
+          "lapTimes": [
+            {
+              "lapNumber": 363,
+              "timeMs": 132198
+            },
+            {
+              "lapNumber": 364,
+              "timeMs": 6237
+            },
+            {
+              "lapNumber": 365,
+              "timeMs": 6915
+            },
+            {
+              "lapNumber": 366,
+              "timeMs": 6095
+            },
+            {
+              "lapNumber": 367,
+              "timeMs": 6021
+            },
+            {
+              "lapNumber": 368,
+              "timeMs": 11958
+            },
+            {
+              "lapNumber": 369,
+              "timeMs": 33268
+            },
+            {
+              "lapNumber": 370,
+              "timeMs": 6612
+            },
+            {
+              "lapNumber": 371,
+              "timeMs": 10793
+            },
+            {
+              "lapNumber": 372,
+              "timeMs": 7103
+            },
+            {
+              "lapNumber": 373,
+              "timeMs": 7790
+            },
+            {
+              "lapNumber": 374,
+              "timeMs": 6294
+            },
+            {
+              "lapNumber": 375,
+              "timeMs": 11874
+            },
+            {
+              "lapNumber": 376,
+              "timeMs": 8509
+            },
+            {
+              "lapNumber": 377,
+              "timeMs": 8300
+            },
+            {
+              "lapNumber": 378,
+              "timeMs": 8005
+            },
+            {
+              "lapNumber": 379,
+              "timeMs": 7991
+            },
+            {
+              "lapNumber": 380,
+              "timeMs": 7824
+            },
+            {
+              "lapNumber": 381,
+              "timeMs": 6203
+            },
+            {
+              "lapNumber": 382,
+              "timeMs": 6241
+            },
+            {
+              "lapNumber": 383,
+              "timeMs": 6100
+            },
+            {
+              "lapNumber": 384,
+              "timeMs": 5860
+            },
+            {
+              "lapNumber": 385,
+              "timeMs": 6375
+            },
+            {
+              "lapNumber": 386,
+              "timeMs": 6540
+            },
+            {
+              "lapNumber": 387,
+              "timeMs": 6085
+            },
+            {
+              "lapNumber": 388,
+              "timeMs": 6008
+            },
+            {
+              "lapNumber": 389,
+              "timeMs": 7462
+            },
+            {
+              "lapNumber": 390,
+              "timeMs": 8226
+            },
+            {
+              "lapNumber": 391,
+              "timeMs": 14151
+            },
+            {
+              "lapNumber": 392,
+              "timeMs": 8413
+            },
+            {
+              "lapNumber": 393,
+              "timeMs": 6005
+            },
+            {
+              "lapNumber": 394,
+              "timeMs": 6461
+            },
+            {
+              "lapNumber": 395,
+              "timeMs": 9385
+            }
+          ]
+        },
+        {
+          "id": "4f8fd02b-33a1-4c33-b871-1fa65cf30428",
+          "segmentNumber": 16,
+          "description": "Rear Diff – Tight – ¼ turn",
+          "startLap": 396,
+          "endLap": 401,
+          "repeat": "1 / 6 (16%)",
+          "fastLapSec": 6.3,
+          "avgInfo": "6.3 (3)",
+          "feedback": "Diff Too loose",
+          "lapTimes": [
+            {
+              "lapNumber": 396,
+              "timeMs": 570282
+            },
+            {
+              "lapNumber": 397,
+              "timeMs": 6404
+            },
+            {
+              "lapNumber": 398,
+              "timeMs": 9920
+            },
+            {
+              "lapNumber": 399,
+              "timeMs": 6459
+            },
+            {
+              "lapNumber": 400,
+              "timeMs": 6306
+            },
+            {
+              "lapNumber": 401,
+              "timeMs": 10256
+            }
+          ]
+        },
+        {
+          "id": "e819f3e8-968e-4ac3-8ac5-c8b45765a1a9",
+          "segmentNumber": 17,
+          "description": "Rear Diff – Tight – 1/8 turn",
+          "startLap": 402,
+          "endLap": 435,
+          "repeat": "18/34 (52%)",
+          "fastLapSec": 5.7,
+          "avgInfo": "6.1 (20)",
+          "feedback": "Drives Great – Looking for more speed",
+          "lapTimes": [
+            {
+              "lapNumber": 402,
+              "timeMs": 7549
+            },
+            {
+              "lapNumber": 403,
+              "timeMs": 7514
+            },
+            {
+              "lapNumber": 404,
+              "timeMs": 7137
+            },
+            {
+              "lapNumber": 405,
+              "timeMs": 132787
+            },
+            {
+              "lapNumber": 406,
+              "timeMs": 9262
+            },
+            {
+              "lapNumber": 407,
+              "timeMs": 8300
+            },
+            {
+              "lapNumber": 408,
+              "timeMs": 6365
+            },
+            {
+              "lapNumber": 409,
+              "timeMs": 8073
+            },
+            {
+              "lapNumber": 410,
+              "timeMs": 6554
+            },
+            {
+              "lapNumber": 411,
+              "timeMs": 7657
+            },
+            {
+              "lapNumber": 412,
+              "timeMs": 6236
+            },
+            {
+              "lapNumber": 413,
+              "timeMs": 6776
+            },
+            {
+              "lapNumber": 414,
+              "timeMs": 6161
+            },
+            {
+              "lapNumber": 415,
+              "timeMs": 6415
+            },
+            {
+              "lapNumber": 416,
+              "timeMs": 5853
+            },
+            {
+              "lapNumber": 417,
+              "timeMs": 7156
+            },
+            {
+              "lapNumber": 418,
+              "timeMs": 6034
+            },
+            {
+              "lapNumber": 419,
+              "timeMs": 6039
+            },
+            {
+              "lapNumber": 420,
+              "timeMs": 8113
+            },
+            {
+              "lapNumber": 421,
+              "timeMs": 8741
+            },
+            {
+              "lapNumber": 422,
+              "timeMs": 6982
+            },
+            {
+              "lapNumber": 423,
+              "timeMs": 6213
+            },
+            {
+              "lapNumber": 424,
+              "timeMs": 6074
+            },
+            {
+              "lapNumber": 425,
+              "timeMs": 5887
+            },
+            {
+              "lapNumber": 426,
+              "timeMs": 5783
+            },
+            {
+              "lapNumber": 427,
+              "timeMs": 6036
+            },
+            {
+              "lapNumber": 428,
+              "timeMs": 6062
+            },
+            {
+              "lapNumber": 429,
+              "timeMs": 6074
+            },
+            {
+              "lapNumber": 430,
+              "timeMs": 6742
+            },
+            {
+              "lapNumber": 431,
+              "timeMs": 7042
+            },
+            {
+              "lapNumber": 432,
+              "timeMs": 6524
+            },
+            {
+              "lapNumber": 433,
+              "timeMs": 6837
+            },
+            {
+              "lapNumber": 434,
+              "timeMs": 6061
+            },
+            {
+              "lapNumber": 435,
+              "timeMs": 5995
+            }
+          ]
+        },
+        {
+          "id": "0d43e092-e009-4ece-8d3c-a5dec4c1ee6d",
+          "segmentNumber": 18,
+          "description": "Center Damper Grease: : Atomic 15000",
+          "startLap": 436,
+          "endLap": 461,
+          "repeat": "15/26 (57%)",
+          "fastLapSec": 5.7,
+          "avgInfo": "6.2 (17)",
+          "feedback": "Drives Great – Looking for more speed",
+          "lapTimes": [
+            {
+              "lapNumber": 436,
+              "timeMs": 471696
+            },
+            {
+              "lapNumber": 437,
+              "timeMs": 9013
+            },
+            {
+              "lapNumber": 438,
+              "timeMs": 11370
+            },
+            {
+              "lapNumber": 439,
+              "timeMs": 9199
+            },
+            {
+              "lapNumber": 440,
+              "timeMs": 6348
+            },
+            {
+              "lapNumber": 441,
+              "timeMs": 6146
+            },
+            {
+              "lapNumber": 442,
+              "timeMs": 6317
+            },
+            {
+              "lapNumber": 443,
+              "timeMs": 5754
+            },
+            {
+              "lapNumber": 444,
+              "timeMs": 11962
+            },
+            {
+              "lapNumber": 445,
+              "timeMs": 10822
+            },
+            {
+              "lapNumber": 446,
+              "timeMs": 7633
+            },
+            {
+              "lapNumber": 447,
+              "timeMs": 6349
+            },
+            {
+              "lapNumber": 448,
+              "timeMs": 6080
+            },
+            {
+              "lapNumber": 449,
+              "timeMs": 6367
+            },
+            {
+              "lapNumber": 450,
+              "timeMs": 6089
+            },
+            {
+              "lapNumber": 451,
+              "timeMs": 6085
+            },
+            {
+              "lapNumber": 452,
+              "timeMs": 6320
+            },
+            {
+              "lapNumber": 453,
+              "timeMs": 6108
+            },
+            {
+              "lapNumber": 454,
+              "timeMs": 7115
+            },
+            {
+              "lapNumber": 455,
+              "timeMs": 6502
+            },
+            {
+              "lapNumber": 456,
+              "timeMs": 5923
+            },
+            {
+              "lapNumber": 457,
+              "timeMs": 7094
+            },
+            {
+              "lapNumber": 458,
+              "timeMs": 6068
+            },
+            {
+              "lapNumber": 459,
+              "timeMs": 6039
+            },
+            {
+              "lapNumber": 460,
+              "timeMs": 6000
+            },
+            {
+              "lapNumber": 461,
+              "timeMs": 6210
+            }
+          ]
+        },
+        {
+          "id": "bcb84614-7e08-4f26-a2c1-952870f028dd",
+          "segmentNumber": 19,
+          "description": "Rear Top Spring: Medium (hard) - 3 Turns",
+          "startLap": 462,
+          "endLap": 505,
+          "repeat": "24/44 (54%)",
+          "fastLapSec": 5.8,
+          "avgInfo": "6.2 (31)",
+          "feedback": "Drives Great – Looking for more speed",
+          "lapTimes": [
+            {
+              "lapNumber": 462,
+              "timeMs": 15408
+            },
+            {
+              "lapNumber": 463,
+              "timeMs": 9278
+            },
+            {
+              "lapNumber": 464,
+              "timeMs": 6059
+            },
+            {
+              "lapNumber": 465,
+              "timeMs": 6102
+            },
+            {
+              "lapNumber": 466,
+              "timeMs": 354122
+            },
+            {
+              "lapNumber": 467,
+              "timeMs": 13294
+            },
+            {
+              "lapNumber": 468,
+              "timeMs": 6230
+            },
+            {
+              "lapNumber": 469,
+              "timeMs": 6374
+            },
+            {
+              "lapNumber": 470,
+              "timeMs": 6035
+            },
+            {
+              "lapNumber": 471,
+              "timeMs": 5998
+            },
+            {
+              "lapNumber": 472,
+              "timeMs": 6219
+            },
+            {
+              "lapNumber": 473,
+              "timeMs": 6145
+            },
+            {
+              "lapNumber": 474,
+              "timeMs": 10527
+            },
+            {
+              "lapNumber": 475,
+              "timeMs": 6540
+            },
+            {
+              "lapNumber": 476,
+              "timeMs": 5821
+            },
+            {
+              "lapNumber": 477,
+              "timeMs": 6120
+            },
+            {
+              "lapNumber": 478,
+              "timeMs": 8179
+            },
+            {
+              "lapNumber": 479,
+              "timeMs": 6248
+            },
+            {
+              "lapNumber": 480,
+              "timeMs": 6050
+            },
+            {
+              "lapNumber": 481,
+              "timeMs": 6079
+            },
+            {
+              "lapNumber": 482,
+              "timeMs": 6192
+            },
+            {
+              "lapNumber": 483,
+              "timeMs": 6757
+            },
+            {
+              "lapNumber": 484,
+              "timeMs": 8086
+            },
+            {
+              "lapNumber": 485,
+              "timeMs": 8638
+            },
+            {
+              "lapNumber": 486,
+              "timeMs": 6085
+            },
+            {
+              "lapNumber": 487,
+              "timeMs": 8005
+            },
+            {
+              "lapNumber": 488,
+              "timeMs": 6162
+            },
+            {
+              "lapNumber": 489,
+              "timeMs": 6511
+            },
+            {
+              "lapNumber": 490,
+              "timeMs": 7687
+            },
+            {
+              "lapNumber": 491,
+              "timeMs": 6341
+            },
+            {
+              "lapNumber": 492,
+              "timeMs": 7656
+            },
+            {
+              "lapNumber": 493,
+              "timeMs": 6079
+            },
+            {
+              "lapNumber": 494,
+              "timeMs": 6151
+            },
+            {
+              "lapNumber": 495,
+              "timeMs": 6666
+            },
+            {
+              "lapNumber": 496,
+              "timeMs": 6162
+            },
+            {
+              "lapNumber": 497,
+              "timeMs": 5864
+            },
+            {
+              "lapNumber": 498,
+              "timeMs": 6135
+            },
+            {
+              "lapNumber": 499,
+              "timeMs": 6709
+            },
+            {
+              "lapNumber": 500,
+              "timeMs": 6501
+            },
+            {
+              "lapNumber": 501,
+              "timeMs": 6202
+            },
+            {
+              "lapNumber": 502,
+              "timeMs": 7441
+            },
+            {
+              "lapNumber": 503,
+              "timeMs": 6386
+            },
+            {
+              "lapNumber": 504,
+              "timeMs": 6883
+            },
+            {
+              "lapNumber": 505,
+              "timeMs": 6366
+            }
+          ]
+        },
+        {
+          "id": "5e7434d3-898a-40ee-bd06-e6abe6cf95ec",
+          "segmentNumber": 20,
+          "description": "Diff – Atomic gear diff (Stock) New Battery",
+          "startLap": 506,
+          "endLap": 537,
+          "repeat": "7/32 (21%)",
+          "fastLapSec": 6,
+          "avgInfo": "6.3 (16)",
+          "lapTimes": [
+            {
+              "lapNumber": 506,
+              "timeMs": 861142
+            },
+            {
+              "lapNumber": 507,
+              "timeMs": 7657
+            },
+            {
+              "lapNumber": 508,
+              "timeMs": 6707
+            },
+            {
+              "lapNumber": 509,
+              "timeMs": 6214
+            },
+            {
+              "lapNumber": 510,
+              "timeMs": 10910
+            },
+            {
+              "lapNumber": 511,
+              "timeMs": 8896
+            },
+            {
+              "lapNumber": 512,
+              "timeMs": 16230
+            },
+            {
+              "lapNumber": 513,
+              "timeMs": 6528
+            },
+            {
+              "lapNumber": 514,
+              "timeMs": 6696
+            },
+            {
+              "lapNumber": 515,
+              "timeMs": 9632
+            },
+            {
+              "lapNumber": 516,
+              "timeMs": 10261
+            },
+            {
+              "lapNumber": 517,
+              "timeMs": 7255
+            },
+            {
+              "lapNumber": 518,
+              "timeMs": 56791
+            },
+            {
+              "lapNumber": 519,
+              "timeMs": 10624
+            },
+            {
+              "lapNumber": 520,
+              "timeMs": 6366
+            },
+            {
+              "lapNumber": 521,
+              "timeMs": 21068
+            },
+            {
+              "lapNumber": 522,
+              "timeMs": 6961
+            },
+            {
+              "lapNumber": 523,
+              "timeMs": 6242
+            },
+            {
+              "lapNumber": 524,
+              "timeMs": 10434
+            },
+            {
+              "lapNumber": 525,
+              "timeMs": 6168
+            },
+            {
+              "lapNumber": 526,
+              "timeMs": 7911
+            },
+            {
+              "lapNumber": 527,
+              "timeMs": 6478
+            },
+            {
+              "lapNumber": 528,
+              "timeMs": 11143
+            },
+            {
+              "lapNumber": 529,
+              "timeMs": 6384
+            },
+            {
+              "lapNumber": 530,
+              "timeMs": 7816
+            },
+            {
+              "lapNumber": 531,
+              "timeMs": 6491
+            },
+            {
+              "lapNumber": 532,
+              "timeMs": 6484
+            },
+            {
+              "lapNumber": 533,
+              "timeMs": 10519
+            },
+            {
+              "lapNumber": 534,
+              "timeMs": 6092
+            },
+            {
+              "lapNumber": 535,
+              "timeMs": 6086
+            },
+            {
+              "lapNumber": 536,
+              "timeMs": 6159
+            },
+            {
+              "lapNumber": 537,
+              "timeMs": 6058
+            }
+          ]
+        },
+        {
+          "id": "4a71697c-4ea0-46f4-9ac4-fe6116748940",
+          "segmentNumber": 21,
+          "description": "Rear Top Spring: Medium (Yellow) + 3 Turns",
+          "startLap": 538,
+          "endLap": 587,
+          "repeat": "20/50 (40%)",
+          "fastLapSec": 5.9,
+          "avgInfo": "6.2 (27)",
+          "lapTimes": [
+            {
+              "lapNumber": 538,
+              "timeMs": 228733
+            },
+            {
+              "lapNumber": 539,
+              "timeMs": 7350
+            },
+            {
+              "lapNumber": 540,
+              "timeMs": 6097
+            },
+            {
+              "lapNumber": 541,
+              "timeMs": 6343
+            },
+            {
+              "lapNumber": 542,
+              "timeMs": 6218
+            },
+            {
+              "lapNumber": 543,
+              "timeMs": 6518
+            },
+            {
+              "lapNumber": 544,
+              "timeMs": 8251
+            },
+            {
+              "lapNumber": 545,
+              "timeMs": 6039
+            },
+            {
+              "lapNumber": 546,
+              "timeMs": 10488
+            },
+            {
+              "lapNumber": 547,
+              "timeMs": 6056
+            },
+            {
+              "lapNumber": 548,
+              "timeMs": 6275
+            },
+            {
+              "lapNumber": 549,
+              "timeMs": 6406
+            },
+            {
+              "lapNumber": 550,
+              "timeMs": 6254
+            },
+            {
+              "lapNumber": 551,
+              "timeMs": 8933
+            },
+            {
+              "lapNumber": 552,
+              "timeMs": 9847
+            },
+            {
+              "lapNumber": 553,
+              "timeMs": 7477
+            },
+            {
+              "lapNumber": 554,
+              "timeMs": 6943
+            },
+            {
+              "lapNumber": 555,
+              "timeMs": 45876
+            },
+            {
+              "lapNumber": 556,
+              "timeMs": 11284
+            },
+            {
+              "lapNumber": 557,
+              "timeMs": 8278
+            },
+            {
+              "lapNumber": 558,
+              "timeMs": 6298
+            },
+            {
+              "lapNumber": 559,
+              "timeMs": 6311
+            },
+            {
+              "lapNumber": 560,
+              "timeMs": 6292
+            },
+            {
+              "lapNumber": 561,
+              "timeMs": 6333
+            },
+            {
+              "lapNumber": 562,
+              "timeMs": 6491
+            },
+            {
+              "lapNumber": 563,
+              "timeMs": 5962
+            },
+            {
+              "lapNumber": 564,
+              "timeMs": 10549
+            },
+            {
+              "lapNumber": 565,
+              "timeMs": 6622
+            },
+            {
+              "lapNumber": 566,
+              "timeMs": 7084
+            },
+            {
+              "lapNumber": 567,
+              "timeMs": 6342
+            },
+            {
+              "lapNumber": 568,
+              "timeMs": 6181
+            },
+            {
+              "lapNumber": 569,
+              "timeMs": 6499
+            },
+            {
+              "lapNumber": 570,
+              "timeMs": 6349
+            },
+            {
+              "lapNumber": 571,
+              "timeMs": 6448
+            },
+            {
+              "lapNumber": 572,
+              "timeMs": 7875
+            },
+            {
+              "lapNumber": 573,
+              "timeMs": 7096
+            },
+            {
+              "lapNumber": 574,
+              "timeMs": 10622
+            },
+            {
+              "lapNumber": 575,
+              "timeMs": 14280
+            },
+            {
+              "lapNumber": 576,
+              "timeMs": 7095
+            },
+            {
+              "lapNumber": 577,
+              "timeMs": 9674
+            },
+            {
+              "lapNumber": 578,
+              "timeMs": 9858
+            },
+            {
+              "lapNumber": 579,
+              "timeMs": 8155
+            },
+            {
+              "lapNumber": 580,
+              "timeMs": 9617
+            },
+            {
+              "lapNumber": 581,
+              "timeMs": 7779
+            },
+            {
+              "lapNumber": 582,
+              "timeMs": 6609
+            },
+            {
+              "lapNumber": 583,
+              "timeMs": 9101
+            },
+            {
+              "lapNumber": 584,
+              "timeMs": 11585
+            },
+            {
+              "lapNumber": 585,
+              "timeMs": 8421
+            },
+            {
+              "lapNumber": 586,
+              "timeMs": 6763
+            },
+            {
+              "lapNumber": 587,
+              "timeMs": 6121
+            }
+          ]
+        },
+        {
+          "id": "549cda53-07cb-4ec7-9661-6f19fc658ff9",
+          "segmentNumber": 22,
+          "description": "Rear Top Spring: Medium (Yellow) + 0 Turns",
+          "startLap": 588,
+          "endLap": 615,
+          "repeat": "14/28 (50%)",
+          "fastLapSec": 6,
+          "avgInfo": "6.2 (20)",
+          "lapTimes": [
+            {
+              "lapNumber": 588,
+              "timeMs": 6467
+            },
+            {
+              "lapNumber": 589,
+              "timeMs": 6423
+            },
+            {
+              "lapNumber": 590,
+              "timeMs": 6585
+            },
+            {
+              "lapNumber": 591,
+              "timeMs": 263549
+            },
+            {
+              "lapNumber": 592,
+              "timeMs": 29423
+            },
+            {
+              "lapNumber": 593,
+              "timeMs": 7463
+            },
+            {
+              "lapNumber": 594,
+              "timeMs": 9313
+            },
+            {
+              "lapNumber": 595,
+              "timeMs": 6301
+            },
+            {
+              "lapNumber": 596,
+              "timeMs": 12177
+            },
+            {
+              "lapNumber": 597,
+              "timeMs": 6264
+            },
+            {
+              "lapNumber": 598,
+              "timeMs": 6370
+            },
+            {
+              "lapNumber": 599,
+              "timeMs": 6979
+            },
+            {
+              "lapNumber": 600,
+              "timeMs": 6832
+            },
+            {
+              "lapNumber": 601,
+              "timeMs": 6077
+            },
+            {
+              "lapNumber": 602,
+              "timeMs": 6233
+            },
+            {
+              "lapNumber": 603,
+              "timeMs": 8233
+            },
+            {
+              "lapNumber": 604,
+              "timeMs": 9167
+            },
+            {
+              "lapNumber": 605,
+              "timeMs": 6885
+            },
+            {
+              "lapNumber": 606,
+              "timeMs": 6385
+            },
+            {
+              "lapNumber": 607,
+              "timeMs": 6209
+            },
+            {
+              "lapNumber": 608,
+              "timeMs": 6476
+            },
+            {
+              "lapNumber": 609,
+              "timeMs": 6667
+            },
+            {
+              "lapNumber": 610,
+              "timeMs": 10275
+            },
+            {
+              "lapNumber": 611,
+              "timeMs": 8184
+            },
+            {
+              "lapNumber": 612,
+              "timeMs": 6587
+            },
+            {
+              "lapNumber": 613,
+              "timeMs": 6352
+            },
+            {
+              "lapNumber": 614,
+              "timeMs": 6307
+            },
+            {
+              "lapNumber": 615,
+              "timeMs": 6274
+            }
+          ]
+        },
+        {
+          "id": "17cd8ea4-128e-4fee-959c-72200c356af6",
+          "segmentNumber": 23,
+          "description": "Marka V5 Front 25° / 11 mm (Medium) (White) (Swapped old tires with slightly used tires)",
+          "startLap": 616,
+          "endLap": 682,
+          "repeat": "35/67 (52%)",
+          "fastLapSec": 6,
+          "avgInfo": "6.4 (45)",
+          "lapTimes": [
+            {
+              "lapNumber": 616,
+              "timeMs": 1018708
+            },
+            {
+              "lapNumber": 617,
+              "timeMs": 7461
+            },
+            {
+              "lapNumber": 618,
+              "timeMs": 7774
+            },
+            {
+              "lapNumber": 619,
+              "timeMs": 10701
+            },
+            {
+              "lapNumber": 620,
+              "timeMs": 6374
+            },
+            {
+              "lapNumber": 621,
+              "timeMs": 11411
+            },
+            {
+              "lapNumber": 622,
+              "timeMs": 6723
+            },
+            {
+              "lapNumber": 623,
+              "timeMs": 7960
+            },
+            {
+              "lapNumber": 624,
+              "timeMs": 6684
+            },
+            {
+              "lapNumber": 625,
+              "timeMs": 7645
+            },
+            {
+              "lapNumber": 626,
+              "timeMs": 7203
+            },
+            {
+              "lapNumber": 627,
+              "timeMs": 7072
+            },
+            {
+              "lapNumber": 628,
+              "timeMs": 13786
+            },
+            {
+              "lapNumber": 629,
+              "timeMs": 6694
+            },
+            {
+              "lapNumber": 630,
+              "timeMs": 6428
+            },
+            {
+              "lapNumber": 631,
+              "timeMs": 6478
+            },
+            {
+              "lapNumber": 632,
+              "timeMs": 6520
+            },
+            {
+              "lapNumber": 633,
+              "timeMs": 6419
+            },
+            {
+              "lapNumber": 634,
+              "timeMs": 6490
+            },
+            {
+              "lapNumber": 635,
+              "timeMs": 6846
+            },
+            {
+              "lapNumber": 636,
+              "timeMs": 6534
+            },
+            {
+              "lapNumber": 637,
+              "timeMs": 8108
+            },
+            {
+              "lapNumber": 638,
+              "timeMs": 9757
+            },
+            {
+              "lapNumber": 639,
+              "timeMs": 6129
+            },
+            {
+              "lapNumber": 640,
+              "timeMs": 7368
+            },
+            {
+              "lapNumber": 641,
+              "timeMs": 6124
+            },
+            {
+              "lapNumber": 642,
+              "timeMs": 6347
+            },
+            {
+              "lapNumber": 643,
+              "timeMs": 6605
+            },
+            {
+              "lapNumber": 644,
+              "timeMs": 7784
+            },
+            {
+              "lapNumber": 645,
+              "timeMs": 6081
+            },
+            {
+              "lapNumber": 646,
+              "timeMs": 6359
+            },
+            {
+              "lapNumber": 647,
+              "timeMs": 6783
+            },
+            {
+              "lapNumber": 648,
+              "timeMs": 6187
+            },
+            {
+              "lapNumber": 649,
+              "timeMs": 6813
+            },
+            {
+              "lapNumber": 650,
+              "timeMs": 6747
+            },
+            {
+              "lapNumber": 651,
+              "timeMs": 6350
+            },
+            {
+              "lapNumber": 652,
+              "timeMs": 6398
+            },
+            {
+              "lapNumber": 653,
+              "timeMs": 6420
+            },
+            {
+              "lapNumber": 654,
+              "timeMs": 10587
+            },
+            {
+              "lapNumber": 655,
+              "timeMs": 7475
+            },
+            {
+              "lapNumber": 656,
+              "timeMs": 6139
+            },
+            {
+              "lapNumber": 657,
+              "timeMs": 6301
+            },
+            {
+              "lapNumber": 658,
+              "timeMs": 6147
+            },
+            {
+              "lapNumber": 659,
+              "timeMs": 7388
+            },
+            {
+              "lapNumber": 660,
+              "timeMs": 7120
+            },
+            {
+              "lapNumber": 661,
+              "timeMs": 11823
+            },
+            {
+              "lapNumber": 662,
+              "timeMs": 8775
+            },
+            {
+              "lapNumber": 663,
+              "timeMs": 6691
+            },
+            {
+              "lapNumber": 664,
+              "timeMs": 7890
+            },
+            {
+              "lapNumber": 665,
+              "timeMs": 6261
+            },
+            {
+              "lapNumber": 666,
+              "timeMs": 6389
+            },
+            {
+              "lapNumber": 667,
+              "timeMs": 6386
+            },
+            {
+              "lapNumber": 668,
+              "timeMs": 6906
+            },
+            {
+              "lapNumber": 669,
+              "timeMs": 10745
+            },
+            {
+              "lapNumber": 670,
+              "timeMs": 6998
+            },
+            {
+              "lapNumber": 671,
+              "timeMs": 6514
+            },
+            {
+              "lapNumber": 672,
+              "timeMs": 9640
+            },
+            {
+              "lapNumber": 673,
+              "timeMs": 6246
+            },
+            {
+              "lapNumber": 674,
+              "timeMs": 6362
+            },
+            {
+              "lapNumber": 675,
+              "timeMs": 6414
+            },
+            {
+              "lapNumber": 676,
+              "timeMs": 6373
+            },
+            {
+              "lapNumber": 677,
+              "timeMs": 6281
+            },
+            {
+              "lapNumber": 678,
+              "timeMs": 6871
+            },
+            {
+              "lapNumber": 679,
+              "timeMs": 6620
+            },
+            {
+              "lapNumber": 680,
+              "timeMs": 6130
+            },
+            {
+              "lapNumber": 681,
+              "timeMs": 6259
+            },
+            {
+              "lapNumber": 682,
+              "timeMs": 6436
+            }
+          ]
+        }
+      ],
+      "totalLaps": 682
+    },
+    {
+      "sessionId": "ed8a0e37-5407-43cd-b4c9-ad3f9b1cb2c6",
+      "date": "2025-12-31",
+      "carId": "car-mrx-me",
+      "trackId": "track-the-cave",
+      "snapshotId": "89bd253b-a9b3-404c-a8d1-c31c0a75416b",
+      "snapshotName": "MRX ME — 2025-12-31",
+      "setupEntries": [
+        {
+          "capabilityId": "front-ride-height",
+          "value": 2.2
+        },
+        {
+          "capabilityId": "front-damper-grease",
+          "value": "Atomic 25000"
+        },
+        {
+          "capabilityId": "daa-spring",
+          "value": "Yellow (Med)"
+        },
+        {
+          "capabilityId": "front-toe",
+          "value": "2 degrees out"
+        },
+        {
+          "capabilityId": "caster",
+          "value": "Bottom Kingpin Shim: 2"
+        },
+        {
+          "capabilityId": "camber",
+          "value": "2"
+        },
+        {
+          "capabilityId": "damper-shim",
+          "value": "1"
+        },
+        {
+          "capabilityId": "axles",
+          "value": "v2"
+        },
+        {
+          "capabilityId": "rear-ride-height",
+          "value": 3.2
+        },
+        {
+          "capabilityId": "rear-spring-style",
+          "value": "Horizontal"
+        },
+        {
+          "capabilityId": "center-damper-grease",
+          "value": "Atomic 45000"
+        },
+        {
+          "capabilityId": "side-spring-damper-grease",
+          "value": "Atomic 25000"
+        },
+        {
+          "capabilityId": "vertical-side-spring",
+          "value": "Medium (Red)"
+        },
+        {
+          "capabilityId": "rear-top-spring",
+          "value": "Medium (Yellow) + 0 Turn"
+        },
+        {
+          "capabilityId": "pinion-gear",
+          "value": "12T"
+        },
+        {
+          "capabilityId": "spur-gear",
+          "value": "Atomic 53T"
+        },
+        {
+          "capabilityId": "diff-type",
+          "value": "Atomic Gear Diff"
+        },
+        {
+          "capabilityId": "motor",
+          "value": "PN 2500kv Anima v4"
+        }
+      ],
+      "segments": [
+        {
+          "id": "eb44eca3-eef8-4838-90c3-053f5d762f6a",
+          "segmentNumber": 1,
+          "description": "Run Baseline Setup w/New Battery Weights LR/RF",
+          "startLap": 1,
+          "endLap": 103,
+          "repeat": "46/103 (44%)",
+          "fastLapSec": 6.136,
+          "avgInfo": "6.536 (63)",
+          "feedback": "Car drives very smooth and fun to drive. Want to find more speed.",
+          "lapTimes": [
+            {
+              "lapNumber": 1,
+              "timeMs": 12132
+            },
+            {
+              "lapNumber": 2,
+              "timeMs": 6525
+            },
+            {
+              "lapNumber": 3,
+              "timeMs": 6967
+            },
+            {
+              "lapNumber": 4,
+              "timeMs": 6341
+            },
+            {
+              "lapNumber": 5,
+              "timeMs": 6670
+            },
+            {
+              "lapNumber": 6,
+              "timeMs": 10368
+            },
+            {
+              "lapNumber": 7,
+              "timeMs": 8090
+            },
+            {
+              "lapNumber": 8,
+              "timeMs": 6570
+            },
+            {
+              "lapNumber": 9,
+              "timeMs": 8821
+            },
+            {
+              "lapNumber": 10,
+              "timeMs": 6289
+            },
+            {
+              "lapNumber": 11,
+              "timeMs": 6597
+            },
+            {
+              "lapNumber": 12,
+              "timeMs": 7142
+            },
+            {
+              "lapNumber": 13,
+              "timeMs": 6795
+            },
+            {
+              "lapNumber": 14,
+              "timeMs": 6506
+            },
+            {
+              "lapNumber": 15,
+              "timeMs": 6757
+            },
+            {
+              "lapNumber": 16,
+              "timeMs": 8868
+            },
+            {
+              "lapNumber": 17,
+              "timeMs": 6664
+            },
+            {
+              "lapNumber": 18,
+              "timeMs": 7113
+            },
+            {
+              "lapNumber": 19,
+              "timeMs": 8052
+            },
+            {
+              "lapNumber": 20,
+              "timeMs": 7933
+            },
+            {
+              "lapNumber": 21,
+              "timeMs": 8771
+            },
+            {
+              "lapNumber": 22,
+              "timeMs": 7385
+            },
+            {
+              "lapNumber": 23,
+              "timeMs": 7613
+            },
+            {
+              "lapNumber": 24,
+              "timeMs": 6535
+            },
+            {
+              "lapNumber": 25,
+              "timeMs": 6750
+            },
+            {
+              "lapNumber": 26,
+              "timeMs": 6687
+            },
+            {
+              "lapNumber": 27,
+              "timeMs": 6605
+            },
+            {
+              "lapNumber": 28,
+              "timeMs": 6485
+            },
+            {
+              "lapNumber": 29,
+              "timeMs": 6701
+            },
+            {
+              "lapNumber": 30,
+              "timeMs": 7063
+            },
+            {
+              "lapNumber": 31,
+              "timeMs": 6281
+            },
+            {
+              "lapNumber": 32,
+              "timeMs": 6697
+            },
+            {
+              "lapNumber": 33,
+              "timeMs": 6519
+            },
+            {
+              "lapNumber": 34,
+              "timeMs": 7533
+            },
+            {
+              "lapNumber": 35,
+              "timeMs": 11997
+            },
+            {
+              "lapNumber": 36,
+              "timeMs": 6892
+            },
+            {
+              "lapNumber": 37,
+              "timeMs": 9452
+            },
+            {
+              "lapNumber": 38,
+              "timeMs": 12752
+            },
+            {
+              "lapNumber": 39,
+              "timeMs": 10091
+            },
+            {
+              "lapNumber": 40,
+              "timeMs": 7989
+            },
+            {
+              "lapNumber": 41,
+              "timeMs": 6646
+            },
+            {
+              "lapNumber": 42,
+              "timeMs": 6882
+            },
+            {
+              "lapNumber": 43,
+              "timeMs": 6698
+            },
+            {
+              "lapNumber": 44,
+              "timeMs": 6448
+            },
+            {
+              "lapNumber": 45,
+              "timeMs": 7104
+            },
+            {
+              "lapNumber": 46,
+              "timeMs": 6542
+            },
+            {
+              "lapNumber": 47,
+              "timeMs": 6833
+            },
+            {
+              "lapNumber": 48,
+              "timeMs": 6476
+            },
+            {
+              "lapNumber": 49,
+              "timeMs": 6733
+            },
+            {
+              "lapNumber": 50,
+              "timeMs": 7169
+            },
+            {
+              "lapNumber": 51,
+              "timeMs": 6473
+            },
+            {
+              "lapNumber": 52,
+              "timeMs": 178456
+            },
+            {
+              "lapNumber": 53,
+              "timeMs": 9247
+            },
+            {
+              "lapNumber": 54,
+              "timeMs": 7997
+            },
+            {
+              "lapNumber": 55,
+              "timeMs": 11701
+            },
+            {
+              "lapNumber": 56,
+              "timeMs": 6548
+            },
+            {
+              "lapNumber": 57,
+              "timeMs": 8200
+            },
+            {
+              "lapNumber": 58,
+              "timeMs": 7937
+            },
+            {
+              "lapNumber": 59,
+              "timeMs": 6670
+            },
+            {
+              "lapNumber": 60,
+              "timeMs": 6948
+            },
+            {
+              "lapNumber": 61,
+              "timeMs": 7488
+            },
+            {
+              "lapNumber": 62,
+              "timeMs": 6774
+            },
+            {
+              "lapNumber": 63,
+              "timeMs": 8712
+            },
+            {
+              "lapNumber": 64,
+              "timeMs": 7413
+            },
+            {
+              "lapNumber": 65,
+              "timeMs": 6799
+            },
+            {
+              "lapNumber": 66,
+              "timeMs": 7923
+            },
+            {
+              "lapNumber": 67,
+              "timeMs": 7760
+            },
+            {
+              "lapNumber": 68,
+              "timeMs": 6331
+            },
+            {
+              "lapNumber": 69,
+              "timeMs": 7522
+            },
+            {
+              "lapNumber": 70,
+              "timeMs": 6369
+            },
+            {
+              "lapNumber": 71,
+              "timeMs": 6186
+            },
+            {
+              "lapNumber": 72,
+              "timeMs": 6759
+            },
+            {
+              "lapNumber": 73,
+              "timeMs": 6252
+            },
+            {
+              "lapNumber": 74,
+              "timeMs": 6277
+            },
+            {
+              "lapNumber": 75,
+              "timeMs": 6619
+            },
+            {
+              "lapNumber": 76,
+              "timeMs": 7902
+            },
+            {
+              "lapNumber": 77,
+              "timeMs": 7063
+            },
+            {
+              "lapNumber": 78,
+              "timeMs": 6214
+            },
+            {
+              "lapNumber": 79,
+              "timeMs": 6461
+            },
+            {
+              "lapNumber": 80,
+              "timeMs": 7167
+            },
+            {
+              "lapNumber": 81,
+              "timeMs": 6517
+            },
+            {
+              "lapNumber": 82,
+              "timeMs": 6235
+            },
+            {
+              "lapNumber": 83,
+              "timeMs": 6686
+            },
+            {
+              "lapNumber": 84,
+              "timeMs": 7828
+            },
+            {
+              "lapNumber": 85,
+              "timeMs": 6357
+            },
+            {
+              "lapNumber": 86,
+              "timeMs": 6136
+            },
+            {
+              "lapNumber": 87,
+              "timeMs": 6692
+            },
+            {
+              "lapNumber": 88,
+              "timeMs": 6444
+            },
+            {
+              "lapNumber": 89,
+              "timeMs": 6388
+            },
+            {
+              "lapNumber": 90,
+              "timeMs": 13710
+            },
+            {
+              "lapNumber": 91,
+              "timeMs": 9200
+            },
+            {
+              "lapNumber": 92,
+              "timeMs": 8975
+            },
+            {
+              "lapNumber": 93,
+              "timeMs": 6703
+            },
+            {
+              "lapNumber": 94,
+              "timeMs": 7148
+            },
+            {
+              "lapNumber": 95,
+              "timeMs": 7040
+            },
+            {
+              "lapNumber": 96,
+              "timeMs": 18390
+            },
+            {
+              "lapNumber": 97,
+              "timeMs": 7850
+            },
+            {
+              "lapNumber": 98,
+              "timeMs": 6851
+            },
+            {
+              "lapNumber": 99,
+              "timeMs": 11887
+            },
+            {
+              "lapNumber": 100,
+              "timeMs": 6714
+            },
+            {
+              "lapNumber": 101,
+              "timeMs": 7477
+            },
+            {
+              "lapNumber": 102,
+              "timeMs": 7113
+            },
+            {
+              "lapNumber": 103,
+              "timeMs": 28522
+            }
+          ]
+        },
+        {
+          "id": "706e595d-8f8b-470b-917a-0b3daa87fec1",
+          "segmentNumber": 2,
+          "description": "Chassis weights LF/RR (New Battery)",
+          "startLap": 104,
+          "endLap": 193,
+          "repeat": "35/90 (40%)",
+          "fastLapSec": 6.055,
+          "avgInfo": "6.422 (57)",
+          "feedback": "Car drives very smooth (Tires: LF: 21.8, RF: 21.2 (no discs on Front) LR: 24.8, RR: 24.7",
+          "lapTimes": [
+            {
+              "lapNumber": 104,
+              "timeMs": 55413837
+            },
+            {
+              "lapNumber": 105,
+              "timeMs": 9689
+            },
+            {
+              "lapNumber": 106,
+              "timeMs": 6567
+            },
+            {
+              "lapNumber": 107,
+              "timeMs": 7178
+            },
+            {
+              "lapNumber": 108,
+              "timeMs": 6998
+            },
+            {
+              "lapNumber": 109,
+              "timeMs": 7569
+            },
+            {
+              "lapNumber": 110,
+              "timeMs": 9226
+            },
+            {
+              "lapNumber": 111,
+              "timeMs": 6300
+            },
+            {
+              "lapNumber": 112,
+              "timeMs": 7476
+            },
+            {
+              "lapNumber": 113,
+              "timeMs": 6404
+            },
+            {
+              "lapNumber": 114,
+              "timeMs": 6326
+            },
+            {
+              "lapNumber": 115,
+              "timeMs": 8352
+            },
+            {
+              "lapNumber": 116,
+              "timeMs": 7131
+            },
+            {
+              "lapNumber": 117,
+              "timeMs": 7997
+            },
+            {
+              "lapNumber": 118,
+              "timeMs": 7072
+            },
+            {
+              "lapNumber": 119,
+              "timeMs": 6294
+            },
+            {
+              "lapNumber": 120,
+              "timeMs": 6832
+            },
+            {
+              "lapNumber": 121,
+              "timeMs": 17885
+            },
+            {
+              "lapNumber": 122,
+              "timeMs": 10187
+            },
+            {
+              "lapNumber": 123,
+              "timeMs": 8502
+            },
+            {
+              "lapNumber": 124,
+              "timeMs": 7278
+            },
+            {
+              "lapNumber": 125,
+              "timeMs": 6818
+            },
+            {
+              "lapNumber": 126,
+              "timeMs": 8531
+            },
+            {
+              "lapNumber": 127,
+              "timeMs": 6620
+            },
+            {
+              "lapNumber": 128,
+              "timeMs": 8647
+            },
+            {
+              "lapNumber": 129,
+              "timeMs": 6549
+            },
+            {
+              "lapNumber": 130,
+              "timeMs": 6266
+            },
+            {
+              "lapNumber": 131,
+              "timeMs": 6175
+            },
+            {
+              "lapNumber": 132,
+              "timeMs": 10572
+            },
+            {
+              "lapNumber": 133,
+              "timeMs": 6132
+            },
+            {
+              "lapNumber": 134,
+              "timeMs": 9540
+            },
+            {
+              "lapNumber": 135,
+              "timeMs": 6743
+            },
+            {
+              "lapNumber": 136,
+              "timeMs": 6185
+            },
+            {
+              "lapNumber": 137,
+              "timeMs": 6260
+            },
+            {
+              "lapNumber": 138,
+              "timeMs": 6055
+            },
+            {
+              "lapNumber": 139,
+              "timeMs": 7462
+            },
+            {
+              "lapNumber": 140,
+              "timeMs": 12068
+            },
+            {
+              "lapNumber": 141,
+              "timeMs": 9710
+            },
+            {
+              "lapNumber": 142,
+              "timeMs": 6468
+            },
+            {
+              "lapNumber": 143,
+              "timeMs": 7157
+            },
+            {
+              "lapNumber": 144,
+              "timeMs": 6291
+            },
+            {
+              "lapNumber": 145,
+              "timeMs": 6174
+            },
+            {
+              "lapNumber": 146,
+              "timeMs": 6537
+            },
+            {
+              "lapNumber": 147,
+              "timeMs": 6084
+            },
+            {
+              "lapNumber": 148,
+              "timeMs": 7141
+            },
+            {
+              "lapNumber": 149,
+              "timeMs": 9576
+            },
+            {
+              "lapNumber": 150,
+              "timeMs": 6761
+            },
+            {
+              "lapNumber": 151,
+              "timeMs": 6177
+            },
+            {
+              "lapNumber": 152,
+              "timeMs": 6327
+            },
+            {
+              "lapNumber": 153,
+              "timeMs": 6166
+            },
+            {
+              "lapNumber": 154,
+              "timeMs": 6561
+            },
+            {
+              "lapNumber": 155,
+              "timeMs": 10330
+            },
+            {
+              "lapNumber": 156,
+              "timeMs": 10203
+            },
+            {
+              "lapNumber": 157,
+              "timeMs": 8300
+            },
+            {
+              "lapNumber": 158,
+              "timeMs": 6749
+            },
+            {
+              "lapNumber": 159,
+              "timeMs": 7183
+            },
+            {
+              "lapNumber": 160,
+              "timeMs": 7555
+            },
+            {
+              "lapNumber": 161,
+              "timeMs": 6584
+            },
+            {
+              "lapNumber": 162,
+              "timeMs": 6248
+            },
+            {
+              "lapNumber": 163,
+              "timeMs": 64340
+            },
+            {
+              "lapNumber": 164,
+              "timeMs": 6302
+            },
+            {
+              "lapNumber": 165,
+              "timeMs": 7145
+            },
+            {
+              "lapNumber": 166,
+              "timeMs": 6428
+            },
+            {
+              "lapNumber": 167,
+              "timeMs": 6363
+            },
+            {
+              "lapNumber": 168,
+              "timeMs": 6424
+            },
+            {
+              "lapNumber": 169,
+              "timeMs": 10033
+            },
+            {
+              "lapNumber": 170,
+              "timeMs": 9804
+            },
+            {
+              "lapNumber": 171,
+              "timeMs": 6781
+            },
+            {
+              "lapNumber": 172,
+              "timeMs": 7128
+            },
+            {
+              "lapNumber": 173,
+              "timeMs": 9133
+            },
+            {
+              "lapNumber": 174,
+              "timeMs": 6176
+            },
+            {
+              "lapNumber": 175,
+              "timeMs": 8055
+            },
+            {
+              "lapNumber": 176,
+              "timeMs": 6914
+            },
+            {
+              "lapNumber": 177,
+              "timeMs": 6182
+            },
+            {
+              "lapNumber": 178,
+              "timeMs": 7320
+            },
+            {
+              "lapNumber": 179,
+              "timeMs": 6353
+            },
+            {
+              "lapNumber": 180,
+              "timeMs": 6642
+            },
+            {
+              "lapNumber": 181,
+              "timeMs": 7303
+            },
+            {
+              "lapNumber": 182,
+              "timeMs": 7996
+            },
+            {
+              "lapNumber": 183,
+              "timeMs": 6285
+            },
+            {
+              "lapNumber": 184,
+              "timeMs": 8610
+            },
+            {
+              "lapNumber": 185,
+              "timeMs": 7382
+            },
+            {
+              "lapNumber": 186,
+              "timeMs": 6461
+            },
+            {
+              "lapNumber": 187,
+              "timeMs": 7291
+            },
+            {
+              "lapNumber": 188,
+              "timeMs": 7323
+            },
+            {
+              "lapNumber": 189,
+              "timeMs": 6831
+            },
+            {
+              "lapNumber": 190,
+              "timeMs": 6343
+            },
+            {
+              "lapNumber": 191,
+              "timeMs": 6225
+            },
+            {
+              "lapNumber": 192,
+              "timeMs": 6664
+            },
+            {
+              "lapNumber": 193,
+              "timeMs": 7118
+            }
+          ]
+        },
+        {
+          "id": "1a18f672-bf94-4237-83ca-602bc5af60a3",
+          "segmentNumber": 3,
+          "description": "Front Ride height: 2.0 (Adjusted by Droop screw) (New Battery)",
+          "startLap": 194,
+          "endLap": 254,
+          "repeat": "20/61 (32%)",
+          "fastLapSec": 6.034,
+          "avgInfo": "6.430 (33)",
+          "feedback": "Not as smooth, steering keeps darting left or right.",
+          "lapTimes": [
+            {
+              "lapNumber": 194,
+              "timeMs": 6037566
+            },
+            {
+              "lapNumber": 195,
+              "timeMs": 8607
+            },
+            {
+              "lapNumber": 196,
+              "timeMs": 11966
+            },
+            {
+              "lapNumber": 197,
+              "timeMs": 9508
+            },
+            {
+              "lapNumber": 198,
+              "timeMs": 6828
+            },
+            {
+              "lapNumber": 199,
+              "timeMs": 9225
+            },
+            {
+              "lapNumber": 200,
+              "timeMs": 7641
+            },
+            {
+              "lapNumber": 201,
+              "timeMs": 32863
+            },
+            {
+              "lapNumber": 202,
+              "timeMs": 9094
+            },
+            {
+              "lapNumber": 203,
+              "timeMs": 6326
+            },
+            {
+              "lapNumber": 204,
+              "timeMs": 7180
+            },
+            {
+              "lapNumber": 205,
+              "timeMs": 9373
+            },
+            {
+              "lapNumber": 206,
+              "timeMs": 8669
+            },
+            {
+              "lapNumber": 207,
+              "timeMs": 6237
+            },
+            {
+              "lapNumber": 208,
+              "timeMs": 6418
+            },
+            {
+              "lapNumber": 209,
+              "timeMs": 6509
+            },
+            {
+              "lapNumber": 210,
+              "timeMs": 6568
+            },
+            {
+              "lapNumber": 211,
+              "timeMs": 6996
+            },
+            {
+              "lapNumber": 212,
+              "timeMs": 11133
+            },
+            {
+              "lapNumber": 213,
+              "timeMs": 7569
+            },
+            {
+              "lapNumber": 214,
+              "timeMs": 6374
+            },
+            {
+              "lapNumber": 215,
+              "timeMs": 6213
+            },
+            {
+              "lapNumber": 216,
+              "timeMs": 8588
+            },
+            {
+              "lapNumber": 217,
+              "timeMs": 6641
+            },
+            {
+              "lapNumber": 218,
+              "timeMs": 6667
+            },
+            {
+              "lapNumber": 219,
+              "timeMs": 9301
+            },
+            {
+              "lapNumber": 220,
+              "timeMs": 6308
+            },
+            {
+              "lapNumber": 221,
+              "timeMs": 8042
+            },
+            {
+              "lapNumber": 222,
+              "timeMs": 9809
+            },
+            {
+              "lapNumber": 223,
+              "timeMs": 6841
+            },
+            {
+              "lapNumber": 224,
+              "timeMs": 6644
+            },
+            {
+              "lapNumber": 225,
+              "timeMs": 7355
+            },
+            {
+              "lapNumber": 226,
+              "timeMs": 8746
+            },
+            {
+              "lapNumber": 227,
+              "timeMs": 6511
+            },
+            {
+              "lapNumber": 228,
+              "timeMs": 9199
+            },
+            {
+              "lapNumber": 229,
+              "timeMs": 14007
+            },
+            {
+              "lapNumber": 230,
+              "timeMs": 8244
+            },
+            {
+              "lapNumber": 231,
+              "timeMs": 6034
+            },
+            {
+              "lapNumber": 232,
+              "timeMs": 8191
+            },
+            {
+              "lapNumber": 233,
+              "timeMs": 9305
+            },
+            {
+              "lapNumber": 234,
+              "timeMs": 11102
+            },
+            {
+              "lapNumber": 235,
+              "timeMs": 6884
+            },
+            {
+              "lapNumber": 236,
+              "timeMs": 6442
+            },
+            {
+              "lapNumber": 237,
+              "timeMs": 6152
+            },
+            {
+              "lapNumber": 238,
+              "timeMs": 8830
+            },
+            {
+              "lapNumber": 239,
+              "timeMs": 6427
+            },
+            {
+              "lapNumber": 240,
+              "timeMs": 6319
+            },
+            {
+              "lapNumber": 241,
+              "timeMs": 6953
+            },
+            {
+              "lapNumber": 242,
+              "timeMs": 6969
+            },
+            {
+              "lapNumber": 243,
+              "timeMs": 6385
+            },
+            {
+              "lapNumber": 244,
+              "timeMs": 8507
+            },
+            {
+              "lapNumber": 245,
+              "timeMs": 6683
+            },
+            {
+              "lapNumber": 246,
+              "timeMs": 6352
+            },
+            {
+              "lapNumber": 247,
+              "timeMs": 6290
+            },
+            {
+              "lapNumber": 248,
+              "timeMs": 7705
+            },
+            {
+              "lapNumber": 249,
+              "timeMs": 6487
+            },
+            {
+              "lapNumber": 250,
+              "timeMs": 6619
+            },
+            {
+              "lapNumber": 251,
+              "timeMs": 6225
+            },
+            {
+              "lapNumber": 252,
+              "timeMs": 6732
+            },
+            {
+              "lapNumber": 253,
+              "timeMs": 6624
+            },
+            {
+              "lapNumber": 254,
+              "timeMs": 6175
+            }
+          ]
+        },
+        {
+          "id": "54feade8-d709-4654-acd2-7bfe18b86ab4",
+          "segmentNumber": 4,
+          "description": "Front Ride height: 2.0 IAdjusted by Spring collar) (New Battery)",
+          "startLap": 255,
+          "endLap": 309,
+          "repeat": "22/52 (42%)",
+          "fastLapSec": 6.015,
+          "avgInfo": "6.305 (36)",
+          "feedback": "Smoothness returned, car feels quicker.",
+          "lapTimes": [
+            {
+              "lapNumber": 255,
+              "timeMs": 1213593
+            },
+            {
+              "lapNumber": 256,
+              "timeMs": 7518
+            },
+            {
+              "lapNumber": 257,
+              "timeMs": 8318
+            },
+            {
+              "lapNumber": 258,
+              "timeMs": 7900
+            },
+            {
+              "lapNumber": 259,
+              "timeMs": 6926
+            },
+            {
+              "lapNumber": 260,
+              "timeMs": 6871
+            },
+            {
+              "lapNumber": 261,
+              "timeMs": 6534
+            },
+            {
+              "lapNumber": 262,
+              "timeMs": 6015
+            },
+            {
+              "lapNumber": 263,
+              "timeMs": 7831
+            },
+            {
+              "lapNumber": 264,
+              "timeMs": 6684
+            },
+            {
+              "lapNumber": 265,
+              "timeMs": 6543
+            },
+            {
+              "lapNumber": 266,
+              "timeMs": 6232
+            },
+            {
+              "lapNumber": 267,
+              "timeMs": 7766
+            },
+            {
+              "lapNumber": 268,
+              "timeMs": 6597
+            },
+            {
+              "lapNumber": 269,
+              "timeMs": 6193
+            },
+            {
+              "lapNumber": 270,
+              "timeMs": 6371
+            },
+            {
+              "lapNumber": 271,
+              "timeMs": 10130
+            },
+            {
+              "lapNumber": 272,
+              "timeMs": 8646
+            },
+            {
+              "lapNumber": 273,
+              "timeMs": 6618
+            },
+            {
+              "lapNumber": 274,
+              "timeMs": 8485
+            },
+            {
+              "lapNumber": 275,
+              "timeMs": 8911
+            },
+            {
+              "lapNumber": 276,
+              "timeMs": 6467
+            },
+            {
+              "lapNumber": 277,
+              "timeMs": 7405
+            },
+            {
+              "lapNumber": 278,
+              "timeMs": 20938
+            },
+            {
+              "lapNumber": 279,
+              "timeMs": 6036
+            },
+            {
+              "lapNumber": 280,
+              "timeMs": 6222
+            },
+            {
+              "lapNumber": 281,
+              "timeMs": 6630
+            },
+            {
+              "lapNumber": 282,
+              "timeMs": 6137
+            },
+            {
+              "lapNumber": 283,
+              "timeMs": 6078
+            },
+            {
+              "lapNumber": 284,
+              "timeMs": 6280
+            },
+            {
+              "lapNumber": 285,
+              "timeMs": 6039
+            },
+            {
+              "lapNumber": 286,
+              "timeMs": 8840
+            },
+            {
+              "lapNumber": 287,
+              "timeMs": 6395
+            },
+            {
+              "lapNumber": 288,
+              "timeMs": 6284
+            },
+            {
+              "lapNumber": 289,
+              "timeMs": 7751
+            },
+            {
+              "lapNumber": 290,
+              "timeMs": 6980
+            },
+            {
+              "lapNumber": 291,
+              "timeMs": 6154
+            },
+            {
+              "lapNumber": 292,
+              "timeMs": 6962
+            },
+            {
+              "lapNumber": 293,
+              "timeMs": 6125
+            },
+            {
+              "lapNumber": 294,
+              "timeMs": 6161
+            },
+            {
+              "lapNumber": 295,
+              "timeMs": 6248
+            },
+            {
+              "lapNumber": 296,
+              "timeMs": 6721
+            },
+            {
+              "lapNumber": 297,
+              "timeMs": 7339
+            },
+            {
+              "lapNumber": 298,
+              "timeMs": 7338
+            },
+            {
+              "lapNumber": 299,
+              "timeMs": 6282
+            },
+            {
+              "lapNumber": 300,
+              "timeMs": 6832
+            },
+            {
+              "lapNumber": 301,
+              "timeMs": 6264
+            },
+            {
+              "lapNumber": 302,
+              "timeMs": 6921
+            },
+            {
+              "lapNumber": 303,
+              "timeMs": 6144
+            },
+            {
+              "lapNumber": 304,
+              "timeMs": 6620
+            },
+            {
+              "lapNumber": 305,
+              "timeMs": 6207
+            },
+            {
+              "lapNumber": 306,
+              "timeMs": 6242
+            },
+            {
+              "lapNumber": 307,
+              "timeMs": 6398
+            },
+            {
+              "lapNumber": 308,
+              "timeMs": 6153
+            },
+            {
+              "lapNumber": 309,
+              "timeMs": 6128
+            }
+          ]
+        },
+        {
+          "id": "6441edb8-efa3-47db-8a7f-b66cd2dc72fe",
+          "segmentNumber": 5,
+          "description": "Rear Top Spring: Hard (Purple)",
+          "startLap": 310,
+          "endLap": 357,
+          "repeat": "21/48 (44%)",
+          "fastLapSec": 6.192,
+          "avgInfo": "6.63 (21)",
+          "feedback": "Rear of the car vibrates. The car sounds faster, but the lap times do not show it.",
+          "lapTimes": [
+            {
+              "lapNumber": 310,
+              "timeMs": 1504684
+            },
+            {
+              "lapNumber": 311,
+              "timeMs": 7276
+            },
+            {
+              "lapNumber": 312,
+              "timeMs": 7285
+            },
+            {
+              "lapNumber": 313,
+              "timeMs": 6412
+            },
+            {
+              "lapNumber": 314,
+              "timeMs": 12812
+            },
+            {
+              "lapNumber": 315,
+              "timeMs": 9203
+            },
+            {
+              "lapNumber": 316,
+              "timeMs": 8516
+            },
+            {
+              "lapNumber": 317,
+              "timeMs": 6414
+            },
+            {
+              "lapNumber": 318,
+              "timeMs": 6879
+            },
+            {
+              "lapNumber": 319,
+              "timeMs": 7021
+            },
+            {
+              "lapNumber": 320,
+              "timeMs": 8122
+            },
+            {
+              "lapNumber": 321,
+              "timeMs": 9920
+            },
+            {
+              "lapNumber": 322,
+              "timeMs": 6280
+            },
+            {
+              "lapNumber": 323,
+              "timeMs": 35251
+            },
+            {
+              "lapNumber": 324,
+              "timeMs": 6427
+            },
+            {
+              "lapNumber": 325,
+              "timeMs": 34605
+            },
+            {
+              "lapNumber": 326,
+              "timeMs": 9832
+            },
+            {
+              "lapNumber": 327,
+              "timeMs": 6441
+            },
+            {
+              "lapNumber": 328,
+              "timeMs": 6198
+            },
+            {
+              "lapNumber": 329,
+              "timeMs": 6551
+            },
+            {
+              "lapNumber": 330,
+              "timeMs": 7309
+            },
+            {
+              "lapNumber": 331,
+              "timeMs": 7161
+            },
+            {
+              "lapNumber": 332,
+              "timeMs": 7366
+            },
+            {
+              "lapNumber": 333,
+              "timeMs": 6966
+            },
+            {
+              "lapNumber": 334,
+              "timeMs": 7231
+            },
+            {
+              "lapNumber": 335,
+              "timeMs": 6711
+            },
+            {
+              "lapNumber": 336,
+              "timeMs": 7926
+            },
+            {
+              "lapNumber": 337,
+              "timeMs": 6315
+            },
+            {
+              "lapNumber": 338,
+              "timeMs": 6775
+            },
+            {
+              "lapNumber": 339,
+              "timeMs": 9102
+            },
+            {
+              "lapNumber": 340,
+              "timeMs": 8403
+            },
+            {
+              "lapNumber": 341,
+              "timeMs": 6306
+            },
+            {
+              "lapNumber": 342,
+              "timeMs": 6247
+            },
+            {
+              "lapNumber": 343,
+              "timeMs": 6320
+            },
+            {
+              "lapNumber": 344,
+              "timeMs": 8521
+            },
+            {
+              "lapNumber": 345,
+              "timeMs": 6587
+            },
+            {
+              "lapNumber": 346,
+              "timeMs": 10029
+            },
+            {
+              "lapNumber": 347,
+              "timeMs": 6192
+            },
+            {
+              "lapNumber": 348,
+              "timeMs": 6690
+            },
+            {
+              "lapNumber": 349,
+              "timeMs": 6350
+            },
+            {
+              "lapNumber": 350,
+              "timeMs": 6683
+            },
+            {
+              "lapNumber": 351,
+              "timeMs": 8640
+            },
+            {
+              "lapNumber": 352,
+              "timeMs": 6622
+            },
+            {
+              "lapNumber": 353,
+              "timeMs": 9357
+            },
+            {
+              "lapNumber": 354,
+              "timeMs": 6417
+            },
+            {
+              "lapNumber": 355,
+              "timeMs": 6453
+            },
+            {
+              "lapNumber": 356,
+              "timeMs": 6528
+            },
+            {
+              "lapNumber": 357,
+              "timeMs": 7047
+            }
+          ]
+        },
+        {
+          "id": "f640cdeb-a55b-4bd5-bc0f-aad124378f3a",
+          "segmentNumber": 6,
+          "description": "Center damper grease: Atomic 15000",
+          "startLap": 358,
+          "endLap": 410,
+          "repeat": "27/53 (51%)",
+          "fastLapSec": 6.005,
+          "avgInfo": "6.43 (27)",
+          "feedback": "Rear of the car vibrates. The car sounds faster, but the lap times do not show it. Forces me to drive hard instead of smooth.",
+          "lapTimes": [
+            {
+              "lapNumber": 358,
+              "timeMs": 601211
+            },
+            {
+              "lapNumber": 359,
+              "timeMs": 7270
+            },
+            {
+              "lapNumber": 360,
+              "timeMs": 6890
+            },
+            {
+              "lapNumber": 361,
+              "timeMs": 6772
+            },
+            {
+              "lapNumber": 362,
+              "timeMs": 6737
+            },
+            {
+              "lapNumber": 363,
+              "timeMs": 7628
+            },
+            {
+              "lapNumber": 364,
+              "timeMs": 6482
+            },
+            {
+              "lapNumber": 365,
+              "timeMs": 6476
+            },
+            {
+              "lapNumber": 366,
+              "timeMs": 6684
+            },
+            {
+              "lapNumber": 367,
+              "timeMs": 6258
+            },
+            {
+              "lapNumber": 368,
+              "timeMs": 6200
+            },
+            {
+              "lapNumber": 369,
+              "timeMs": 9542
+            },
+            {
+              "lapNumber": 370,
+              "timeMs": 12307
+            },
+            {
+              "lapNumber": 371,
+              "timeMs": 6084
+            },
+            {
+              "lapNumber": 372,
+              "timeMs": 7773
+            },
+            {
+              "lapNumber": 373,
+              "timeMs": 7448
+            },
+            {
+              "lapNumber": 374,
+              "timeMs": 6642
+            },
+            {
+              "lapNumber": 375,
+              "timeMs": 6504
+            },
+            {
+              "lapNumber": 376,
+              "timeMs": 6675
+            },
+            {
+              "lapNumber": 377,
+              "timeMs": 6456
+            },
+            {
+              "lapNumber": 378,
+              "timeMs": 6479
+            },
+            {
+              "lapNumber": 379,
+              "timeMs": 11492
+            },
+            {
+              "lapNumber": 380,
+              "timeMs": 6427
+            },
+            {
+              "lapNumber": 381,
+              "timeMs": 6463
+            },
+            {
+              "lapNumber": 382,
+              "timeMs": 7812
+            },
+            {
+              "lapNumber": 383,
+              "timeMs": 8074
+            },
+            {
+              "lapNumber": 384,
+              "timeMs": 8322
+            },
+            {
+              "lapNumber": 385,
+              "timeMs": 6781
+            },
+            {
+              "lapNumber": 386,
+              "timeMs": 6521
+            },
+            {
+              "lapNumber": 387,
+              "timeMs": 6402
+            },
+            {
+              "lapNumber": 388,
+              "timeMs": 9755
+            },
+            {
+              "lapNumber": 389,
+              "timeMs": 9530
+            },
+            {
+              "lapNumber": 390,
+              "timeMs": 8774
+            },
+            {
+              "lapNumber": 391,
+              "timeMs": 6577
+            },
+            {
+              "lapNumber": 392,
+              "timeMs": 11987
+            },
+            {
+              "lapNumber": 393,
+              "timeMs": 6610
+            },
+            {
+              "lapNumber": 394,
+              "timeMs": 6504
+            },
+            {
+              "lapNumber": 395,
+              "timeMs": 6450
+            },
+            {
+              "lapNumber": 396,
+              "timeMs": 6435
+            },
+            {
+              "lapNumber": 397,
+              "timeMs": 6414
+            },
+            {
+              "lapNumber": 398,
+              "timeMs": 8288
+            },
+            {
+              "lapNumber": 399,
+              "timeMs": 6396
+            },
+            {
+              "lapNumber": 400,
+              "timeMs": 8708
+            },
+            {
+              "lapNumber": 401,
+              "timeMs": 6466
+            },
+            {
+              "lapNumber": 402,
+              "timeMs": 6364
+            },
+            {
+              "lapNumber": 403,
+              "timeMs": 6573
+            },
+            {
+              "lapNumber": 404,
+              "timeMs": 6781
+            },
+            {
+              "lapNumber": 405,
+              "timeMs": 8344
+            },
+            {
+              "lapNumber": 406,
+              "timeMs": 7107
+            },
+            {
+              "lapNumber": 407,
+              "timeMs": 7177
+            },
+            {
+              "lapNumber": 408,
+              "timeMs": 6382
+            },
+            {
+              "lapNumber": 409,
+              "timeMs": 7079
+            },
+            {
+              "lapNumber": 410,
+              "timeMs": 7096
+            }
+          ]
+        },
+        {
+          "id": "22250554-995f-494f-b200-ddcdd860ec68",
+          "segmentNumber": 7,
+          "description": "Front Springs: Soft (white) Front Damper Grease: 25000 Front Ride Height: 2.0",
+          "startLap": 411,
+          "endLap": 431,
+          "repeat": "10/21 (48%)",
+          "fastLapSec": 6.194,
+          "avgInfo": "6.4 (10)",
+          "feedback": "Smooth in turns, car is not aggressive Had to stop due to dead battery.",
+          "lapTimes": [
+            {
+              "lapNumber": 411,
+              "timeMs": 1539796
+            },
+            {
+              "lapNumber": 412,
+              "timeMs": 7030
+            },
+            {
+              "lapNumber": 413,
+              "timeMs": 7964
+            },
+            {
+              "lapNumber": 414,
+              "timeMs": 7660
+            },
+            {
+              "lapNumber": 415,
+              "timeMs": 7547
+            },
+            {
+              "lapNumber": 416,
+              "timeMs": 7641
+            },
+            {
+              "lapNumber": 417,
+              "timeMs": 6514
+            },
+            {
+              "lapNumber": 418,
+              "timeMs": 6593
+            },
+            {
+              "lapNumber": 419,
+              "timeMs": 6333
+            },
+            {
+              "lapNumber": 420,
+              "timeMs": 7048
+            },
+            {
+              "lapNumber": 421,
+              "timeMs": 6390
+            },
+            {
+              "lapNumber": 422,
+              "timeMs": 6317
+            },
+            {
+              "lapNumber": 423,
+              "timeMs": 6317
+            },
+            {
+              "lapNumber": 424,
+              "timeMs": 6662
+            },
+            {
+              "lapNumber": 425,
+              "timeMs": 7002
+            },
+            {
+              "lapNumber": 426,
+              "timeMs": 8071
+            },
+            {
+              "lapNumber": 427,
+              "timeMs": 6692
+            },
+            {
+              "lapNumber": 428,
+              "timeMs": 6194
+            },
+            {
+              "lapNumber": 429,
+              "timeMs": 6400
+            },
+            {
+              "lapNumber": 430,
+              "timeMs": 6264
+            },
+            {
+              "lapNumber": 431,
+              "timeMs": 6822
+            }
+          ]
+        },
+        {
+          "id": "4d1891d5-c136-4b64-964e-3516e4273e19",
+          "segmentNumber": 8,
+          "description": "New battery",
+          "startLap": 432,
+          "endLap": 479,
+          "repeat": "15/48 (31%)",
+          "fastLapSec": 6.216,
+          "avgInfo": "6.49 (15)",
+          "feedback": "Steering servo getting stuck Left. Nothing stands out to cause this issue. Noticed RF tire showing plastic (21.0). LF measures 21.6",
+          "lapTimes": [
+            {
+              "lapNumber": 432,
+              "timeMs": 390662
+            },
+            {
+              "lapNumber": 433,
+              "timeMs": 8410
+            },
+            {
+              "lapNumber": 434,
+              "timeMs": 7145
+            },
+            {
+              "lapNumber": 435,
+              "timeMs": 6464
+            },
+            {
+              "lapNumber": 436,
+              "timeMs": 6858
+            },
+            {
+              "lapNumber": 437,
+              "timeMs": 7650
+            },
+            {
+              "lapNumber": 438,
+              "timeMs": 7020
+            },
+            {
+              "lapNumber": 439,
+              "timeMs": 6438
+            },
+            {
+              "lapNumber": 440,
+              "timeMs": 7713
+            },
+            {
+              "lapNumber": 441,
+              "timeMs": 9345
+            },
+            {
+              "lapNumber": 442,
+              "timeMs": 6447
+            },
+            {
+              "lapNumber": 443,
+              "timeMs": 7730
+            },
+            {
+              "lapNumber": 444,
+              "timeMs": 8566
+            },
+            {
+              "lapNumber": 445,
+              "timeMs": 11011
+            },
+            {
+              "lapNumber": 446,
+              "timeMs": 9635
+            },
+            {
+              "lapNumber": 447,
+              "timeMs": 6216
+            },
+            {
+              "lapNumber": 448,
+              "timeMs": 11544
+            },
+            {
+              "lapNumber": 449,
+              "timeMs": 10388
+            },
+            {
+              "lapNumber": 450,
+              "timeMs": 7312
+            },
+            {
+              "lapNumber": 451,
+              "timeMs": 8990
+            },
+            {
+              "lapNumber": 452,
+              "timeMs": 6567
+            },
+            {
+              "lapNumber": 453,
+              "timeMs": 7308
+            },
+            {
+              "lapNumber": 454,
+              "timeMs": 9901
+            },
+            {
+              "lapNumber": 455,
+              "timeMs": 9227
+            },
+            {
+              "lapNumber": 456,
+              "timeMs": 6468
+            },
+            {
+              "lapNumber": 457,
+              "timeMs": 6585
+            },
+            {
+              "lapNumber": 458,
+              "timeMs": 10731
+            },
+            {
+              "lapNumber": 459,
+              "timeMs": 6536
+            },
+            {
+              "lapNumber": 460,
+              "timeMs": 15748
+            },
+            {
+              "lapNumber": 461,
+              "timeMs": 7396
+            },
+            {
+              "lapNumber": 462,
+              "timeMs": 6422
+            },
+            {
+              "lapNumber": 463,
+              "timeMs": 6583
+            },
+            {
+              "lapNumber": 464,
+              "timeMs": 8804
+            },
+            {
+              "lapNumber": 465,
+              "timeMs": 7859
+            },
+            {
+              "lapNumber": 466,
+              "timeMs": 6527
+            },
+            {
+              "lapNumber": 467,
+              "timeMs": 8021
+            },
+            {
+              "lapNumber": 468,
+              "timeMs": 6405
+            },
+            {
+              "lapNumber": 469,
+              "timeMs": 6506
+            },
+            {
+              "lapNumber": 470,
+              "timeMs": 7264
+            },
+            {
+              "lapNumber": 471,
+              "timeMs": 13036
+            },
+            {
+              "lapNumber": 472,
+              "timeMs": 7934
+            },
+            {
+              "lapNumber": 473,
+              "timeMs": 8183
+            },
+            {
+              "lapNumber": 474,
+              "timeMs": 6437
+            },
+            {
+              "lapNumber": 475,
+              "timeMs": 8733
+            },
+            {
+              "lapNumber": 476,
+              "timeMs": 6583
+            },
+            {
+              "lapNumber": 477,
+              "timeMs": 6268
+            },
+            {
+              "lapNumber": 478,
+              "timeMs": 6498
+            },
+            {
+              "lapNumber": 479,
+              "timeMs": 6653
+            }
+          ]
+        },
+        {
+          "id": "ad66f018-3653-4e06-9ede-72fa9464cb6e",
+          "segmentNumber": 9,
+          "description": "Changed RF tire (21.5)",
+          "startLap": 480,
+          "endLap": 504,
+          "repeat": "8/25 (32%)",
+          "fastLapSec": 6.255,
+          "avgInfo": "6.56 (8)",
+          "feedback": "Steering servo getting stuck Left. Nothing stands out to cause this issue.",
+          "lapTimes": [
+            {
+              "lapNumber": 480,
+              "timeMs": 663114
+            },
+            {
+              "lapNumber": 481,
+              "timeMs": 33655
+            },
+            {
+              "lapNumber": 482,
+              "timeMs": 10219
+            },
+            {
+              "lapNumber": 483,
+              "timeMs": 8538
+            },
+            {
+              "lapNumber": 484,
+              "timeMs": 11465
+            },
+            {
+              "lapNumber": 485,
+              "timeMs": 8838
+            },
+            {
+              "lapNumber": 486,
+              "timeMs": 7568
+            },
+            {
+              "lapNumber": 487,
+              "timeMs": 7314
+            },
+            {
+              "lapNumber": 488,
+              "timeMs": 6567
+            },
+            {
+              "lapNumber": 489,
+              "timeMs": 6255
+            },
+            {
+              "lapNumber": 490,
+              "timeMs": 6669
+            },
+            {
+              "lapNumber": 491,
+              "timeMs": 7697
+            },
+            {
+              "lapNumber": 492,
+              "timeMs": 9921
+            },
+            {
+              "lapNumber": 493,
+              "timeMs": 6778
+            },
+            {
+              "lapNumber": 494,
+              "timeMs": 7180
+            },
+            {
+              "lapNumber": 495,
+              "timeMs": 7886
+            },
+            {
+              "lapNumber": 496,
+              "timeMs": 6267
+            },
+            {
+              "lapNumber": 497,
+              "timeMs": 7109
+            },
+            {
+              "lapNumber": 498,
+              "timeMs": 8950
+            },
+            {
+              "lapNumber": 499,
+              "timeMs": 6321
+            },
+            {
+              "lapNumber": 500,
+              "timeMs": 6844
+            },
+            {
+              "lapNumber": 501,
+              "timeMs": 6868
+            },
+            {
+              "lapNumber": 502,
+              "timeMs": 15271
+            },
+            {
+              "lapNumber": 503,
+              "timeMs": 6548
+            },
+            {
+              "lapNumber": 504,
+              "timeMs": 11989
+            }
+          ]
+        },
+        {
+          "id": "85c80f83-9eaa-4955-8072-d025d625e2da",
+          "segmentNumber": 10,
+          "description": "Replaced servo Camber: 2 Toe Angle: 2 degrees out Front Ride Height: 2.0 New Battery",
+          "startLap": 505,
+          "endLap": 567,
+          "repeat": "11/63 (17%)",
+          "fastLapSec": 6.15,
+          "avgInfo": "6.60 (11)",
+          "feedback": "Rear very loose. Temp is 64 and very cold.",
+          "lapTimes": [
+            {
+              "lapNumber": 505,
+              "timeMs": 11618707
+            },
+            {
+              "lapNumber": 506,
+              "timeMs": 19777
+            },
+            {
+              "lapNumber": 507,
+              "timeMs": 18081
+            },
+            {
+              "lapNumber": 508,
+              "timeMs": 11130585
+            },
+            {
+              "lapNumber": 509,
+              "timeMs": 31654
+            },
+            {
+              "lapNumber": 510,
+              "timeMs": 10646
+            },
+            {
+              "lapNumber": 511,
+              "timeMs": 10950
+            },
+            {
+              "lapNumber": 512,
+              "timeMs": 12153
+            },
+            {
+              "lapNumber": 513,
+              "timeMs": 7687
+            },
+            {
+              "lapNumber": 514,
+              "timeMs": 7743
+            },
+            {
+              "lapNumber": 515,
+              "timeMs": 7877
+            },
+            {
+              "lapNumber": 516,
+              "timeMs": 8563
+            },
+            {
+              "lapNumber": 517,
+              "timeMs": 7810
+            },
+            {
+              "lapNumber": 518,
+              "timeMs": 9782
+            },
+            {
+              "lapNumber": 519,
+              "timeMs": 12178
+            },
+            {
+              "lapNumber": 520,
+              "timeMs": 7684
+            },
+            {
+              "lapNumber": 521,
+              "timeMs": 9111
+            },
+            {
+              "lapNumber": 522,
+              "timeMs": 8615
+            },
+            {
+              "lapNumber": 523,
+              "timeMs": 10142
+            },
+            {
+              "lapNumber": 524,
+              "timeMs": 6616
+            },
+            {
+              "lapNumber": 525,
+              "timeMs": 9371
+            },
+            {
+              "lapNumber": 526,
+              "timeMs": 6501
+            },
+            {
+              "lapNumber": 527,
+              "timeMs": 7062
+            },
+            {
+              "lapNumber": 528,
+              "timeMs": 12126
+            },
+            {
+              "lapNumber": 529,
+              "timeMs": 6085
+            },
+            {
+              "lapNumber": 530,
+              "timeMs": 6525
+            },
+            {
+              "lapNumber": 531,
+              "timeMs": 11164
+            },
+            {
+              "lapNumber": 532,
+              "timeMs": 7884
+            },
+            {
+              "lapNumber": 533,
+              "timeMs": 9956
+            },
+            {
+              "lapNumber": 534,
+              "timeMs": 8645
+            },
+            {
+              "lapNumber": 535,
+              "timeMs": 6590
+            },
+            {
+              "lapNumber": 536,
+              "timeMs": 6498
+            },
+            {
+              "lapNumber": 537,
+              "timeMs": 20666
+            },
+            {
+              "lapNumber": 538,
+              "timeMs": 10466
+            },
+            {
+              "lapNumber": 539,
+              "timeMs": 6313
+            },
+            {
+              "lapNumber": 540,
+              "timeMs": 7524
+            },
+            {
+              "lapNumber": 541,
+              "timeMs": 8371
+            },
+            {
+              "lapNumber": 542,
+              "timeMs": 10201
+            },
+            {
+              "lapNumber": 543,
+              "timeMs": 7481
+            },
+            {
+              "lapNumber": 544,
+              "timeMs": 6354
+            },
+            {
+              "lapNumber": 545,
+              "timeMs": 6508
+            },
+            {
+              "lapNumber": 546,
+              "timeMs": 10730
+            },
+            {
+              "lapNumber": 547,
+              "timeMs": 7291
+            },
+            {
+              "lapNumber": 548,
+              "timeMs": 7112
+            },
+            {
+              "lapNumber": 549,
+              "timeMs": 9275
+            },
+            {
+              "lapNumber": 550,
+              "timeMs": 8546
+            },
+            {
+              "lapNumber": 551,
+              "timeMs": 8666
+            },
+            {
+              "lapNumber": 552,
+              "timeMs": 6150
+            },
+            {
+              "lapNumber": 553,
+              "timeMs": 8787
+            },
+            {
+              "lapNumber": 554,
+              "timeMs": 6458
+            },
+            {
+              "lapNumber": 555,
+              "timeMs": 9608
+            },
+            {
+              "lapNumber": 556,
+              "timeMs": 8082
+            },
+            {
+              "lapNumber": 557,
+              "timeMs": 6948
+            },
+            {
+              "lapNumber": 558,
+              "timeMs": 9079
+            },
+            {
+              "lapNumber": 559,
+              "timeMs": 6832
+            },
+            {
+              "lapNumber": 560,
+              "timeMs": 12391
+            },
+            {
+              "lapNumber": 561,
+              "timeMs": 7852
+            },
+            {
+              "lapNumber": 562,
+              "timeMs": 8611
+            },
+            {
+              "lapNumber": 563,
+              "timeMs": 7488
+            },
+            {
+              "lapNumber": 564,
+              "timeMs": 7169
+            },
+            {
+              "lapNumber": 565,
+              "timeMs": 6824
+            },
+            {
+              "lapNumber": 566,
+              "timeMs": 7140
+            },
+            {
+              "lapNumber": 567,
+              "timeMs": 6527
+            }
+          ]
+        },
+        {
+          "id": "db160625-6b51-44d3-8961-c8341a762cec",
+          "segmentNumber": 11,
+          "description": "Replace rear tires with MR04 Evo",
+          "startLap": 568,
+          "endLap": 617,
+          "repeat": "32/50 (64%)",
+          "fastLapSec": 5.948,
+          "avgInfo": "6.234 (32)",
+          "feedback": "Car feels great. Believe a new set of rear tires would set new records.",
+          "lapTimes": [
+            {
+              "lapNumber": 568,
+              "timeMs": 626589
+            },
+            {
+              "lapNumber": 569,
+              "timeMs": 9136
+            },
+            {
+              "lapNumber": 570,
+              "timeMs": 6791
+            },
+            {
+              "lapNumber": 571,
+              "timeMs": 6183
+            },
+            {
+              "lapNumber": 572,
+              "timeMs": 6137
+            },
+            {
+              "lapNumber": 573,
+              "timeMs": 10304
+            },
+            {
+              "lapNumber": 574,
+              "timeMs": 8942
+            },
+            {
+              "lapNumber": 575,
+              "timeMs": 6147
+            },
+            {
+              "lapNumber": 576,
+              "timeMs": 6160
+            },
+            {
+              "lapNumber": 577,
+              "timeMs": 6060
+            },
+            {
+              "lapNumber": 578,
+              "timeMs": 6847
+            },
+            {
+              "lapNumber": 579,
+              "timeMs": 6453
+            },
+            {
+              "lapNumber": 580,
+              "timeMs": 6250
+            },
+            {
+              "lapNumber": 581,
+              "timeMs": 6669
+            },
+            {
+              "lapNumber": 582,
+              "timeMs": 6187
+            },
+            {
+              "lapNumber": 583,
+              "timeMs": 6738
+            },
+            {
+              "lapNumber": 584,
+              "timeMs": 6089
+            },
+            {
+              "lapNumber": 585,
+              "timeMs": 6068
+            },
+            {
+              "lapNumber": 586,
+              "timeMs": 5948
+            },
+            {
+              "lapNumber": 587,
+              "timeMs": 13909
+            },
+            {
+              "lapNumber": 588,
+              "timeMs": 6029
+            },
+            {
+              "lapNumber": 589,
+              "timeMs": 12220
+            },
+            {
+              "lapNumber": 590,
+              "timeMs": 8964
+            },
+            {
+              "lapNumber": 591,
+              "timeMs": 7723
+            },
+            {
+              "lapNumber": 592,
+              "timeMs": 6629
+            },
+            {
+              "lapNumber": 593,
+              "timeMs": 8271
+            },
+            {
+              "lapNumber": 594,
+              "timeMs": 6139
+            },
+            {
+              "lapNumber": 595,
+              "timeMs": 6063
+            },
+            {
+              "lapNumber": 596,
+              "timeMs": 6015
+            },
+            {
+              "lapNumber": 597,
+              "timeMs": 6043
+            },
+            {
+              "lapNumber": 598,
+              "timeMs": 11384
+            },
+            {
+              "lapNumber": 599,
+              "timeMs": 6191
+            },
+            {
+              "lapNumber": 600,
+              "timeMs": 6059
+            },
+            {
+              "lapNumber": 601,
+              "timeMs": 6670
+            },
+            {
+              "lapNumber": 602,
+              "timeMs": 6324
+            },
+            {
+              "lapNumber": 603,
+              "timeMs": 6147
+            },
+            {
+              "lapNumber": 604,
+              "timeMs": 6213
+            },
+            {
+              "lapNumber": 605,
+              "timeMs": 6289
+            },
+            {
+              "lapNumber": 606,
+              "timeMs": 6258
+            },
+            {
+              "lapNumber": 607,
+              "timeMs": 6443
+            },
+            {
+              "lapNumber": 608,
+              "timeMs": 6157
+            },
+            {
+              "lapNumber": 609,
+              "timeMs": 6143
+            },
+            {
+              "lapNumber": 610,
+              "timeMs": 6260
+            },
+            {
+              "lapNumber": 611,
+              "timeMs": 6269
+            },
+            {
+              "lapNumber": 612,
+              "timeMs": 6027
+            },
+            {
+              "lapNumber": 613,
+              "timeMs": 6662
+            },
+            {
+              "lapNumber": 614,
+              "timeMs": 7224
+            },
+            {
+              "lapNumber": 615,
+              "timeMs": 6129
+            },
+            {
+              "lapNumber": 616,
+              "timeMs": 6148
+            },
+            {
+              "lapNumber": 617,
+              "timeMs": 6191
+            }
+          ]
+        }
+      ],
+      "totalLaps": 617
+    },
+    {
+      "sessionId": "47bc3807-9a90-4bd9-bb87-3a49cf27c930",
+      "date": "2026-01-03",
+      "carId": "car-mrx-me",
+      "trackId": "track-the-cave",
+      "snapshotId": "6000b20c-c005-464d-a02a-d7a392711595",
+      "snapshotName": "MRX ME — 2026-01-03",
+      "setupEntries": [
+        {
+          "capabilityId": "front-ride-height",
+          "value": 2
+        },
+        {
+          "capabilityId": "front-damper-grease",
+          "value": "Atomic 25000"
+        },
+        {
+          "capabilityId": "daa-spring",
+          "value": "Soft (white)"
+        },
+        {
+          "capabilityId": "front-toe",
+          "value": "2 degrees out"
+        },
+        {
+          "capabilityId": "caster",
+          "value": "Bottom Kingpin Shim: 2"
+        },
+        {
+          "capabilityId": "camber",
+          "value": "2"
+        },
+        {
+          "capabilityId": "damper-shim",
+          "value": "1"
+        },
+        {
+          "capabilityId": "axles",
+          "value": "v2"
+        },
+        {
+          "capabilityId": "rear-ride-height",
+          "value": 3.2
+        },
+        {
+          "capabilityId": "rear-spring-style",
+          "value": "Horizontal"
+        },
+        {
+          "capabilityId": "center-damper-grease",
+          "value": "Atomic 15000"
+        },
+        {
+          "capabilityId": "side-spring-damper-grease",
+          "value": "Atomic 25000"
+        },
+        {
+          "capabilityId": "vertical-side-spring",
+          "value": "Medium (Red)"
+        },
+        {
+          "capabilityId": "rear-top-spring",
+          "value": "Hard (Purple) + 0 Turn"
+        },
+        {
+          "capabilityId": "pinion-gear",
+          "value": "12T"
+        },
+        {
+          "capabilityId": "spur-gear",
+          "value": "Atomic 53T"
+        },
+        {
+          "capabilityId": "diff-type",
+          "value": "Atomic Gear Diff"
+        },
+        {
+          "capabilityId": "motor",
+          "value": "PN 2500kv Anima v4"
+        }
+      ],
+      "segments": [
+        {
+          "id": "e49f4285-d863-44fa-b828-ce35568f0c7c",
+          "segmentNumber": 1,
+          "description": "Run Baseline Setup w/New Battery Weights LR/RF",
+          "startLap": 1,
+          "endLap": 103,
+          "repeat": "46/103 (44%)",
+          "fastLapSec": 6.136,
+          "avgInfo": "6.536 (63)",
+          "feedback": "Car drives very smooth and fun to drive. Want to find more speed.",
+          "lapTimes": [
+            {
+              "lapNumber": 1,
+              "timeMs": 12132
+            },
+            {
+              "lapNumber": 2,
+              "timeMs": 6525
+            },
+            {
+              "lapNumber": 3,
+              "timeMs": 6967
+            },
+            {
+              "lapNumber": 4,
+              "timeMs": 6341
+            },
+            {
+              "lapNumber": 5,
+              "timeMs": 6670
+            },
+            {
+              "lapNumber": 6,
+              "timeMs": 10368
+            },
+            {
+              "lapNumber": 7,
+              "timeMs": 8090
+            },
+            {
+              "lapNumber": 8,
+              "timeMs": 6570
+            }
+          ]
+        }
+      ],
+      "totalLaps": 8
+    }
+  ]
+}

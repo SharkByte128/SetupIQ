@@ -22,6 +22,7 @@ COPY --from=base /app/packages/shared/dist ./packages/shared/dist
 COPY --from=base /app/packages/shared/package.json ./packages/shared/
 COPY --from=base /app/apps/api/dist ./apps/api/dist
 COPY --from=base /app/apps/api/src/admin/panel.html ./apps/api/dist/admin/panel.html
+COPY --from=base /app/apps/api/src/data/build-data.json ./apps/api/dist/data/build-data.json
 COPY --from=base /app/apps/api/src/db/schema.ts ./apps/api/src/db/schema.ts
 COPY --from=base /app/apps/api/drizzle.config.ts ./apps/api/drizzle.config.ts
 COPY --from=base /app/apps/api/package.json ./apps/api/

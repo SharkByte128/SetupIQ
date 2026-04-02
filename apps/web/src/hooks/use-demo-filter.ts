@@ -46,13 +46,12 @@ export function isPredefinedCar(carId: string): boolean {
  * Returns true if a record is "demo data" that should be hidden
  * when the user has enabled "Hide Demo Data".
  *
- * Demo data = userId "local" (seed data that hasn't been synced yet)
- * or belongs to a predefined car.
+ * Demo data = userId "local" (seed data that hasn't been synced yet).
+ * Once synced (userId is a real user UUID), data is owned by that user
+ * and is no longer considered demo regardless of carId.
  */
 export function isDemoRecord(record: { userId?: string; carId?: string }): boolean {
-  if (record.userId === "local") return true;
-  if (record.carId && PREDEFINED_CAR_IDS.has(record.carId)) return true;
-  return false;
+  return record.userId === "local";
 }
 
 /**
