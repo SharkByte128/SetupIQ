@@ -30,9 +30,23 @@ export function GaragePage() {
   // Live-query custom cars from Dexie
   const customCars = useLiveQuery(() => localDb.customCars.toArray()) ?? [];
 
+  // Car IDs that have real (non-demo) user data — show these even when hiding demo data
+  const carsWithData = useLiveQuery(async () => {
+    const ids = new Set<string>();
+    const setups = await localDb.setupSnapshots.toArray();
+    for (const s of setups) { if (s.userId !== "local") ids.add(s.carId); }
+    const sessions = await localDb.runSessions.toArray();
+    for (const s of sessions) { if (s.userId !== "local") ids.add(s.carId); }
+    const races = await localDb.raceResults.toArray();
+    for (const r of races) { if (r.userId !== "local" && r.carId) ids.add(r.carId); }
+    return ids;
+  }, []) ?? new Set<string>();
+
   // Merge predefined + custom into unified list
   const garageCars: GarageCar[] = [
-    ...(hideDemoData ? [] : allCars.map((car): GarageCar => ({ kind: "predefined", car }))),
+    ...allCars
+      .filter((car) => !hideDemoData || carsWithData.has(car.id))
+      .map((car): GarageCar => ({ kind: "predefined", car })),
     ...customCars.map((car): GarageCar => ({ kind: "custom", car })),
   ];
 
