@@ -319,13 +319,17 @@ function PartsBinListView({
   const isMobile = useIsMobile();
   const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
   const customCars = useLiveQuery(() => localDb.customCars.toArray()) ?? [];
+  const hiddenCarIds = useLiveQuery(() => localDb.hiddenGarageCars.toArray()) ?? [];
+  const hiddenSet = new Set(hiddenCarIds.map((h) => h.carId));
 
-  // Garage cars: predefined + custom
+  // Garage cars: predefined (non-hidden) + custom
   const garageCars = useMemo(() => {
-    const predefined = allCars.map((c) => ({ id: c.id, name: `${c.manufacturer} ${c.name}` }));
+    const predefined = allCars
+      .filter((c) => !hiddenSet.has(c.id))
+      .map((c) => ({ id: c.id, name: `${c.manufacturer} ${c.name}` }));
     const custom = customCars.map((c) => ({ id: c.id, name: c.name }));
     return [...predefined, ...custom];
-  }, [customCars]);
+  }, [customCars, hiddenSet.size]);
 
   // Filter state
   const [vendorFilters, setVendorFilters] = useState<Set<string>>(new Set());
