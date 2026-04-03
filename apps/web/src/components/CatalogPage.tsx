@@ -539,7 +539,14 @@ function VendorSearchView() {
         setSources(data.sources);
         if (data.sources.length > 0) setSelectedSourceId(data.sources[0].id);
       })
-      .catch(() => setError("Failed to load vendor sources"));
+      .catch((err) => {
+        // 401 means not logged in — don't show a scary error
+        if (err?.message?.includes("401")) {
+          setError("Sign in to use Vendor Search");
+        } else {
+          setError("Failed to load vendor sources");
+        }
+      });
   }, []);
 
   const doSearch = useCallback(async () => {
