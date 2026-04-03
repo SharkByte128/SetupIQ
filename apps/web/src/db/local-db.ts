@@ -242,6 +242,11 @@ export interface LocalCarNote {
   updatedAt: string;
 }
 
+/** Predefined car hidden from the user's garage. */
+export interface HiddenGarageCar {
+  carId: string;
+}
+
 class SetupIQDatabase extends Dexie {
   setupSnapshots!: Table<LocalSetupSnapshot, string>;
   runSessions!: Table<LocalRunSession, string>;
@@ -259,6 +264,7 @@ class SetupIQDatabase extends Dexie {
   racers!: Table<LocalRacer, string>;
   carTimingNames!: Table<CarTimingName, string>;
   carNotes!: Table<LocalCarNote, string>;
+  hiddenGarageCars!: Table<HiddenGarageCar, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -515,6 +521,27 @@ class SetupIQDatabase extends Dexie {
       return tx.table("customCars").toCollection().modify(car => {
         if (!car.chassisId) car.chassisId = "chassis-other";
       });
+    });
+
+    this.version(16).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId, updatedAt, _dirty",
+      raceResults: "id, userId, carId, date, className, hidden, _dirty",
+      parts: "id, userId, vendorId, categoryId, catalogPartId, _dirty",
+      partFiles: "id, partId",
+      trackFiles: "id, trackId",
+      customCars: "id, userId, chassisId, _dirty",
+      racers: "id, name, active",
+      carTimingNames: "carId",
+      carNotes: "carId",
+      hiddenGarageCars: "carId",
+      syncMeta: "key",
     });
   }
 }

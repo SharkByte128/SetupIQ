@@ -28,9 +28,13 @@ export function GaragePage() {
   // Live-query custom cars from Dexie
   const customCars = useLiveQuery(() => localDb.customCars.toArray()) ?? [];
 
-  // Predefined cars always show — "hide demo data" only filters records within them
+  // Live-query hidden predefined car IDs
+  const hiddenCarIds = useLiveQuery(() => localDb.hiddenGarageCars.toArray()) ?? [];
+  const hiddenSet = new Set(hiddenCarIds.map((h) => h.carId));
+
+  // Predefined cars filtered by hidden list
   const garageCars: GarageCar[] = [
-    ...allCars.map((car): GarageCar => ({ kind: "predefined", car })),
+    ...allCars.filter((car) => !hiddenSet.has(car.id)).map((car): GarageCar => ({ kind: "predefined", car })),
     ...customCars.map((car): GarageCar => ({ kind: "custom", car })),
   ];
 
@@ -253,21 +257,25 @@ export function GaragePage() {
                       >
                         Edit
                       </button>
-                      <span className="text-neutral-700">·</span>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await localDb.customCars.delete(gc.car.id);
-                          // Also remove image if exists
-                          const img = await localDb.carImages.where("carId").equals(gc.car.id).first();
-                          if (img) await localDb.carImages.delete(img.id);
-                        }}
-                        className="text-xs text-red-400 hover:text-red-300"
-                      >
-                        Remove
-                      </button>
                     </>
                   )}
+                  <span className="text-neutral-700">·</span>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (gc.kind === "custom") {
+                        await localDb.customCars.delete(gc.car.id);
+                      } else {
+                        await localDb.hiddenGarageCars.put({ carId: gc.car.id });
+                      }
+                      // Also remove image if exists
+                      const img = await localDb.carImages.where("carId").equals(gc.car.id).first();
+                      if (img) await localDb.carImages.delete(img.id);
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
             </div>

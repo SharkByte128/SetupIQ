@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { allCars } from "@setupiq/shared";
 import { localDb } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { RacersManager } from "./RacersManager.js";
@@ -10,6 +12,10 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [showKey, setShowKey] = useState(false);
   const [hideDemoData, setHideDemoData] = useState(false);
   const [showHidden, setShowHidden] = useShowHiddenRuns();
+
+  // Hidden garage cars (for restore UI)
+  const hiddenGarageCars = useLiveQuery(() => localDb.hiddenGarageCars.toArray()) ?? [];
+  const carNameMap = new Map(allCars.map((c) => [c.id, `${c.manufacturer} ${c.name}`]));
 
   // Server sync state
   const [serverUrl, setServerUrl] = useState("");
@@ -231,6 +237,34 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
+
+      {/* Restore Hidden Cars */}
+      {hiddenGarageCars.length > 0 && (
+        <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">🏎️</span>
+            <div>
+              <h3 className="font-medium text-sm">Hidden Cars</h3>
+              <p className="text-xs text-neutral-500">
+                Cars removed from your garage. Restore to add them back.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            {hiddenGarageCars.map((h) => (
+              <div key={h.carId} className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2">
+                <span className="text-sm text-neutral-300">{carNameMap.get(h.carId) ?? h.carId}</span>
+                <button
+                  onClick={() => localDb.hiddenGarageCars.delete(h.carId)}
+                  className="text-xs text-blue-400 hover:text-blue-300"
+                >
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Server Sync Section */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
