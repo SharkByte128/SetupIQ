@@ -38,14 +38,25 @@ export interface ChassisPlatform {
   id: string;
   name: string;
   manufacturer: string;
+  scale: string;
+  driveType: "RWD" | "AWD" | "FWD";
 }
 
 export const chassisPlatforms: ChassisPlatform[] = [
-  { id: "chassis-kyosho-mr03", name: "Kyosho MR-03", manufacturer: "Kyosho" },
-  { id: "chassis-kyosho-mr04", name: "Kyosho MR-04", manufacturer: "Kyosho" },
-  { id: "chassis-pn-25", name: "PN 2.5 Chassis", manufacturer: "PN Racing" },
-  { id: "chassis-mr04-evo2", name: "MR-04 Evo2", manufacturer: "GL Racing" },
+  { id: "chassis-kyosho-mr03", name: "Kyosho MR-03", manufacturer: "Kyosho", scale: "1:28", driveType: "RWD" },
+  { id: "chassis-kyosho-mr04", name: "Kyosho MR-04", manufacturer: "Kyosho", scale: "1:28", driveType: "RWD" },
+  { id: "chassis-kyosho-ma030", name: "Kyosho MA-030", manufacturer: "Kyosho", scale: "1:28", driveType: "AWD" },
+  { id: "chassis-pn-25", name: "PN 2.5 Chassis", manufacturer: "PN Racing", scale: "1:28", driveType: "RWD" },
+  { id: "chassis-mr04-evo2", name: "MR-04 Evo2", manufacturer: "GL Racing", scale: "1:28", driveType: "RWD" },
+  { id: "chassis-gla-v2", name: "GLA-V2", manufacturer: "GL Racing", scale: "1:28", driveType: "AWD" },
+  { id: "chassis-atomic-mrx", name: "Atomic MRX", manufacturer: "ATOMIC RC", scale: "1:28", driveType: "RWD" },
+  { id: "chassis-reflex-rx28", name: "Reflex RX28", manufacturer: "Reflex Racing", scale: "1:28", driveType: "RWD" },
+  { id: "chassis-other", name: "Other / Custom", manufacturer: "Other", scale: "1:28", driveType: "RWD" },
 ];
+
+export function getChassisPlatformById(id: string): ChassisPlatform | undefined {
+  return chassisPlatforms.find((c) => c.id === id);
+}
 
 // ── Part Categories ───────────────────────────────────────────
 

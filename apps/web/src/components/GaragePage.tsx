@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { allCars } from "@setupiq/shared";
+import { allCars, getChassisPlatformById } from "@setupiq/shared";
 import type { CarDefinition } from "@setupiq/shared";
 import { localDb, type LocalCarImage, type LocalCustomCar } from "../db/local-db.js";
 import { CarDetailPage } from "./CarDetailPage.js";
@@ -190,9 +190,14 @@ export function GaragePage() {
         {garageCars.map((gc) => {
           const carId = gc.car.id;
           const carName = gc.car.name;
-          const manufacturer = gc.car.manufacturer;
           const scale = gc.car.scale;
           const driveType = gc.car.driveType;
+          const chassisModel = gc.kind === "custom" && gc.car.chassisId
+            ? getChassisPlatformById(gc.car.chassisId)
+            : undefined;
+          const subtitle = chassisModel
+            ? `${chassisModel.name} · ${scale} ${driveType}`
+            : `${gc.car.manufacturer} · ${scale} ${driveType}`;
 
           return (
             <div
@@ -222,7 +227,7 @@ export function GaragePage() {
                   className="text-left"
                 >
                   <p className="font-medium text-sm leading-tight">{carName}</p>
-                  <p className="text-xs text-neutral-500">{manufacturer} · {scale} {driveType}</p>
+                  <p className="text-xs text-neutral-500">{subtitle}</p>
                 </button>
 
                 <div className="flex items-center gap-2">

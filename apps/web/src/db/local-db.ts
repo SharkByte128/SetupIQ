@@ -203,6 +203,7 @@ export interface LocalCustomCar {
   id: string;
   userId: string;
   name: string;
+  chassisId: string;
   manufacturer: string;
   scale: string;
   driveType: "RWD" | "AWD" | "FWD";
@@ -490,6 +491,30 @@ class SetupIQDatabase extends Dexie {
       carTimingNames: "carId",
       carNotes: "carId",
       syncMeta: "key",
+    });
+
+    this.version(15).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId, updatedAt, _dirty",
+      raceResults: "id, userId, carId, date, className, hidden, _dirty",
+      parts: "id, userId, vendorId, categoryId, catalogPartId, _dirty",
+      partFiles: "id, partId",
+      trackFiles: "id, trackId",
+      customCars: "id, userId, chassisId, _dirty",
+      racers: "id, name, active",
+      carTimingNames: "carId",
+      carNotes: "carId",
+      syncMeta: "key",
+    }).upgrade(tx => {
+      return tx.table("customCars").toCollection().modify(car => {
+        if (!car.chassisId) car.chassisId = "chassis-other";
+      });
     });
   }
 }

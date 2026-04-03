@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { getCarById } from "@setupiq/shared";
+import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
 import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
@@ -50,6 +50,10 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
 
   const carName = predefined?.name ?? customCar?.name ?? "Unknown Car";
   const manufacturer = predefined?.manufacturer ?? customCar?.manufacturer ?? "";
+  const chassisModel = customCar?.chassisId ? getChassisPlatformById(customCar.chassisId) : undefined;
+  const bannerSubtitle = chassisModel
+    ? `${chassisModel.name} · ${predefined?.scale ?? customCar?.scale ?? ""} ${predefined?.driveType ?? customCar?.driveType ?? ""}`
+    : `${manufacturer} · ${predefined?.scale ?? customCar?.scale ?? ""} ${predefined?.driveType ?? customCar?.driveType ?? ""}`;
   const scale = predefined?.scale ?? customCar?.scale ?? "";
   const driveType = predefined?.driveType ?? customCar?.driveType ?? "";
   const isCustom = !predefined;
@@ -75,7 +79,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
 
   // ─── Details tab state ──────────────────────────────
   const [editName, setEditName] = useState("");
-  const [editManufacturer, setEditManufacturer] = useState("");
+  const [editChassisId, setEditChassisId] = useState("");
   const [editScale, setEditScale] = useState("");
   const [editDriveType, setEditDriveType] = useState<"RWD" | "AWD" | "FWD">("RWD");
   const [editNotes, setEditNotes] = useState("");
@@ -101,7 +105,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
   useEffect(() => {
     if (customCar) {
       setEditName(customCar.name);
-      setEditManufacturer(customCar.manufacturer);
+      setEditChassisId(customCar.chassisId ?? "chassis-other");
       setEditScale(customCar.scale);
       setEditDriveType(customCar.driveType);
       setEditNotes(customCar.notes ?? "");
@@ -134,9 +138,11 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
 
   const handleSaveDetails = useCallback(async () => {
     if (!customCar) return;
+    const chassis = getChassisPlatformById(editChassisId);
     await localDb.customCars.update(carId, {
       name: editName.trim() || customCar.name,
-      manufacturer: editManufacturer.trim(),
+      chassisId: editChassisId,
+      manufacturer: chassis?.manufacturer ?? "Other",
       scale: editScale.trim() || "1:28",
       driveType: editDriveType,
       notes: editNotes.trim() || undefined,
@@ -144,7 +150,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
       _dirty: 1 as const,
     });
     setDetailsDirty(false);
-  }, [carId, customCar, editName, editManufacturer, editScale, editDriveType, editNotes]);
+  }, [carId, customCar, editName, editChassisId, editScale, editDriveType, editNotes]);
 
   const handleSavePredefinedNotes = useCallback(async () => {
     await localDb.carNotes.put({
@@ -191,7 +197,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
         </div>
         <div className="min-w-0">
           <p className="font-semibold text-sm leading-tight truncate">{carName}</p>
-          <p className="text-xs text-neutral-500">{manufacturer} · {scale} {driveType}</p>
+          <p className="text-xs text-neutral-500">{bannerSubtitle}</p>
           <p className="text-xs text-neutral-400 mt-0.5">{totalLaps.toLocaleString()} total laps</p>
         </div>
       </div>
@@ -251,12 +257,33 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-neutral-400 mb-1 block">Manufacturer</label>
-                  <input
+                  <label className="text-xs text-neutral-400 mb-1 block">Chassis Model</label>
+                  <select
                     className={inputClass}
-                    value={editManufacturer}
-                    onChange={(e) => { setEditManufacturer(e.target.value); setDetailsDirty(true); }}
-                  />
+                    value={editChassisId}
+                    onChange={(e) => {
+                      setEditChassisId(e.target.value);
+                      const cp = getChassisPlatformById(e.target.value);
+                      if (cp) { setEditScale(cp.scale); setEditDriveType(cp.driveType); }
+                      setDetailsDirty(true);
+                    }}
+                  >
+                    <option value="">Select…</option>
+                    {Object.entries(
+                      chassisPlatforms.reduce<Record<string, typeof chassisPlatforms>>((acc, cp) => {
+                        (acc[cp.manufacturer] ??= []).push(cp);
+                        return acc;
+                      }, {})
+                    ).map(([mfr, models]) => (
+                      <optgroup key={mfr} label={mfr}>
+                        {models.map((cp) => (
+                          <option key={cp.id} value={cp.id}>
+                            {cp.name} — {cp.scale} {cp.driveType}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-xs text-neutral-400 mb-1 block">Scale</label>

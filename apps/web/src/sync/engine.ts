@@ -252,7 +252,7 @@ async function pushDirtyRecords(): Promise<void> {
     body.customCars = dirtyCustomCars.map((c) => ({
       id: c.id,
       updatedAt: c.updatedAt,
-      data: { name: c.name, manufacturer: c.manufacturer, scale: c.scale, driveType: c.driveType, notes: c.notes },
+      data: { name: c.name, chassisId: c.chassisId, manufacturer: c.manufacturer, scale: c.scale, driveType: c.driveType, notes: c.notes },
     }));
   }
 
@@ -510,6 +510,7 @@ async function pullFromServer(): Promise<void> {
             id: car.id,
             userId: car.user_id || car.userId,
             name: car.name,
+            chassisId: car.chassis_id || car.chassisId || "chassis-other",
             manufacturer: car.manufacturer,
             scale: car.scale,
             driveType: car.drive_type || car.driveType,
