@@ -81,6 +81,22 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
   const [editNotes, setEditNotes] = useState("");
   const [detailsDirty, setDetailsDirty] = useState(false);
 
+  // Notes for predefined cars (stored in carNotes table)
+  const predefinedCarNote = useLiveQuery(
+    () => predefined ? localDb.carNotes.get(carId) : undefined,
+    [carId],
+  );
+  const [predefinedNotes, setPredefinedNotes] = useState("");
+  const [predefinedNotesDirty, setPredefinedNotesDirty] = useState(false);
+
+  // Sync predefined notes when loaded
+  useEffect(() => {
+    if (predefined) {
+      setPredefinedNotes(predefinedCarNote?.notes ?? "");
+      setPredefinedNotesDirty(false);
+    }
+  }, [predefined, predefinedCarNote]);
+
   // Sync edit fields when customCar loads
   useEffect(() => {
     if (customCar) {
@@ -129,6 +145,15 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
     });
     setDetailsDirty(false);
   }, [carId, customCar, editName, editManufacturer, editScale, editDriveType, editNotes]);
+
+  const handleSavePredefinedNotes = useCallback(async () => {
+    await localDb.carNotes.put({
+      carId,
+      notes: predefinedNotes.trim(),
+      updatedAt: new Date().toISOString(),
+    });
+    setPredefinedNotesDirty(false);
+  }, [carId, predefinedNotes]);
 
   const handleDeleteCar = useCallback(async () => {
     if (!confirm("Delete this car and all its setups?")) return;
@@ -290,7 +315,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
                 </div>
               </>
             ) : (
-              /* Read-only info for predefined cars */
+              /* Predefined car: show specs + editable notes */
               <div className="flex flex-col gap-3">
                 <div>
                   <p className="text-xs text-neutral-500">Name</p>
@@ -308,9 +333,23 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
                   <p className="text-xs text-neutral-500">Drive Type</p>
                   <p className="text-sm">{driveType}</p>
                 </div>
-                <p className="text-xs text-neutral-600 mt-2">
-                  Built-in cars cannot be renamed or deleted.
-                </p>
+                <div>
+                  <label className="text-xs text-neutral-400 mb-1 block">Notes</label>
+                  <textarea
+                    className={inputClass + " min-h-[80px]"}
+                    placeholder="Add personal notes for this car…"
+                    value={predefinedNotes}
+                    onChange={(e) => { setPredefinedNotes(e.target.value); setPredefinedNotesDirty(true); }}
+                  />
+                </div>
+                {predefinedNotesDirty && (
+                  <button
+                    onClick={handleSavePredefinedNotes}
+                    className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+                  >
+                    Save Notes
+                  </button>
+                )}
               </div>
             )}
           </div>

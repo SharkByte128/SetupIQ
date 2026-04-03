@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { allCars } from "@setupiq/shared";
 import type { SetupSnapshot, SetupEntry, WheelTireSetup } from "@setupiq/shared";
 import { useSetups } from "../hooks/use-setups.js";
-import { useHideDemoData, useIsDemoDataOwner, isPredefinedCar } from "../hooks/use-demo-filter.js";
+import { useHideDemoData } from "../hooks/use-demo-filter.js";
 import { SetupList } from "./SetupList.js";
 import { SetupEditor } from "./SetupEditor.js";
 import { SetupDetail } from "./SetupDetail.js";
@@ -27,10 +27,9 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
   const hideDemoData = useHideDemoData();
 
   const { setups, loading, createSetup, updateSetup, cloneSetup, deleteSetup } = useSetups(car.id, hideDemoData);
-  const isDemoOwner = useIsDemoDataOwner();
 
-  // Demo/predefined car setups are read-only unless user is sharkbyte128
-  const readOnly = isPredefinedCar(car.id) && !isDemoOwner;
+  // Setups are always user-owned — no read-only restriction
+  const readOnly = false;
 
   const handleSaveNew = useCallback(
     async (name: string, entries: SetupEntry[], wts: WheelTireSetup[], notes?: string) => {

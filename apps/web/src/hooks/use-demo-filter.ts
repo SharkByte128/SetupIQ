@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { localDb } from "../db/local-db.js";
 import { allCars } from "@setupiq/shared";
 
@@ -23,18 +24,14 @@ export function useHideDemoData(): boolean {
 
 /**
  * Returns true if the current sync user is the demo data owner.
- * Non-connected users return false (they can view but not edit demo data).
+ * Reactive — updates whenever sync_username changes in syncMeta.
  */
 export function useIsDemoDataOwner(): boolean {
-  const [isOwner, setIsOwner] = useState(false);
-
-  useEffect(() => {
-    localDb.syncMeta.get("sync_username").then((row) => {
-      setIsOwner(row?.value?.toLowerCase() === DEMO_DATA_OWNER);
-    });
-  }, []);
-
-  return isOwner;
+  const username = useLiveQuery(
+    () => localDb.syncMeta.get("sync_username").then((r) => r?.value?.toLowerCase() ?? null),
+    [],
+  );
+  return username === DEMO_DATA_OWNER;
 }
 
 /** Returns true if a car ID belongs to a built-in / predefined car. */

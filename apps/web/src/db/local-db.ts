@@ -234,6 +234,13 @@ export interface CarTimingName {
   timingName: string;
 }
 
+/** User-authored notes for any car (predefined or custom). */
+export interface LocalCarNote {
+  carId: string;
+  notes: string;
+  updatedAt: string;
+}
+
 class SetupIQDatabase extends Dexie {
   setupSnapshots!: Table<LocalSetupSnapshot, string>;
   runSessions!: Table<LocalRunSession, string>;
@@ -250,6 +257,7 @@ class SetupIQDatabase extends Dexie {
   trackFiles!: Table<LocalTrackFile, string>;
   racers!: Table<LocalRacer, string>;
   carTimingNames!: Table<CarTimingName, string>;
+  carNotes!: Table<LocalCarNote, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -461,6 +469,26 @@ class SetupIQDatabase extends Dexie {
       customCars: "id, userId, manufacturer, _dirty",
       racers: "id, name, active",
       carTimingNames: "carId",
+      syncMeta: "key",
+    });
+
+    this.version(14).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId, updatedAt, _dirty",
+      raceResults: "id, userId, carId, date, className, hidden, _dirty",
+      parts: "id, userId, vendorId, categoryId, catalogPartId, _dirty",
+      partFiles: "id, partId",
+      trackFiles: "id, trackId",
+      customCars: "id, userId, manufacturer, _dirty",
+      racers: "id, name, active",
+      carTimingNames: "carId",
+      carNotes: "carId",
       syncMeta: "key",
     });
   }
