@@ -322,23 +322,45 @@ function PartsBinListView({
   // Filter state
   const [vendorFilters, setVendorFilters] = useState<Set<string>>(new Set());
   const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set());
+  const [templateFilters, setTemplateFilters] = useState<Set<string>>(new Set());
 
   // Expand state
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Compute vendor counts
+  // Derive categories from setup template capabilities
+  const templateCategories = useMemo(() => {
+    const catSet = new Set<string>();
+    // If template filter is active, only derive categories from those templates
+    const source = templateFilters.size > 0
+      ? setupTemplates.filter((t) => templateFilters.has(t.id))
+      : setupTemplates;
+    for (const t of source) {
+      for (const cap of t.capabilities) catSet.add(cap.category);
+    }
+    return [...catSet].sort();
+  }, [setupTemplates, templateFilters]);
+
+  // Compute vendor counts over FILTERED parts (respecting category + template filters)
   const vendorCounts = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const p of allParts) m[p.vendorId] = (m[p.vendorId] || 0) + 1;
+    for (const p of allParts) {
+      if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) continue;
+      if (templateFilters.size > 0 && !templateCategories.includes(p.categoryId)) continue;
+      m[p.vendorId] = (m[p.vendorId] || 0) + 1;
+    }
     return m;
-  }, [allParts]);
+  }, [allParts, categoryFilters, templateFilters, templateCategories]);
 
-  // Compute category counts
+  // Compute category counts over FILTERED parts (respecting vendor + template filters)
   const categoryCounts = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const p of allParts) m[p.categoryId] = (m[p.categoryId] || 0) + 1;
+    for (const p of allParts) {
+      if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) continue;
+      if (templateFilters.size > 0 && !templateCategories.includes(p.categoryId)) continue;
+      m[p.categoryId] = (m[p.categoryId] || 0) + 1;
+    }
     return m;
-  }, [allParts]);
+  }, [allParts, vendorFilters, templateFilters, templateCategories]);
 
   // Filter toggle helpers
   const toggleVendor = (id: string) => {
@@ -355,40 +377,61 @@ function PartsBinListView({
       return next;
     });
   };
-
+  const toggleTemplate = (id: string) => {
+    setTemplateFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   // Apply filters
   const filteredParts = useMemo(() => {
     return allParts.filter((p) => {
       if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) return false;
       if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) return false;
+      if (templateFilters.size > 0 && !templateCategories.includes(p.categoryId)) return false;
       return true;
     });
-  }, [allParts, vendorFilters, categoryFilters]);
+  }, [allParts, vendorFilters, categoryFilters, templateFilters, templateCategories]);
 
   // Inline edit save handler
   const handleSavePart = useCallback(async (part: LocalPart) => {
     await localDb.parts.put({ ...part, updatedAt: new Date().toISOString(), _dirty: 1 as const });
   }, []);
 
-  // Only show vendors that have parts
-  const activeVendors = useMemo(() =>
-    vendors.filter((v) => (vendorCounts[v.id] ?? 0) > 0),
-    [vendorCounts],
-  );
-
-  // Derive categories from setup template capabilities
-  const templateCategories = useMemo(() => {
-    const catSet = new Map<string, string>();
-    for (const t of setupTemplates) {
-      for (const cap of t.capabilities) {
-        if (!catSet.has(cap.category)) catSet.set(cap.category, cap.category);
+  // Manufacturer pills: ≥5 parts = own pill, <5 = "Other"
+  const MIN_VENDOR_COUNT = 5;
+  const { prominentVendors, otherVendorCount } = useMemo(() => {
+    const prominent: typeof vendors[number][] = [];
+    let otherCount = 0;
+    for (const v of vendors) {
+      const count = vendorCounts[v.id] ?? 0;
+      if (count === 0) continue;
+      if (count >= MIN_VENDOR_COUNT) {
+        prominent.push(v);
+      } else {
+        otherCount += count;
       }
     }
-    return [...catSet.values()].sort();
-  }, [setupTemplates]);
+    // Also count any vendorIds not in the known vendors list
+    for (const [vid, count] of Object.entries(vendorCounts)) {
+      if (!vendors.some((v) => v.id === vid)) {
+        otherCount += count;
+      }
+    }
+    return { prominentVendors: prominent, otherVendorCount: otherCount };
+  }, [vendorCounts]);
 
-  // Only show categories that have parts
+  // Collect "other" vendor IDs for filtering
+  const otherVendorIds = useMemo(() => {
+    const prominentIds = new Set(prominentVendors.map((v) => v.id));
+    return new Set(
+      Object.keys(vendorCounts).filter((vid) => !prominentIds.has(vid)),
+    );
+  }, [vendorCounts, prominentVendors]);
+
+  // Only show categories that have parts (considering active filters)
   const activeCategories = useMemo(() =>
     templateCategories.filter((c) => (categoryCounts[c] ?? 0) > 0),
     [templateCategories, categoryCounts],
@@ -418,12 +461,37 @@ function PartsBinListView({
         </div>
       </div>
 
+      {/* ── Setup Template Filters ──────────────────── */}
+      {setupTemplates.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs text-neutral-500 mb-1.5">Setup Templates</p>
+          <div className="flex flex-wrap gap-2">
+            {setupTemplates.map((t) => {
+              const active = templateFilters.has(t.id);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => toggleTemplate(t.id)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    active
+                      ? "border-green-500 bg-green-900/20 text-green-300"
+                      : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
+                  }`}
+                >
+                  📋 {t.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Manufacturer Filters ────────────────────── */}
-      {activeVendors.length > 0 && (
+      {(prominentVendors.length > 0 || otherVendorCount > 0) && (
         <div className="mb-3">
           <p className="text-xs text-neutral-500 mb-1.5">Manufacturers</p>
           <div className="flex flex-wrap gap-2">
-            {activeVendors.map((v) => {
+            {prominentVendors.map((v) => {
               const active = vendorFilters.has(v.id);
               return (
                 <button
@@ -441,6 +509,31 @@ function PartsBinListView({
                 </button>
               );
             })}
+            {otherVendorCount > 0 && (
+              <button
+                onClick={() => {
+                  // Toggle all "other" vendor IDs at once
+                  setVendorFilters((prev) => {
+                    const next = new Set(prev);
+                    const allSelected = [...otherVendorIds].every((id) => next.has(id));
+                    if (allSelected) {
+                      otherVendorIds.forEach((id) => next.delete(id));
+                    } else {
+                      otherVendorIds.forEach((id) => next.add(id));
+                    }
+                    return next;
+                  });
+                }}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  [...otherVendorIds].every((id) => vendorFilters.has(id))
+                    ? "border-green-500 bg-green-900/20 text-green-300"
+                    : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
+                }`}
+              >
+                Other
+                <span className="text-neutral-600 ml-1">{otherVendorCount}</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -472,13 +565,13 @@ function PartsBinListView({
       )}
 
       {/* Active filter summary */}
-      {(vendorFilters.size > 0 || categoryFilters.size > 0) && (
+      {(vendorFilters.size > 0 || categoryFilters.size > 0 || templateFilters.size > 0) && (
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs text-neutral-500">
             Showing {filteredParts.length} of {allParts.length} parts
           </p>
           <button
-            onClick={() => { setVendorFilters(new Set()); setCategoryFilters(new Set()); }}
+            onClick={() => { setVendorFilters(new Set()); setCategoryFilters(new Set()); setTemplateFilters(new Set()); }}
             className="text-xs text-blue-400 hover:text-blue-300"
           >
             Clear filters

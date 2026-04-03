@@ -12,9 +12,19 @@ import {
   type VendorSearchResult,
 } from "../api/client.js";
 import { localDb } from "../db/local-db.js";
-import { allCars } from "@setupiq/shared";
+import { allCars, vendors } from "@setupiq/shared";
 import { v4 as uuid } from "uuid";
 import { useAuth } from "../hooks/use-auth.js";
+
+// ─── Vendor Name → ID Matcher ─────────────────────────────────
+
+function matchVendorId(name: string | undefined | null): string | undefined {
+  if (!name) return undefined;
+  const lower = name.toLowerCase().trim();
+  return vendors.find(
+    (v) => v.name.toLowerCase() === lower || v.slug === lower || v.id === lower,
+  )?.id;
+}
 
 // ─── HTML Sanitizer (admin-authored content) ──────────────────
 
@@ -567,7 +577,7 @@ function VendorSearchView() {
     const part = {
       id: uuid(),
       userId: "",
-      vendorId: vendorName || "vendor-search",
+      vendorId: matchVendorId(vendorName) || matchVendorId(item.vendor) || "vendor-other",
       categoryId: item.category || "other",
       name: item.productName,
       sku: item.vendorSku,
