@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { RunSession, RunSegment, SetupSnapshot, LapTime } from "@setupiq/shared";
 import { allCars, getCarById } from "@setupiq/shared";
@@ -380,6 +380,14 @@ function AnalyticsDashboard({
 
 // ─── NLT Sync Mini Form ──────────────────────────────────────
 
+interface NltRaceSummary {
+  id: number;
+  name: string;
+  status: string;
+  mode: string;
+  startedAt: string | null;
+}
+
 function NltSyncMini() {
   const [expanded, setExpanded] = useState(false);
   const [selectedTrackId, setSelectedTrackId] = useState(() => localStorage.getItem("nlt_last_track_id") ?? "");
@@ -390,9 +398,45 @@ function NltSyncMini() {
   // "ignore" means hidden, any car id means linked
   const [selectedCars, setSelectedCars] = useState<Record<number, string | "ignore">>({});
 
+  // Race listing from NLT community
+  const [races, setRaces] = useState<NltRaceSummary[]>([]);
+  const [racesLoading, setRacesLoading] = useState(false);
+  const [racesError, setRacesError] = useState<string | null>(null);
+
   const tracks = useLiveQuery(() => localDb.tracks.toArray()) ?? [];
   const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
   const feedUrl = selectedTrack?.timingFeedUrl;
+
+  // Fetch race list when track changes and has a feed URL
+  useEffect(() => {
+    if (!feedUrl) {
+      setRaces([]);
+      return;
+    }
+    setRacesLoading(true);
+    setRacesError(null);
+    fetch(`${API_BASE}/api/nlt/races`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedUrl }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: "Failed" }));
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        return res.json() as Promise<{ races: NltRaceSummary[] }>;
+      })
+      .then((data) => {
+        setRaces(data.races);
+        setRaceNumber("");
+      })
+      .catch((err) => {
+        setRacesError(err instanceof Error ? err.message : "Failed to load races");
+        setRaces([]);
+      })
+      .finally(() => setRacesLoading(false));
+  }, [feedUrl]);
 
   const handleSync = async () => {
     const trimmed = raceNumber.trim();
@@ -519,13 +563,28 @@ function NltSyncMini() {
             )}
           </div>
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={raceNumber}
-              onChange={(e) => setRaceNumber(e.target.value)}
-              placeholder={feedUrl ? "Race / run number" : "Race number or full URL"}
-              className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
-            />
+            {races.length > 0 ? (
+              <select
+                value={raceNumber}
+                onChange={(e) => setRaceNumber(e.target.value)}
+                className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+              >
+                <option value="">— select race —</option>
+                {races.map((r) => (
+                  <option key={r.id} value={String(r.id)}>
+                    {r.name}{r.startedAt ? ` (${new Date(r.startedAt).toLocaleDateString()})` : ""}{r.status === "active" ? " 🔴" : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={raceNumber}
+                onChange={(e) => setRaceNumber(e.target.value)}
+                placeholder={feedUrl ? "Race / run number" : "Race number or full URL"}
+                className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+              />
+            )}
             <button
               onClick={handleSync}
               disabled={loading || !canSync}
@@ -534,6 +593,8 @@ function NltSyncMini() {
               {loading ? "Syncing…" : "Import"}
             </button>
           </div>
+          {racesLoading && <p className="text-[10px] text-neutral-500">Loading races…</p>}
+          {racesError && <p className="text-[10px] text-amber-500">{racesError}</p>}
           {feedUrl && raceNumber.trim() && !raceNumber.trim().startsWith("http") && (
             <p className="text-[10px] text-neutral-600 truncate">
               {(feedUrl.endsWith("/") ? feedUrl : feedUrl + "/") + raceNumber.trim()}

@@ -40,6 +40,69 @@ interface NltApiRace {
   events: NltApiEvent[];
 }
 
+// ─── Community race listing types ─────────────────────────────
+
+interface NltApiCommunityRace {
+  id: number;
+  community_id: number;
+  name: string;
+  status: string;        // "completed" | "active" | "pending"
+  mode: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface NltRaceSummary {
+  id: number;
+  name: string;
+  status: string;
+  mode: string;
+  startedAt: string | null;
+}
+
+/**
+ * Extract community slug from a timing feed URL.
+ * e.g. "https://nextleveltiming.com/communities/piedmont-micro-rc/races"
+ *   => "piedmont-micro-rc"
+ */
+function extractCommunitySlug(url: string): string | null {
+  const m = url.match(/\/communities\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Fetch the list of recent races for a NLT community.
+ */
+export async function fetchNltCommunityRaces(feedUrl: string): Promise<NltRaceSummary[]> {
+  const slug = extractCommunitySlug(feedUrl);
+  if (!slug) throw new Error("Could not extract community slug from URL");
+
+  // NLT community API endpoint
+  const apiUrl = `https://nextleveltiming.com/api/communities/${slug}/races`;
+  const res = await fetch(apiUrl, {
+    headers: {
+      "User-Agent": "SetupIQ/1.0 (RC race listing)",
+      "Accept": "application/json",
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!res.ok) {
+    throw new Error(`NLT API returned HTTP ${res.status}`);
+  }
+
+  const json = await res.json() as { data: NltApiCommunityRace[] };
+  const races = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json as unknown as NltApiCommunityRace[] : []);
+
+  return races.map((r) => ({
+    id: r.id,
+    name: r.name || `Race ${r.id}`,
+    status: r.status,
+    mode: r.mode,
+    startedAt: r.started_at,
+  }));
+}
+
 // ─── Public result type ──────────────────────────────────────
 
 export interface NltRaceData {
@@ -182,6 +245,41 @@ export async function registerNltRoutes(app: FastifyInstance): Promise<void> {
       return data;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Import failed";
+      return reply.status(502).send({ error: message });
+    }
+  });
+
+  // ─── List races for a community ──────────────────────────────
+
+  app.post<{ Body: { feedUrl: string } }>("/api/nlt/races", {
+    schema: {
+      body: {
+        type: "object",
+        required: ["feedUrl"],
+        properties: {
+          feedUrl: { type: "string" },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const { feedUrl } = request.body;
+
+    let parsed: URL;
+    try {
+      parsed = new URL(feedUrl);
+    } catch {
+      return reply.status(400).send({ error: "Invalid URL" });
+    }
+
+    if (parsed.hostname !== "nextleveltiming.com" && parsed.hostname !== "www.nextleveltiming.com") {
+      return reply.status(400).send({ error: "URL must be from nextleveltiming.com" });
+    }
+
+    try {
+      const races = await fetchNltCommunityRaces(feedUrl);
+      return { races };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to fetch races";
       return reply.status(502).send({ error: message });
     }
   });
