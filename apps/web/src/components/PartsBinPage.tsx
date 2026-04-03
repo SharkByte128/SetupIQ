@@ -3,13 +3,11 @@ import { useLiveQuery } from "dexie-react-hooks";
 import {
   vendors,
   partCategories,
-  chassisPlatforms,
   getCategoryById,
   getVendorById,
   type Vendor,
   type PartCategory,
 } from "@setupiq/shared";
-import { allCars } from "@setupiq/shared";
 import { localDb, type LocalPart, type LocalPartFile } from "../db/local-db.js";
 import { lookupPartBySku, suggestPartsForChassis, type PartLookupResult, type SuggestedPart } from "../lib/gemini-parts.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -331,18 +329,12 @@ function PartsBinListView({
 }) {
   const isMobile = useIsMobile();
   const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
-  const customCars = useLiveQuery(() => localDb.customCars.toArray()) ?? [];
-  const hiddenCarIds = useLiveQuery(() => localDb.hiddenGarageCars.toArray()) ?? [];
-  const hiddenSet = new Set(hiddenCarIds.map((h) => h.carId));
+  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
-  // Garage cars: predefined (non-hidden) + custom
+  // Templates as compatibility options
   const garageCars = useMemo(() => {
-    const predefined = allCars
-      .filter((c) => !hiddenSet.has(c.id))
-      .map((c) => ({ id: c.id, name: `${c.manufacturer} ${c.name}` }));
-    const custom = customCars.map((c) => ({ id: c.id, name: c.name }));
-    return [...predefined, ...custom];
-  }, [customCars, hiddenSet.size]);
+    return setupTemplates.map((t) => ({ id: t.id, name: t.name }));
+  }, [setupTemplates]);
 
   // Filter state
   const [vendorFilters, setVendorFilters] = useState<Set<string>>(new Set());
@@ -663,8 +655,7 @@ function PartRow({
             <div className="flex flex-wrap gap-1 mt-1">
               {part.compatibleChassisIds.slice(0, 3).map((id) => {
                 const car = garageCars.find((c) => c.id === id);
-                const cp = chassisPlatforms.find((c) => c.id === id);
-                const label = car?.name ?? cp?.name ?? id;
+                const label = car?.name ?? id;
                 return (
                   <span key={id} className="text-[10px] bg-green-900/30 text-green-400 rounded-full px-1.5 py-0.5">
                     {label}
@@ -731,9 +722,9 @@ function PartRow({
                 </div>
               )}
 
-              {/* Car compatibility (read-only) */}
+              {/* Template compatibility (read-only) */}
               <div>
-                <p className="text-xs text-neutral-500 mb-1.5">Compatible Cars</p>
+                <p className="text-xs text-neutral-500 mb-1.5">Compatible Templates</p>
                 <div className="flex flex-wrap gap-1.5">
                   {garageCars.map((car) => {
                     const compat = part.compatibleChassisIds.includes(car.id);
@@ -852,9 +843,9 @@ function PartRow({
                 />
               </div>
 
-              {/* Car compatibility pills (interactive) */}
+              {/* Template compatibility pills (interactive) */}
               <div>
-                <p className="text-xs text-neutral-500 mb-1.5">Compatible Cars</p>
+                <p className="text-xs text-neutral-500 mb-1.5">Compatible Templates</p>
                 <div className="flex flex-wrap gap-1.5">
                   {garageCars.map((car) => {
                     const compat = part.compatibleChassisIds.includes(car.id);
@@ -927,6 +918,8 @@ function AddPartForm({
     editPart?.attributes ?? {},
   );
 
+  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
+
   const toggleChassis = (id: string) => {
     setSelectedChassis((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
@@ -997,21 +990,21 @@ function AddPartForm({
           inputClass={inputClass}
         />
 
-        {/* Compatible Chassis */}
+        {/* Compatible Templates */}
         <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Compatible Chassis</label>
+          <label className="text-xs text-neutral-400 mb-2 block">Compatible Templates</label>
           <div className="flex flex-wrap gap-2">
-            {chassisPlatforms.map((cp) => (
+            {setupTemplates.map((tmpl) => (
               <button
-                key={cp.id}
-                onClick={() => toggleChassis(cp.id)}
+                key={tmpl.id}
+                onClick={() => toggleChassis(tmpl.id)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedChassis.includes(cp.id)
+                  selectedChassis.includes(tmpl.id)
                     ? "bg-blue-600 border-blue-500 text-white"
                     : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
                 }`}
               >
-                {cp.name}
+                {tmpl.name}
               </button>
             ))}
           </div>
@@ -1116,6 +1109,8 @@ function PartDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [viewingPdf, setViewingPdf] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
   // Load files on mount / part change
   useEffect(() => {
@@ -1225,18 +1220,18 @@ function PartDetail({
 
         {part.compatibleChassisIds.length > 0 && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
-            <p className="text-xs text-neutral-500 mb-2">Compatible Chassis</p>
+            <p className="text-xs text-neutral-500 mb-2">Compatible Templates</p>
             <div className="flex flex-wrap gap-1.5">
               {part.compatibleChassisIds.map((id) => {
-                const cp = chassisPlatforms.find((c) => c.id === id);
-                return cp ? (
+                const tmpl = setupTemplates.find((t) => t.id === id);
+                return (
                   <span
                     key={id}
                     className="text-xs px-2 py-1 bg-neutral-800 rounded-full text-neutral-300"
                   >
-                    {cp.name}
+                    {tmpl?.name ?? id}
                   </span>
-                ) : null;
+                );
               })}
             </div>
           </div>
@@ -1454,6 +1449,8 @@ function QuickAddPart({
   const [selectedChassis, setSelectedChassis] = useState<string[]>([]);
   const [attrs, setAttrs] = useState<Record<string, string | number>>({});
 
+  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
+
   const toggleChassis = (id: string) => {
     setSelectedChassis((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
@@ -1573,21 +1570,21 @@ function QuickAddPart({
           inputClass={inputClass}
         />
 
-        {/* Compatible Chassis */}
+        {/* Compatible Templates */}
         <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Compatible Chassis</label>
+          <label className="text-xs text-neutral-400 mb-2 block">Compatible Templates</label>
           <div className="flex flex-wrap gap-2">
-            {chassisPlatforms.map((cp) => (
+            {setupTemplates.map((tmpl) => (
               <button
-                key={cp.id}
-                onClick={() => toggleChassis(cp.id)}
+                key={tmpl.id}
+                onClick={() => toggleChassis(tmpl.id)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedChassis.includes(cp.id)
+                  selectedChassis.includes(tmpl.id)
                     ? "bg-blue-600 border-blue-500 text-white"
                     : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
                 }`}
               >
-                {cp.name}
+                {tmpl.name}
               </button>
             ))}
           </div>
@@ -1684,6 +1681,8 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [filesFound, setFilesFound] = useState(0);
+
+  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
   const handleGenerate = async () => {
     if (!chassis.trim()) return;
@@ -1817,10 +1816,10 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
           value={chassis}
           onChange={(e) => setChassis(e.target.value)}
         >
-          <option value="">Select chassis...</option>
-          {chassisPlatforms.map((c) => (
-            <option key={c.id} value={c.name}>
-              {c.name}
+          <option value="">Select template...</option>
+          {setupTemplates.map((t) => (
+            <option key={t.id} value={t.name}>
+              {t.name}
             </option>
           ))}
         </select>

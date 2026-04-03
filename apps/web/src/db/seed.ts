@@ -1,3 +1,4 @@
+import { allCars } from "@setupiq/shared";
 import { localDb } from "./local-db.js";
 import buildData from "./build-data.json";
 
@@ -174,4 +175,39 @@ export async function seedDefaults(): Promise<void> {
   }
 
   await localDb.syncMeta.put({ key: "db-seeded-v3", value: now });
+}
+
+/**
+ * Seed built-in setup templates from car definitions.
+ * Runs independently of main seed so existing users also get templates.
+ */
+export async function seedSetupTemplates(): Promise<void> {
+  const seeded = await localDb.syncMeta.get("templates-seeded-v1");
+  if (seeded) return;
+
+  const now = new Date().toISOString();
+
+  for (const car of allCars) {
+    const existing = await localDb.setupTemplates.get(car.id);
+    if (existing) continue;
+
+    await localDb.setupTemplates.put({
+      id: car.id,
+      name: `${car.manufacturer} ${car.name}`,
+      manufacturer: car.manufacturer,
+      scale: car.scale,
+      driveType: car.driveType,
+      capabilities: car.capabilities.map((c) => ({
+        id: c.id,
+        name: c.name,
+        category: c.category,
+        valueType: c.valueType,
+      })),
+      builtIn: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  await localDb.syncMeta.put({ key: "templates-seeded-v1", value: now });
 }

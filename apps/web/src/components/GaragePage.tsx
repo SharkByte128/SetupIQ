@@ -6,11 +6,12 @@ import { localDb, type LocalCarImage, type LocalCustomCar } from "../db/local-db
 import { CarDetailPage } from "./CarDetailPage.js";
 import { PartsBinPage } from "./PartsBinPage.js";
 import { CatalogPage } from "./CatalogPage.js";
+import { SetupTemplatesPage } from "./SetupTemplatesPage.js";
 import { AddCarPage } from "./AddCarPage.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
 
-type GarageView = "cars" | "setups" | "parts" | "catalog" | "addCar" | "editCar";
+type GarageView = "cars" | "setups" | "parts" | "catalog" | "templates" | "addCar" | "editCar";
 
 /** Unified shape for displaying both predefined and custom cars. */
 type GarageCar =
@@ -130,6 +131,23 @@ export function GaragePage() {
     );
   }
 
+  // Setup Templates view
+  if (garageView === "templates") {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-4 pt-3 pb-2">
+          <button
+            onClick={() => setGarageView("cars")}
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            ← Back to Garage
+          </button>
+        </div>
+        <SetupTemplatesPage />
+      </div>
+    );
+  }
+
   // Catalog view
   if (garageView === "catalog") {
     return <CatalogPage onBack={() => setGarageView("cars")} />;
@@ -159,6 +177,21 @@ export function GaragePage() {
   return (
     <div className="px-4 py-4">
       <h2 className="text-xl font-semibold mb-4">Garage</h2>
+
+      {/* Setup Templates button */}
+      <button
+        onClick={() => setGarageView("templates")}
+        className="w-full mb-4 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between hover:border-neutral-600 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-lg">📋</span>
+          <div className="text-left">
+            <p className="font-medium text-sm">Setup Templates</p>
+            <p className="text-xs text-neutral-500">View & manage setup sheet templates</p>
+          </div>
+        </div>
+        <span className="text-neutral-500 text-sm">→</span>
+      </button>
 
       {/* Parts Bin button */}
       <button
