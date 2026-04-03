@@ -108,6 +108,7 @@ async function refreshToken(): Promise<boolean> {
   try {
     const res = await fetch(`${serverUrl}/auth/token-login`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: usernameMeta.value, apiToken: tokenMeta.value }),
     });

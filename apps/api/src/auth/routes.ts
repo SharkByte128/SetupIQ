@@ -202,6 +202,15 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       { expiresIn: "30d" }
     );
 
+    // Set the same auth cookie used by OAuth so /auth/me works for token-login users
+    reply.setCookie(COOKIE_NAME, jwtToken, {
+      path: "/",
+      httpOnly: true,
+      secure: IS_PROD,
+      sameSite: IS_PROD ? "strict" : "lax",
+      maxAge: 30 * 24 * 60 * 60,
+    });
+
     return { token: jwtToken, user: { id: user.id, username: user.username, displayName: user.displayName } };
   });
 }

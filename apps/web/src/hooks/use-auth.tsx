@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { fetchCurrentUser, type AuthUser } from "../api/client.js";
+import { onSyncStateChange } from "../sync/engine.js";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -27,6 +28,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Re-check auth when sync connects (token-login sets the auth cookie)
+  useEffect(() => {
+    return onSyncStateChange((state) => {
+      if (state === "synced" && !user) refresh();
+    });
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, loading, refresh }}>
