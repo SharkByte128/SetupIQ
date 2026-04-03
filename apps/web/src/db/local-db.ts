@@ -191,6 +191,8 @@ export interface LocalPart {
   compatibleChassisIds: string[];
   attributes: Record<string, string | number>;
   notes?: string;
+  /** Setup template IDs this part is an optional part for */
+  setupTemplateIds?: string[];
   /** Sort order in Parts Bin list (null = bottom) */
   sortOrder?: number;
   /** Link to server-side catalog part (null = manual / unlinked) */

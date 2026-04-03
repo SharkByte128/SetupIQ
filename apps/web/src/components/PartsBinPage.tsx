@@ -646,6 +646,8 @@ function PartRow({
   const [editCategoryId, setEditCategoryId] = useState(part.categoryId);
   const [editSortOrder, setEditSortOrder] = useState(part.sortOrder?.toString() ?? "");
 
+  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
+
   // Sync local state when part changes from DB (e.g., after car compat toggle)
   useEffect(() => {
     setEditName(part.name);
@@ -678,6 +680,14 @@ function PartRow({
     const updated = { ...part, sortOrder: newVal };
     await onSave(updated);
   }, [editSortOrder, part, onSave]);
+
+  const handleToggleTemplate = useCallback(async (templateId: string) => {
+    const current = part.setupTemplateIds ?? [];
+    const next = current.includes(templateId)
+      ? current.filter((id: string) => id !== templateId)
+      : [...current, templateId];
+    await onSave({ ...part, setupTemplateIds: next });
+  }, [part, onSave]);
 
   const inputClass =
     "w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-blue-500";
@@ -733,6 +743,31 @@ function PartRow({
                   <p className="text-sm text-neutral-200">{part.sortOrder ?? "—"}</p>
                 </div>
               </div>
+
+              {/* Setup Templates pills (mobile - tappable) */}
+              {setupTemplates.length > 0 && (
+                <div>
+                  <p className="text-xs text-neutral-500 mb-1.5">Setup Templates</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {setupTemplates.map((t) => {
+                      const active = (part.setupTemplateIds ?? []).includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => handleToggleTemplate(t.id)}
+                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                            active
+                              ? "border-blue-500 bg-blue-900/30 text-blue-300"
+                              : "border-neutral-700 bg-neutral-800 text-neutral-500 hover:border-neutral-500"
+                          }`}
+                        >
+                          {active ? "✓ " : ""}{t.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {part.sku && (
                 <div>
@@ -847,6 +882,32 @@ function PartRow({
                 />
               </div>
 
+              {/* Setup Templates pill picker (desktop) */}
+              {setupTemplates.length > 0 && (
+                <div>
+                  <label className="text-xs text-neutral-500 mb-1.5 block">Setup Templates</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {setupTemplates.map((t) => {
+                      const active = (part.setupTemplateIds ?? []).includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => handleToggleTemplate(t.id)}
+                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                            active
+                              ? "border-blue-500 bg-blue-900/30 text-blue-300"
+                              : "border-neutral-700 bg-neutral-800 text-neutral-500 hover:border-neutral-500"
+                          }`}
+                        >
+                          {active ? "✓ " : ""}{t.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Link to full detail (photos/PDFs) */}
               <div className="flex gap-2 pt-1">
                 <button
@@ -891,6 +952,9 @@ function AddPartForm({
   const [sku, setSku] = useState(editPart?.sku ?? "");
   const [notes, setNotes] = useState(editPart?.notes ?? "");
   const [sortOrder, setSortOrder] = useState(editPart?.sortOrder?.toString() ?? "");
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(
+    new Set(editPart?.setupTemplateIds ?? []),
+  );
   const [attrs, setAttrs] = useState<Record<string, string | number>>(
     editPart?.attributes ?? {},
   );
@@ -925,10 +989,11 @@ function AddPartForm({
       categoryId: selectedCategoryId,
       name: name.trim(),
       sku: sku.trim() || undefined,
-      compatibleChassisIds: [],
+      compatibleChassisIds: isEdit ? editPart.compatibleChassisIds : [],
       attributes: attrs,
       notes: notes.trim() || undefined,
       sortOrder: sortOrder.trim() === "" ? undefined : Number(sortOrder.trim()),
+      setupTemplateIds: selectedTemplateIds.size > 0 ? [...selectedTemplateIds] : undefined,
       createdAt: isEdit ? editPart.createdAt : now,
       updatedAt: now,
       _dirty: 1 as const,
@@ -1025,6 +1090,37 @@ function AddPartForm({
             onChange={(e) => setSortOrder(e.target.value)}
           />
         </div>
+
+        {/* Setup Templates */}
+        {setupTemplates.length > 0 && (
+          <div>
+            <label className="text-xs text-neutral-400 mb-2 block">Setup Templates</label>
+            <p className="text-[11px] text-neutral-500 mb-2">Select templates where this part is an option.</p>
+            <div className="flex flex-wrap gap-2">
+              {setupTemplates.map((t) => {
+                const active = selectedTemplateIds.has(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedTemplateIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                      return next;
+                    })}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                      active
+                        ? "bg-blue-600 border-blue-500 text-white"
+                        : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                    }`}
+                  >
+                    {active ? "✓ " : ""}📋 {t.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3">
