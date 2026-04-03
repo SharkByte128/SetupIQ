@@ -573,16 +573,17 @@ function NltSyncMini() {
             )}
           </div>
           <div className="flex gap-2">
-            {races.length > 0 ? (
+            {(racesLoading || races.length > 0) ? (
               <select
                 value={raceNumber}
                 onChange={(e) => setRaceNumber(e.target.value)}
-                className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+                disabled={racesLoading}
+                className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 disabled:opacity-50"
               >
-                <option value="">— select race —</option>
+                <option value="">{racesLoading ? "Loading races…" : "— select race —"}</option>
                 {races.map((r) => (
                   <option key={r.id} value={String(r.id)}>
-                    {r.name}{r.startedAt ? ` (${new Date(r.startedAt).toLocaleDateString()})` : ""}{r.status === "active" ? " LIVE" : ""}
+                    {r.name}{r.startedAt ? ` (${new Date(r.startedAt).toLocaleDateString()})` : ""}{r.status === "active" ? " 🔴 LIVE" : ""}
                   </option>
                 ))}
               </select>
@@ -603,7 +604,6 @@ function NltSyncMini() {
               {loading ? "Syncing…" : "Import"}
             </button>
           </div>
-          {racesLoading && <p className="text-[10px] text-neutral-500">Loading races…</p>}
           {racesError && <p className="text-[10px] text-amber-500">{racesError}</p>}
           {feedUrl && raceNumber.trim() && !raceNumber.trim().startsWith("http") && (
             <p className="text-[10px] text-neutral-600 truncate">
