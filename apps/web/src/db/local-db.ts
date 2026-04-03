@@ -264,7 +264,13 @@ export interface LocalSetupTemplate {
   id: string;
   name: string;
   compatibleChassisIds: string[];
-  capabilities: { id: string; name: string; category: string; valueType: string }[];
+  capabilities: {
+    id: string;
+    name: string;
+    category: string;
+    valueType: string;
+    options?: { label: string; value: string | number; color?: string }[];
+  }[];
   builtIn?: boolean;
   createdAt: string;
   updatedAt: string;

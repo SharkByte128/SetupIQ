@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { chassisPlatforms } from "@setupiq/shared";
 import { localDb, type LocalSetupTemplate } from "../db/local-db.js";
@@ -281,6 +281,8 @@ const VALUE_TYPES = [
   { value: "text", label: "Text" },
 ];
 
+type CapEntry = LocalSetupTemplate["capabilities"][number];
+
 function TemplateEditor({
   template,
   onSaved,
@@ -294,11 +296,11 @@ function TemplateEditor({
   const [selectedChassisIds, setSelectedChassisIds] = useState<string[]>(
     template?.compatibleChassisIds ?? [],
   );
-  const [capabilities, setCapabilities] = useState(
+  const [capabilities, setCapabilities] = useState<CapEntry[]>(
     template?.capabilities ?? [],
   );
 
-  // Explicit section ordering (derived from initial capabilities, maintained manually)
+  // Explicit section ordering
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
     const seen = new Set<string>();
     const order: string[] = [];
@@ -323,6 +325,14 @@ function TemplateEditor({
   const [addFieldSection, setAddFieldSection] = useState<string | null>(null);
   const [newCapName, setNewCapName] = useState("");
   const [newCapType, setNewCapType] = useState("pick");
+
+  // Pick-options editor state
+  const [editingOptionsCapId, setEditingOptionsCapId] = useState<string | null>(null);
+  const [newOptionLabel, setNewOptionLabel] = useState("");
+
+  // Drag-and-drop state
+  const dragCapId = useRef<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   const toggleChassis = (id: string) => {
     setSelectedChassisIds((prev) =>
@@ -384,6 +394,7 @@ function TemplateEditor({
         name: newCapName.trim(),
         category: section,
         valueType: newCapType,
+        ...(newCapType === "pick" ? { options: [] } : {}),
       },
     ]);
     setNewCapName("");
@@ -392,13 +403,66 @@ function TemplateEditor({
 
   const removeCapability = (id: string) => {
     setCapabilities((prev) => prev.filter((c) => c.id !== id));
+    if (editingOptionsCapId === id) setEditingOptionsCapId(null);
   };
+
+  // ── Pick options ──
+
+  const addOption = (capId: string) => {
+    const label = newOptionLabel.trim();
+    if (!label) return;
+    setCapabilities((prev) =>
+      prev.map((c) =>
+        c.id === capId
+          ? { ...c, options: [...(c.options ?? []), { label, value: label.toLowerCase().replace(/\s+/g, "-") }] }
+          : c,
+      ),
+    );
+    setNewOptionLabel("");
+  };
+
+  const removeOption = (capId: string, optIdx: number) => {
+    setCapabilities((prev) =>
+      prev.map((c) =>
+        c.id === capId ? { ...c, options: (c.options ?? []).filter((_, i) => i !== optIdx) } : c,
+      ),
+    );
+  };
+
+  // ── Drag & drop ──
+
+  const handleDragStart = useCallback((e: React.DragEvent, capId: string) => {
+    dragCapId.current = capId;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", capId);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, section: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTarget(section);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDropTarget(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetSection: string) => {
+    e.preventDefault();
+    setDropTarget(null);
+    const capId = dragCapId.current;
+    if (!capId) return;
+    dragCapId.current = null;
+    setCapabilities((prev) =>
+      prev.map((c) => (c.id === capId ? { ...c, category: targetSection } : c)),
+    );
+  }, []);
 
   const handleSave = async () => {
     if (!name.trim()) return;
 
     // Reorder capabilities to match section order
-    const ordered: typeof capabilities = [];
+    const ordered: CapEntry[] = [];
     for (const section of sectionOrder) {
       ordered.push(...capabilities.filter((c) => c.category === section));
     }
@@ -423,7 +487,7 @@ function TemplateEditor({
 
   // Group capabilities by category for display
   const grouped = useMemo(() => {
-    const map = new Map<string, typeof capabilities>();
+    const map = new Map<string, CapEntry[]>();
     for (const cap of capabilities) {
       const list = map.get(cap.category) ?? [];
       list.push(cap);
@@ -479,18 +543,27 @@ function TemplateEditor({
           <label className="text-xs text-neutral-400 mb-2 block">
             Sections & Fields ({capabilities.length} fields in {sectionOrder.length} sections)
           </label>
+          <p className="text-[10px] text-neutral-600 mb-2">Drag fields between sections to move them.</p>
 
           {sectionOrder.length === 0 ? (
             <p className="text-xs text-neutral-600 mb-2">No sections yet — add one below.</p>
           ) : (
-            <div className="flex flex-col gap-2 mb-3 max-h-[28rem] overflow-y-auto">
+            <div className="flex flex-col gap-2 mb-3 max-h-[32rem] overflow-y-auto">
               {sectionOrder.map((section, idx) => {
                 const caps = grouped.get(section) ?? [];
                 const isEditing = editingSectionIdx === idx;
+                const isDragOver = dropTarget === section;
                 return (
                   <div
                     key={section}
-                    className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2"
+                    className={`bg-neutral-900 border rounded-lg px-3 py-2 transition-colors ${
+                      isDragOver
+                        ? "border-blue-500 bg-blue-950/20"
+                        : "border-neutral-800"
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, section)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, section)}
                   >
                     {/* Section header */}
                     <div className="flex items-center gap-1.5 mb-1.5">
@@ -544,25 +617,89 @@ function TemplateEditor({
                     </div>
 
                     {/* Capabilities in this section */}
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-col gap-1">
                       {caps.map((cap) => (
-                        <span
-                          key={cap.id}
-                          className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300"
-                        >
-                          {cap.name}
-                          <span className="text-neutral-600 text-[10px]">({cap.valueType})</span>
-                          <button
-                            onClick={() => removeCapability(cap.id)}
-                            className="text-red-500 hover:text-red-400 ml-0.5"
-                            title="Remove"
+                        <div key={cap.id}>
+                          <span
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, cap.id)}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300 cursor-grab active:cursor-grabbing"
                           >
-                            ×
-                          </button>
-                        </span>
+                            <span className="text-neutral-600 select-none">⠿</span>
+                            {cap.name}
+                            <span className="text-neutral-600 text-[10px]">({cap.valueType})</span>
+                            {cap.valueType === "pick" && (
+                              <button
+                                onClick={() =>
+                                  setEditingOptionsCapId(
+                                    editingOptionsCapId === cap.id ? null : cap.id,
+                                  )
+                                }
+                                className="text-blue-400 hover:text-blue-300 text-[10px] ml-0.5"
+                                title="Edit pick options"
+                              >
+                                {(cap.options?.length ?? 0) > 0
+                                  ? `${cap.options!.length} opts`
+                                  : "opts"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => removeCapability(cap.id)}
+                              className="text-red-500 hover:text-red-400 ml-0.5"
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          </span>
+
+                          {/* Inline pick options editor */}
+                          {editingOptionsCapId === cap.id && cap.valueType === "pick" && (
+                            <div className="ml-4 mt-1 mb-1 p-2 bg-neutral-800 border border-neutral-700 rounded-lg">
+                              <p className="text-[10px] text-neutral-500 mb-1.5">
+                                Pick options for <span className="text-neutral-300">{cap.name}</span>
+                              </p>
+                              {(cap.options ?? []).length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-1.5">
+                                  {(cap.options ?? []).map((opt, oi) => (
+                                    <span
+                                      key={oi}
+                                      className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-neutral-300"
+                                    >
+                                      {opt.label}
+                                      <button
+                                        onClick={() => removeOption(cap.id, oi)}
+                                        className="text-red-500 hover:text-red-400"
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-2 py-0.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500"
+                                  placeholder="Option label"
+                                  value={newOptionLabel}
+                                  onChange={(e) => setNewOptionLabel(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") addOption(cap.id);
+                                  }}
+                                />
+                                <button
+                                  onClick={() => addOption(cap.id)}
+                                  disabled={!newOptionLabel.trim()}
+                                  className="text-[10px] text-blue-400 hover:text-blue-300 disabled:opacity-40"
+                                >
+                                  + Add
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       ))}
                       {caps.length === 0 && (
-                        <span className="text-[10px] text-neutral-600 italic">Empty section</span>
+                        <span className="text-[10px] text-neutral-600 italic">Empty section — drag fields here</span>
                       )}
                     </div>
 
