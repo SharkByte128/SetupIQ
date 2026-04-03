@@ -292,6 +292,11 @@ export function PartsBinPage() {
             const c = getCategoryById(view.part.categoryId);
             if (v && c) setView({ type: "add", vendor: v, category: c, editPart: view.part });
           }}
+          onDelete={async () => {
+            await localDb.partFiles.where("partId").equals(view.part.id).delete();
+            await localDb.parts.delete(view.part.id);
+            setView({ type: "list" });
+          }}
         />
       )}
       {view.type === "quickAdd" && (
@@ -1097,15 +1102,18 @@ function AddPartForm({
 function PartDetail({
   part,
   onEdit,
+  onDelete,
 }: {
   part: LocalPart;
   onEdit: () => void;
+  onDelete: () => Promise<void>;
 }) {
   const vendor = getVendorById(part.vendorId);
   const category = getCategoryById(part.categoryId);
   const [files, setFiles] = useState<{ id: string; name: string; mimeType: string; url: string }[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [viewingPdf, setViewingPdf] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
 
@@ -1339,6 +1347,34 @@ function PartDetail({
             <p className="text-xs text-neutral-600">No documents yet</p>
           )}
         </div>
+      </div>
+
+      {/* ── Delete Part ────────────────────────────── */}
+      <div className="border-t border-neutral-800 pt-4 mt-2">
+        {confirmDelete ? (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-neutral-400">Delete this part and all its files?</span>
+            <button
+              onClick={() => { setConfirmDelete(false); onDelete(); }}
+              className="text-sm px-4 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors"
+            >
+              Yes, Delete
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="text-sm px-4 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="text-sm text-red-400 hover:text-red-300"
+          >
+            Delete Part
+          </button>
+        )}
       </div>
 
       {/* Hidden file inputs */}
