@@ -75,82 +75,31 @@ function extractCommunitySlug(url: string): string | null {
  */
 /**
  * Resolve a community slug to its numeric NLT ID.
- * Strategy: fetch the community races HTML page, extract a race ID from links,
- * then hit the race API to read community_id. Works for any community size.
+ * Uses the NLT JSON API directly: GET /api/communities/{slug} returns { data: { id } }.
  */
 export async function resolveNltCommunityId(feedUrl: string): Promise<number> {
   const slug = extractCommunitySlug(feedUrl);
   if (!slug) throw new Error("Could not extract community slug from URL");
 
-  const headers = {
-    "User-Agent": "SetupIQ/1.0 (RC community resolver)",
-  };
-
-  // Fetch the community's races page HTML (works even if community page is empty)
-  const racesPageUrl = `https://nextleveltiming.com/communities/${slug}/races`;
-  const htmlRes = await fetch(racesPageUrl, {
-    headers,
+  const apiUrl = `https://nextleveltiming.com/api/communities/${slug}`;
+  const res = await fetch(apiUrl, {
+    headers: {
+      "User-Agent": "SetupIQ/1.0 (RC community resolver)",
+      "Accept": "application/json",
+    },
     signal: AbortSignal.timeout(15000),
   });
-  if (!htmlRes.ok) throw new Error(`Community page returned HTTP ${htmlRes.status}`);
-  const html = await htmlRes.text();
 
-  // Strategy 1: extract community ID from embedded Inertia/SPA page props JSON
-  // NLT uses Inertia.js: <div data-page='{"props":{"community":{"id":1513,...}}}'>
-  const inertiaMatch = html.match(/data-page="([^"]+)"/);
-  if (inertiaMatch) {
-    try {
-      const decoded = inertiaMatch[1].replace(/&quot;/g, '"').replace(/&#039;/g, "'");
-      const pageData = JSON.parse(decoded) as { props?: { community?: { id?: number } } };
-      const id = pageData?.props?.community?.id;
-      if (id && typeof id === "number") return id;
-    } catch {
-      // fall through to next strategy
-    }
+  if (!res.ok) {
+    throw new Error(`Could not resolve NLT community ID for "${slug}" (HTTP ${res.status})`);
   }
 
-  // Strategy 2: find "id": <number> inside a "community" JSON block in the page
-  const communityIdMatch = html.match(/"community"\s*:\s*\{[^}]*"id"\s*:\s*(\d+)/);
-  if (communityIdMatch) return Number(communityIdMatch[1]);
-
-  // Strategy 3: extract a race link and look up community_id via the race API
-  const raceIdMatch = html.match(/\/communities\/[^/]+\/races\/(\d+)/);
-  if (raceIdMatch) {
-    const sampleRaceId = Number(raceIdMatch[1]);
-    const raceRes = await fetch(`https://nextleveltiming.com/api/races/${sampleRaceId}`, {
-      headers: { ...headers, Accept: "application/json" },
-      signal: AbortSignal.timeout(15000),
-    });
-    if (raceRes.ok) {
-      const raceJson = await raceRes.json() as { data: { community_id: number } };
-      if (raceJson?.data?.community_id) return raceJson.data.community_id;
-    }
+  const json = await res.json() as { data?: { id?: number } };
+  const id = json?.data?.id;
+  if (!id || typeof id !== "number") {
+    throw new Error(`Could not resolve NLT community ID for "${slug}"`);
   }
-
-  // Strategy 4: fetch the community profile page and try the same extraction
-  const profilePageUrl = `https://nextleveltiming.com/communities/${slug}`;
-  const profileRes = await fetch(profilePageUrl, {
-    headers,
-    signal: AbortSignal.timeout(15000),
-  });
-  if (profileRes.ok) {
-    const profileHtml = await profileRes.text();
-    const profileInertia = profileHtml.match(/data-page="([^"]+)"/);
-    if (profileInertia) {
-      try {
-        const decoded = profileInertia[1].replace(/&quot;/g, '"').replace(/&#039;/g, "'");
-        const pageData = JSON.parse(decoded) as { props?: { community?: { id?: number } } };
-        const id = pageData?.props?.community?.id;
-        if (id && typeof id === "number") return id;
-      } catch {
-        // fall through
-      }
-    }
-    const profileCommunityId = profileHtml.match(/"community"\s*:\s*\{[^}]*"id"\s*:\s*(\d+)/);
-    if (profileCommunityId) return Number(profileCommunityId[1]);
-  }
-
-  throw new Error(`Could not resolve NLT community ID for "${slug}"`);
+  return id;
 }
 
 /**
