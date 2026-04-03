@@ -362,4 +362,37 @@ export async function registerNltRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(502).send({ error: message });
     }
   });
+
+  // ─── List participants in a race ─────────────────────────────
+
+  app.get<{ Params: { raceId: string } }>("/api/nlt/participants/:raceId", {
+    schema: {
+      params: {
+        type: "object",
+        required: ["raceId"],
+        properties: { raceId: { type: "string" } },
+      },
+    },
+  }, async (request, reply) => {
+    const raceId = Number(request.params.raceId);
+    if (!raceId || isNaN(raceId)) {
+      return reply.status(400).send({ error: "Invalid race ID" });
+    }
+
+    const res = await fetch(`https://nextleveltiming.com/api/races/${raceId}`, {
+      headers: {
+        "User-Agent": "SetupIQ/1.0 (RC participant lookup)",
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      return reply.status(502).send({ error: `Could not fetch race ${raceId}` });
+    }
+
+    const json = await res.json() as { data?: { participants?: { racer_name: string }[] } };
+    const participants = (json?.data?.participants ?? []).map((p) => p.racer_name).filter(Boolean);
+    return { participants };
+  });
 }

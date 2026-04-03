@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { RunSession, RunSegment, SetupSnapshot, LapTime } from "@setupiq/shared";
 import { allCars, getCarById } from "@setupiq/shared";
@@ -403,17 +403,50 @@ function NltSyncMini() {
   const [racesLoading, setRacesLoading] = useState(false);
   const [racesError, setRacesError] = useState<string | null>(null);
 
+  // Live sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastNewLapAtRef = useRef<number>(Date.now());
+  const lastLapTotalRef = useRef<number>(0);
+
+  // Timing→car mappings (saved from Timing to Car Match)
+  const carTimingNames = useLiveQuery(() => localDb.carTimingNames.toArray()) ?? [];
+  const timingNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ctn of carTimingNames) {
+      if (ctn.timingName) map.set(ctn.timingName.toLowerCase(), ctn.carId);
+    }
+    return map;
+  }, [carTimingNames]);
+
   const tracks = useLiveQuery(() => localDb.tracks.toArray()) ?? [];
   const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
   const feedUrl = selectedTrack?.timingFeedUrl;
   const nltCommunityId = selectedTrack?.nltCommunityId;
 
+  const selectedRaceObj = races.find((r) => String(r.id) === raceNumber);
+  const isLiveRace = selectedRaceObj?.status === "active";
+
+  // Cleanup sync interval on unmount
+  useEffect(() => {
+    return () => { if (syncIntervalRef.current) clearInterval(syncIntervalRef.current); };
+  }, []);
+
+  // Stop sync when track/race selection changes
+  useEffect(() => {
+    if (syncIntervalRef.current) {
+      clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = null;
+      setIsSyncing(false);
+      setSyncStatus(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceNumber, selectedTrackId]);
+
   // Fetch race list when track changes and has a feed URL
   useEffect(() => {
-    if (!feedUrl && !nltCommunityId) {
-      setRaces([]);
-      return;
-    }
+    if (!feedUrl && !nltCommunityId) { setRaces([]); return; }
     setRacesLoading(true);
     setRacesError(null);
     const body: Record<string, unknown> = {};
@@ -426,14 +459,13 @@ function NltSyncMini() {
     })
       .then(async (res) => {
         if (!res.ok) {
-          const body = await res.json().catch(() => ({ error: "Failed" }));
-          throw new Error(body.error ?? `HTTP ${res.status}`);
+          const b = await res.json().catch(() => ({ error: "Failed" }));
+          throw new Error(b.error ?? `HTTP ${res.status}`);
         }
         return res.json() as Promise<{ races: NltRaceSummary[] }>;
       })
       .then((data) => {
         setRaces(data.races);
-        // Restore last race if it's in the list
         const lastRace = localStorage.getItem("nlt_last_race_number") ?? "";
         if (data.races.some((r: NltRaceSummary) => String(r.id) === lastRace)) {
           setRaceNumber(lastRace);
@@ -448,48 +480,153 @@ function NltSyncMini() {
       .finally(() => setRacesLoading(false));
   }, [feedUrl, nltCommunityId]);
 
-  const handleSync = async () => {
+  /** Build the full NLT race URL from current raceNumber + feedUrl */
+  const buildUrl = useCallback((): string | null => {
     const trimmed = raceNumber.trim();
-    if (!trimmed) return;
-    localStorage.setItem("nlt_last_race_number", trimmed);
+    if (!trimmed) return null;
+    if (trimmed.startsWith("http")) return trimmed;
+    if (feedUrl) {
+      const base = feedUrl.endsWith("/") ? feedUrl : feedUrl + "/";
+      return base + trimmed;
+    }
+    // Numeric race ID without feed URL — construct minimal valid URL
+    if (/^\d+$/.test(trimmed)) return `https://nextleveltiming.com/races/${trimmed}`;
+    return null;
+  }, [raceNumber, feedUrl]);
+
+  /** Upsert race results for one live-sync tick. Returns true if any change. */
+  const doSyncTick = useCallback(async (): Promise<boolean> => {
+    const url = buildUrl();
+    if (!url) return false;
+    try {
+      const res = await fetch(`${API_BASE}/api/nlt/scrape`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) return false;
+      const data: NltRaceData[] = await res.json();
+      if (!data.length) return false;
+
+      let newTotal = 0;
+      for (const d of data) newTotal += d.totalLaps;
+
+      let hasNew = false;
+      for (const d of data) {
+        const racerLower = d.className.toLowerCase();
+        const mappedCarId = timingNameMap.get(racerLower) ?? allCars.find((c) => c.name.toLowerCase() === racerLower)?.id ?? "";
+        const existingRows = await localDb.raceResults
+          .filter((r) => r.sourceUrl === url && r.className === d.className)
+          .toArray();
+        const existing = existingRows[0];
+        if (existing) {
+          if (existing.totalLaps !== d.totalLaps || existing.fastLapMs !== d.fastLapMs) {
+            await localDb.raceResults.update(existing.id, {
+              totalLaps: d.totalLaps,
+              totalTimeMs: d.totalTimeMs,
+              fastLapMs: d.fastLapMs,
+              avgLapMs: d.totalLaps > 0 ? Math.round(d.totalTimeMs / d.totalLaps) : undefined,
+              laps: d.laps,
+              position: d.position,
+              _dirty: 1,
+            });
+            hasNew = true;
+          }
+        } else {
+          await localDb.raceResults.add({
+            id: crypto.randomUUID(),
+            userId: "local",
+            carId: mappedCarId,
+            eventName: d.eventName,
+            community: d.community || undefined,
+            className: d.className,
+            roundType: d.roundType,
+            date: d.date,
+            position: d.position,
+            totalEntries: d.totalEntries,
+            totalLaps: d.totalLaps,
+            totalTimeMs: d.totalTimeMs,
+            fastLapMs: d.fastLapMs,
+            avgLapMs: d.totalLaps > 0 ? Math.round(d.totalTimeMs / d.totalLaps) : undefined,
+            laps: d.laps,
+            sourceUrl: url,
+            hidden: mappedCarId ? 0 : 1,
+            createdAt: new Date().toISOString(),
+            _dirty: 1,
+          });
+          hasNew = true;
+        }
+      }
+
+      if (newTotal > lastLapTotalRef.current) {
+        lastLapTotalRef.current = newTotal;
+        lastNewLapAtRef.current = Date.now();
+      }
+      return hasNew;
+    } catch {
+      return false;
+    }
+  }, [buildUrl, timingNameMap]);
+
+  const stopSync = useCallback(() => {
+    if (syncIntervalRef.current) { clearInterval(syncIntervalRef.current); syncIntervalRef.current = null; }
+    setIsSyncing(false);
+  }, []);
+
+  const startSync = useCallback(async () => {
+    const url = buildUrl();
+    if (!url) return;
+    localStorage.setItem("nlt_last_race_number", raceNumber.trim());
+    if (selectedTrackId) localStorage.setItem("nlt_last_track_id", selectedTrackId);
+    setIsSyncing(true);
+    setPreview(null);
+    setError(null);
+    lastNewLapAtRef.current = Date.now();
+    lastLapTotalRef.current = 0;
+    setSyncStatus(`Started · ${new Date().toLocaleTimeString()}`);
+
+    await doSyncTick();
+    setSyncStatus(`Last check: ${new Date().toLocaleTimeString()}`);
+
+    syncIntervalRef.current = setInterval(async () => {
+      const idleMins = (Date.now() - lastNewLapAtRef.current) / 60000;
+      if (idleMins >= 90) {
+        stopSync();
+        setSyncStatus("Auto-stopped · no new laps in 90 min");
+        return;
+      }
+      await doSyncTick();
+      setSyncStatus(`Last check: ${new Date().toLocaleTimeString()}`);
+    }, 60000);
+  }, [buildUrl, raceNumber, selectedTrackId, doSyncTick, stopSync]);
+
+  const handleImport = async () => {
+    const url = buildUrl();
+    if (!url) return;
+    localStorage.setItem("nlt_last_race_number", raceNumber.trim());
     if (selectedTrackId) localStorage.setItem("nlt_last_track_id", selectedTrackId);
     setLoading(true);
     setError(null);
     setPreview(null);
     try {
-      let url: string;
-      if (trimmed.startsWith("http")) {
-        url = trimmed;
-      } else if (feedUrl) {
-        // Append race number to track's timing feed URL
-        const base = feedUrl.endsWith("/") ? feedUrl : feedUrl + "/";
-        url = base + trimmed;
-      } else {
-        setError("Select a track with a timing feed URL, or paste a full URL.");
-        setLoading(false);
-        return;
-      }
       const res = await fetch(`${API_BASE}/api/nlt/scrape`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: "Sync failed" }));
-        throw new Error(body.error ?? `HTTP ${res.status}`);
+        const b = await res.json().catch(() => ({ error: "Sync failed" }));
+        throw new Error(b.error ?? `HTTP ${res.status}`);
       }
       const data: NltRaceData[] = await res.json();
-      if (data.length === 0) {
-        setError("No results found for that race.");
-        return;
-      }
+      if (data.length === 0) { setError("No results found for that race."); return; }
       setPreview(data);
-      // Auto-match: compare racer name (className) against car names (case-insensitive)
+      // Auto-match using saved timing→car mappings, then fall back to car name
       const defaults: Record<number, string | "ignore"> = {};
       data.forEach((d, i) => {
         const racerLower = d.className.toLowerCase();
-        const match = allCars.find((c) => c.name.toLowerCase() === racerLower);
-        defaults[i] = match ? match.id : "ignore";
+        const mapped = timingNameMap.get(racerLower);
+        defaults[i] = mapped ?? allCars.find((c) => c.name.toLowerCase() === racerLower)?.id ?? "ignore";
       });
       setSelectedCars(defaults);
     } catch (e) {
@@ -501,21 +638,12 @@ function NltSyncMini() {
 
   const handleSaveAll = async () => {
     if (!preview) return;
-    const trimmed = raceNumber.trim();
-    let sourceUrl: string;
-    if (trimmed.startsWith("http")) {
-      sourceUrl = trimmed;
-    } else if (feedUrl) {
-      const base = feedUrl.endsWith("/") ? feedUrl : feedUrl + "/";
-      sourceUrl = base + trimmed;
-    } else {
-      sourceUrl = trimmed;
-    }
+    const url = buildUrl() ?? raceNumber.trim();
     for (let i = 0; i < preview.length; i++) {
       const d = preview[i];
       const choice = selectedCars[i] ?? "ignore";
       const isIgnored = choice === "ignore";
-      const result: LocalRaceResult = {
+      await localDb.raceResults.add({
         id: crypto.randomUUID(),
         userId: "local",
         carId: isIgnored ? "" : choice,
@@ -531,19 +659,18 @@ function NltSyncMini() {
         fastLapMs: d.fastLapMs,
         avgLapMs: d.totalLaps > 0 ? Math.round(d.totalTimeMs / d.totalLaps) : undefined,
         laps: d.laps,
-        sourceUrl,
+        sourceUrl: url,
         hidden: isIgnored ? 1 : 0,
         createdAt: new Date().toISOString(),
         _dirty: 1,
-      };
-      await localDb.raceResults.add(result);
+      });
     }
     setPreview(null);
     setExpanded(false);
   };
 
   const linkedCount = preview ? Object.values(selectedCars).filter((v) => v !== "ignore").length : 0;
-  const canSync = raceNumber.trim() && (raceNumber.trim().startsWith("http") || feedUrl);
+  const canAct = !!(raceNumber.trim() && (raceNumber.trim().startsWith("http") || feedUrl || /^\d+$/.test(raceNumber.trim())));
 
   return (
     <div className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden">
@@ -551,7 +678,7 @@ function NltSyncMini() {
         onClick={() => setExpanded((e) => !e)}
         className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-neutral-300 hover:bg-neutral-800"
       >
-        <span>NLT Sync</span>
+        <span>NLT Sync{isSyncing ? " 🔴" : ""}</span>
         <span className="text-neutral-600">{expanded ? "▲" : "▼"}</span>
       </button>
 
@@ -561,7 +688,8 @@ function NltSyncMini() {
             <select
               value={selectedTrackId}
               onChange={(e) => setSelectedTrackId(e.target.value)}
-              className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+              disabled={isSyncing}
+              className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 disabled:opacity-50"
             >
               <option value="">— select track —</option>
               {tracks.map((t) => (
@@ -577,7 +705,7 @@ function NltSyncMini() {
               <select
                 value={raceNumber}
                 onChange={(e) => setRaceNumber(e.target.value)}
-                disabled={racesLoading}
+                disabled={racesLoading || isSyncing}
                 className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 disabled:opacity-50"
               >
                 <option value="">{racesLoading ? "Loading races…" : "— select race —"}</option>
@@ -592,20 +720,47 @@ function NltSyncMini() {
                 type="text"
                 value={raceNumber}
                 onChange={(e) => setRaceNumber(e.target.value)}
+                disabled={isSyncing}
                 placeholder={feedUrl ? "Race / run number" : "Race number or full URL"}
-                className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+                className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 disabled:opacity-50"
               />
             )}
-            <button
-              onClick={handleSync}
-              disabled={loading || !canSync}
-              className="rounded bg-blue-600 text-white px-4 py-1.5 text-xs font-medium hover:bg-blue-500 disabled:opacity-50"
-            >
-              {loading ? "Syncing…" : "Import"}
-            </button>
+            {isSyncing ? (
+              <button
+                onClick={stopSync}
+                className="rounded bg-neutral-700 text-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-600 whitespace-nowrap"
+              >
+                Stop
+              </button>
+            ) : isLiveRace ? (
+              <button
+                onClick={startSync}
+                disabled={!canAct}
+                className="rounded bg-red-700 text-white px-3 py-1.5 text-xs font-medium hover:bg-red-600 disabled:opacity-50 whitespace-nowrap"
+              >
+                🔴 Sync
+              </button>
+            ) : (
+              <button
+                onClick={handleImport}
+                disabled={loading || !canAct}
+                className="rounded bg-blue-600 text-white px-4 py-1.5 text-xs font-medium hover:bg-blue-500 disabled:opacity-50"
+              >
+                {loading ? "…" : "Import"}
+              </button>
+            )}
           </div>
+
+          {/* Sync status */}
+          {isSyncing && syncStatus && (
+            <p className="text-[10px] text-green-400">🔴 Live sync active · {syncStatus}</p>
+          )}
+          {!isSyncing && syncStatus && (
+            <p className="text-[10px] text-neutral-500">{syncStatus}</p>
+          )}
+
           {racesError && <p className="text-[10px] text-amber-500">{racesError}</p>}
-          {feedUrl && raceNumber.trim() && !raceNumber.trim().startsWith("http") && (
+          {feedUrl && raceNumber.trim() && !raceNumber.trim().startsWith("http") && !isSyncing && (
             <p className="text-[10px] text-neutral-600 truncate">
               {(feedUrl.endsWith("/") ? feedUrl : feedUrl + "/") + raceNumber.trim()}
             </p>
