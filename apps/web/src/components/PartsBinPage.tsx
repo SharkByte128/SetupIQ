@@ -682,12 +682,18 @@ function PartRow({
   }, [editSortOrder, part, onSave]);
 
   const handleToggleTemplate = useCallback(async (templateId: string) => {
-    const current = part.setupTemplateIds ?? [];
+    const latest = await localDb.parts.get(part.id);
+    if (!latest) return;
+    const current = latest.setupTemplateIds ?? [];
     const next = current.includes(templateId)
       ? current.filter((id: string) => id !== templateId)
       : [...current, templateId];
-    await onSave({ ...part, setupTemplateIds: next });
-  }, [part, onSave]);
+    await localDb.parts.update(part.id, {
+      setupTemplateIds: next,
+      updatedAt: new Date().toISOString(),
+      _dirty: 1 as const,
+    });
+  }, [part.id]);
 
   const inputClass =
     "w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-blue-500";
