@@ -572,7 +572,7 @@ function NltSyncMini() {
                 <option value="">— select race —</option>
                 {races.map((r) => (
                   <option key={r.id} value={String(r.id)}>
-                    {r.name}{r.startedAt ? ` (${new Date(r.startedAt).toLocaleDateString()})` : ""}{r.status === "active" ? " 🔴" : ""}
+                    {r.name}{r.startedAt ? ` (${new Date(r.startedAt).toLocaleDateString()})` : ""}{r.status === "active" ? " �" : ""}
                   </option>
                 ))}
               </select>
