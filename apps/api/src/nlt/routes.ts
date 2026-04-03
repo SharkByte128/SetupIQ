@@ -74,35 +74,42 @@ function extractCommunitySlug(url: string): string | null {
  * Fetch the list of recent races for a NLT community.
  */
 /**
- * Resolve a community slug to its numeric NLT ID by paginating the communities API.
+ * Resolve a community slug to its numeric NLT ID.
+ * Strategy: fetch the community races HTML page, extract a race ID from links,
+ * then hit the race API to read community_id. Works for any community size.
  */
 export async function resolveNltCommunityId(feedUrl: string): Promise<number> {
   const slug = extractCommunitySlug(feedUrl);
   if (!slug) throw new Error("Could not extract community slug from URL");
 
   const headers = {
-    "User-Agent": "SetupIQ/1.0 (RC race listing)",
-    "Accept": "application/json",
+    "User-Agent": "SetupIQ/1.0 (RC community resolver)",
   };
 
-  let page = 1;
-  while (page <= 10) {
-    const listRes = await fetch(`https://nextleveltiming.com/api/communities?page=${page}`, {
-      headers,
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!listRes.ok) throw new Error(`NLT communities API returned HTTP ${listRes.status}`);
-    const listJson = await listRes.json() as {
-      data: { id: number; slug: string }[];
-      links: { next: string | null };
-    };
-    const match = listJson.data.find((c) => c.slug === slug);
-    if (match) return match.id;
-    if (!listJson.links.next) break;
-    page++;
-  }
+  // Fetch the community's races page HTML
+  const racesPageUrl = `https://nextleveltiming.com/communities/${slug}/races`;
+  const htmlRes = await fetch(racesPageUrl, {
+    headers,
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!htmlRes.ok) throw new Error(`Community page returned HTTP ${htmlRes.status}`);
+  const html = await htmlRes.text();
 
-  throw new Error(`Community "${slug}" not found on NLT`);
+  // Extract any race ID from links like /communities/{slug}/races/171034
+  const raceIdMatch = html.match(/\/communities\/[^/]+\/races\/(\d+)/);
+  if (!raceIdMatch) throw new Error(`No races found for community "${slug}"`);
+
+  const sampleRaceId = Number(raceIdMatch[1]);
+
+  // Hit the race API to get the community_id
+  const raceRes = await fetch(`https://nextleveltiming.com/api/races/${sampleRaceId}`, {
+    headers: { ...headers, Accept: "application/json" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!raceRes.ok) throw new Error(`NLT race API returned HTTP ${raceRes.status}`);
+
+  const raceJson = await raceRes.json() as { data: { community_id: number } };
+  return raceJson.data.community_id;
 }
 
 /**
