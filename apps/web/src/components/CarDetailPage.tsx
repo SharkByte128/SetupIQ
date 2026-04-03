@@ -635,7 +635,7 @@ function CarNltSync({ carId }: { carId: string }) {
         setRaces([]);
       })
       .finally(() => setRacesLoading(false));
-  }, [feedUrl]);
+  }, [feedUrl, nltCommunityId]);
 
   const handleSync = async () => {
     const trimmed = raceNumber.trim();

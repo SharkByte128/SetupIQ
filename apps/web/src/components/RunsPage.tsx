@@ -446,7 +446,7 @@ function NltSyncMini() {
         setRaces([]);
       })
       .finally(() => setRacesLoading(false));
-  }, [feedUrl]);
+  }, [feedUrl, nltCommunityId]);
 
   const handleSync = async () => {
     const trimmed = raceNumber.trim();

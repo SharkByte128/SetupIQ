@@ -86,7 +86,7 @@ export async function resolveNltCommunityId(feedUrl: string): Promise<number> {
     "User-Agent": "SetupIQ/1.0 (RC community resolver)",
   };
 
-  // Fetch the community's races page HTML
+  // Fetch the community's races page HTML (works even if community page is empty)
   const racesPageUrl = `https://nextleveltiming.com/communities/${slug}/races`;
   const htmlRes = await fetch(racesPageUrl, {
     headers,
@@ -95,21 +95,62 @@ export async function resolveNltCommunityId(feedUrl: string): Promise<number> {
   if (!htmlRes.ok) throw new Error(`Community page returned HTTP ${htmlRes.status}`);
   const html = await htmlRes.text();
 
-  // Extract any race ID from links like /communities/{slug}/races/171034
+  // Strategy 1: extract community ID from embedded Inertia/SPA page props JSON
+  // NLT uses Inertia.js: <div data-page='{"props":{"community":{"id":1513,...}}}'>
+  const inertiaMatch = html.match(/data-page="([^"]+)"/);
+  if (inertiaMatch) {
+    try {
+      const decoded = inertiaMatch[1].replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+      const pageData = JSON.parse(decoded) as { props?: { community?: { id?: number } } };
+      const id = pageData?.props?.community?.id;
+      if (id && typeof id === "number") return id;
+    } catch {
+      // fall through to next strategy
+    }
+  }
+
+  // Strategy 2: find "id": <number> inside a "community" JSON block in the page
+  const communityIdMatch = html.match(/"community"\s*:\s*\{[^}]*"id"\s*:\s*(\d+)/);
+  if (communityIdMatch) return Number(communityIdMatch[1]);
+
+  // Strategy 3: extract a race link and look up community_id via the race API
   const raceIdMatch = html.match(/\/communities\/[^/]+\/races\/(\d+)/);
-  if (!raceIdMatch) throw new Error(`No races found for community "${slug}"`);
+  if (raceIdMatch) {
+    const sampleRaceId = Number(raceIdMatch[1]);
+    const raceRes = await fetch(`https://nextleveltiming.com/api/races/${sampleRaceId}`, {
+      headers: { ...headers, Accept: "application/json" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (raceRes.ok) {
+      const raceJson = await raceRes.json() as { data: { community_id: number } };
+      if (raceJson?.data?.community_id) return raceJson.data.community_id;
+    }
+  }
 
-  const sampleRaceId = Number(raceIdMatch[1]);
-
-  // Hit the race API to get the community_id
-  const raceRes = await fetch(`https://nextleveltiming.com/api/races/${sampleRaceId}`, {
-    headers: { ...headers, Accept: "application/json" },
+  // Strategy 4: fetch the community profile page and try the same extraction
+  const profilePageUrl = `https://nextleveltiming.com/communities/${slug}`;
+  const profileRes = await fetch(profilePageUrl, {
+    headers,
     signal: AbortSignal.timeout(15000),
   });
-  if (!raceRes.ok) throw new Error(`NLT race API returned HTTP ${raceRes.status}`);
+  if (profileRes.ok) {
+    const profileHtml = await profileRes.text();
+    const profileInertia = profileHtml.match(/data-page="([^"]+)"/);
+    if (profileInertia) {
+      try {
+        const decoded = profileInertia[1].replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+        const pageData = JSON.parse(decoded) as { props?: { community?: { id?: number } } };
+        const id = pageData?.props?.community?.id;
+        if (id && typeof id === "number") return id;
+      } catch {
+        // fall through
+      }
+    }
+    const profileCommunityId = profileHtml.match(/"community"\s*:\s*\{[^}]*"id"\s*:\s*(\d+)/);
+    if (profileCommunityId) return Number(profileCommunityId[1]);
+  }
 
-  const raceJson = await raceRes.json() as { data: { community_id: number } };
-  return raceJson.data.community_id;
+  throw new Error(`Could not resolve NLT community ID for "${slug}"`);
 }
 
 /**
