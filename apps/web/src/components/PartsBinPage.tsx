@@ -345,7 +345,11 @@ function PartsBinListView({
     const m: Record<string, number> = {};
     for (const p of allParts) {
       if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) continue;
-      if (templateFilters.size > 0 && !templateCategories.includes(p.categoryId)) continue;
+      if (templateFilters.size > 0) {
+        const matchesByCategory = templateCategories.includes(p.categoryId);
+        const matchesByAssignment = (p.setupTemplateIds ?? []).some((id) => templateFilters.has(id));
+        if (!matchesByCategory && !matchesByAssignment) continue;
+      }
       m[p.vendorId] = (m[p.vendorId] || 0) + 1;
     }
     return m;
@@ -356,7 +360,11 @@ function PartsBinListView({
     const m: Record<string, number> = {};
     for (const p of allParts) {
       if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) continue;
-      if (templateFilters.size > 0 && !templateCategories.includes(p.categoryId)) continue;
+      if (templateFilters.size > 0) {
+        const matchesByCategory = templateCategories.includes(p.categoryId);
+        const matchesByAssignment = (p.setupTemplateIds ?? []).some((id) => templateFilters.has(id));
+        if (!matchesByCategory && !matchesByAssignment) continue;
+      }
       m[p.categoryId] = (m[p.categoryId] || 0) + 1;
     }
     return m;
@@ -390,7 +398,11 @@ function PartsBinListView({
     const parts = allParts.filter((p) => {
       if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) return false;
       if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) return false;
-      if (templateFilters.size > 0 && !templateCategories.includes(p.categoryId)) return false;
+      if (templateFilters.size > 0) {
+        const matchesByCategory = templateCategories.includes(p.categoryId);
+        const matchesByAssignment = (p.setupTemplateIds ?? []).some((id) => templateFilters.has(id));
+        if (!matchesByCategory && !matchesByAssignment) return false;
+      }
       return true;
     });
     // Sort by sortOrder (nulls last), then by name
