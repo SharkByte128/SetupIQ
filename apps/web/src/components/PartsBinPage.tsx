@@ -2,11 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   vendors,
-  partCategories,
-  getCategoryById,
   getVendorById,
-  type Vendor,
-  type PartCategory,
 } from "@setupiq/shared";
 import { localDb, type LocalPart, type LocalPartFile } from "../db/local-db.js";
 import { lookupPartBySku, suggestPartsForChassis, type PartLookupResult, type SuggestedPart } from "../lib/gemini-parts.js";
@@ -218,7 +214,7 @@ function SkuLookupField({
 
 type View =
   | { type: "list" }
-  | { type: "add"; vendor: Vendor; category: PartCategory; editPart?: LocalPart; isClone?: boolean }
+  | { type: "add"; editPart?: LocalPart; isClone?: boolean }
   | { type: "quickAdd" }
   | { type: "suggest" }
   | { type: "detail"; part: LocalPart };
@@ -261,21 +257,15 @@ export function PartsBinPage() {
           onSuggest={() => setView({ type: "suggest" })}
           onDetail={(p) => setView({ type: "detail", part: p })}
           onEdit={(p) => {
-            const v = getVendorById(p.vendorId);
-            const c = getCategoryById(p.categoryId);
-            if (v && c) setView({ type: "add", vendor: v, category: c, editPart: p });
+            setView({ type: "add", editPart: p });
           }}
           onClone={(p) => {
-            const v = getVendorById(p.vendorId);
-            const c = getCategoryById(p.categoryId);
-            if (v && c) setView({ type: "add", vendor: v, category: c, editPart: p, isClone: true });
+            setView({ type: "add", editPart: p, isClone: true });
           }}
         />
       )}
       {view.type === "add" && (
         <AddPartForm
-          vendor={view.vendor}
-          category={view.category}
           editPart={view.editPart}
           isClone={view.isClone}
           onSaved={(p) => setView({ type: "detail", part: p })}
@@ -286,9 +276,7 @@ export function PartsBinPage() {
         <PartDetail
           part={view.part}
           onEdit={() => {
-            const v = getVendorById(view.part.vendorId);
-            const c = getCategoryById(view.part.categoryId);
-            if (v && c) setView({ type: "add", vendor: v, category: c, editPart: view.part });
+            setView({ type: "add", editPart: view.part });
           }}
           onDelete={async () => {
             await localDb.partFiles.where("partId").equals(view.part.id).delete();
@@ -418,10 +406,21 @@ function PartsBinListView({
     [vendorCounts],
   );
 
+  // Derive categories from setup template capabilities
+  const templateCategories = useMemo(() => {
+    const catSet = new Map<string, string>();
+    for (const t of setupTemplates) {
+      for (const cap of t.capabilities) {
+        if (!catSet.has(cap.category)) catSet.set(cap.category, cap.category);
+      }
+    }
+    return [...catSet.values()].sort();
+  }, [setupTemplates]);
+
   // Only show categories that have parts
   const activeCategories = useMemo(() =>
-    partCategories.filter((c) => (categoryCounts[c.id] ?? 0) > 0),
-    [categoryCounts],
+    templateCategories.filter((c) => (categoryCounts[c] ?? 0) > 0),
+    [templateCategories, categoryCounts],
   );
 
   return (
@@ -480,20 +479,20 @@ function PartsBinListView({
         <div className="mb-3">
           <p className="text-xs text-neutral-500 mb-1.5">Categories</p>
           <div className="flex flex-wrap gap-2">
-            {activeCategories.map((c) => {
-              const active = categoryFilters.has(c.id);
+            {activeCategories.map((cat) => {
+              const active = categoryFilters.has(cat);
               return (
                 <button
-                  key={c.id}
-                  onClick={() => toggleCategory(c.id)}
+                  key={cat}
+                  onClick={() => toggleCategory(cat)}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                     active
                       ? "border-green-500 bg-green-900/20 text-green-300"
                       : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
                   }`}
                 >
-                  {c.icon} {c.name}
-                  <span className="text-neutral-600 ml-1">{categoryCounts[c.id] ?? 0}</span>
+                  {cat}
+                  <span className="text-neutral-600 ml-1">{categoryCounts[cat] ?? 0}</span>
                 </button>
               );
             })}
@@ -501,10 +500,10 @@ function PartsBinListView({
         </div>
       )}
 
-      {/* ── Car Filters ──────────────────────────────── */}
+      {/* ── Setup Sheet Filters ──────────────────────── */}
       {garageCars.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs text-neutral-500 mb-1.5">Cars</p>
+          <p className="text-xs text-neutral-500 mb-1.5">Setup Sheets</p>
           <div className="flex flex-wrap gap-2">
             {garageCars.map((car) => {
               const active = carFilters.has(car.id);
@@ -518,7 +517,7 @@ function PartsBinListView({
                       : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
                   }`}
                 >
-                  🏎️ {car.name}
+                  📋 {car.name}
                 </button>
               );
             })}
@@ -556,6 +555,7 @@ function PartsBinListView({
               onToggle={() => setExpandedId(expandedId === part.id ? null : part.id)}
               isMobile={isMobile}
               garageCars={garageCars}
+              templateCategories={templateCategories}
               onSave={handleSavePart}
               onToggleCarCompat={handleToggleCarCompat}
               onDetail={onDetail}
@@ -577,6 +577,7 @@ function PartRow({
   onToggle,
   isMobile,
   garageCars,
+  templateCategories,
   onSave,
   onToggleCarCompat,
   onDetail,
@@ -588,6 +589,7 @@ function PartRow({
   onToggle: () => void;
   isMobile: boolean;
   garageCars: { id: string; name: string }[];
+  templateCategories: string[];
   onSave: (part: LocalPart) => Promise<void>;
   onToggleCarCompat: (part: LocalPart, carId: string) => Promise<void>;
   onDetail: (p: LocalPart) => void;
@@ -595,7 +597,6 @@ function PartRow({
   onClone: (p: LocalPart) => void;
 }) {
   const vendor = getVendorById(part.vendorId);
-  const category = getCategoryById(part.categoryId);
 
   // Local edit state (only used on PC)
   const [editName, setEditName] = useState(part.name);
@@ -647,7 +648,7 @@ function PartRow({
           <p className="text-sm font-medium text-neutral-200 truncate">{part.name}</p>
           <p className="text-xs text-neutral-500 mt-0.5">
             {vendor?.name && `${vendor.name} · `}
-            {category && `${category.icon} ${category.name}`}
+            {part.categoryId}
             {part.sku && ` · ${part.sku}`}
           </p>
           {/* Car compatibility pills (compact in collapsed view) */}
@@ -688,7 +689,7 @@ function PartRow({
                 </div>
                 <div>
                   <p className="text-xs text-neutral-500">Category</p>
-                  <p className="text-sm text-neutral-200">{category ? `${category.icon} ${category.name}` : "—"}</p>
+                  <p className="text-sm text-neutral-200">{part.categoryId || "—"}</p>
                 </div>
               </div>
 
@@ -696,22 +697,6 @@ function PartRow({
                 <div>
                   <p className="text-xs text-neutral-500">SKU</p>
                   <p className="text-sm font-mono text-neutral-200">{part.sku}</p>
-                </div>
-              )}
-
-              {/* Attributes */}
-              {category && Object.keys(part.attributes).length > 0 && (
-                <div className="grid grid-cols-2 gap-2">
-                  {category.attributes.map((attr) => {
-                    const val = part.attributes[attr.key];
-                    if (val === undefined || val === "") return null;
-                    return (
-                      <div key={attr.key}>
-                        <p className="text-xs text-neutral-500">{attr.label}</p>
-                        <p className="text-sm text-neutral-200">{val}{attr.unit ? ` ${attr.unit}` : ""}</p>
-                      </div>
-                    );
-                  })}
                 </div>
               )}
 
@@ -810,28 +795,16 @@ function PartRow({
                     value={editCategoryId}
                     onChange={(e) => { setEditCategoryId(e.target.value); handleSelectSave("categoryId", e.target.value); }}
                   >
-                    {partCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                    {templateCategories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
                     ))}
+                    {/* Show current value even if not in template categories */}
+                    {!templateCategories.includes(editCategoryId) && (
+                      <option value={editCategoryId}>{editCategoryId}</option>
+                    )}
                   </select>
                 </div>
               </div>
-
-              {/* Attributes (read-only in inline, go to full edit for changes) */}
-              {category && Object.keys(part.attributes).length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {category.attributes.map((attr) => {
-                    const val = part.attributes[attr.key];
-                    if (val === undefined || val === "") return null;
-                    return (
-                      <div key={attr.key}>
-                        <p className="text-xs text-neutral-500">{attr.label}</p>
-                        <p className="text-sm text-neutral-200">{val}{attr.unit ? ` ${attr.unit}` : ""}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
 
               <div>
                 <label className="text-xs text-neutral-500 mb-1 block">Notes</label>
@@ -892,15 +865,11 @@ function PartRow({
 // ── Add / Edit Part Form ──────────────────────────────────────
 
 function AddPartForm({
-  vendor,
-  category,
   editPart,
   isClone,
   onSaved,
   onCancel,
 }: {
-  vendor: Vendor;
-  category: PartCategory;
   editPart?: LocalPart;
   isClone?: boolean;
   onSaved: (p: LocalPart) => void;
@@ -909,6 +878,8 @@ function AddPartForm({
   const [name, setName] = useState(
     isClone && editPart ? `${editPart.name} (Copy)` : (editPart?.name ?? ""),
   );
+  const [selectedVendorId, setSelectedVendorId] = useState(editPart?.vendorId ?? "");
+  const [selectedCategoryId, setSelectedCategoryId] = useState(editPart?.categoryId ?? "");
   const [sku, setSku] = useState(editPart?.sku ?? "");
   const [notes, setNotes] = useState(editPart?.notes ?? "");
   const [selectedChassis, setSelectedChassis] = useState<string[]>(
@@ -920,33 +891,39 @@ function AddPartForm({
 
   const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
+  // Derive categories from templates
+  const templateCategories = useMemo(() => {
+    const catSet = new Set<string>();
+    for (const t of setupTemplates) {
+      for (const cap of t.capabilities) catSet.add(cap.category);
+    }
+    return [...catSet].sort();
+  }, [setupTemplates]);
+
   const toggleChassis = (id: string) => {
     setSelectedChassis((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
     );
   };
 
-  const setAttr = (key: string, value: string | number) => {
-    setAttrs((prev) => ({ ...prev, [key]: value }));
-  };
-
   const applyLookup = (r: PartLookupResult) => {
     if (r.name) setName(r.name);
+    if (r.vendorId) setSelectedVendorId(r.vendorId);
     if (r.compatibleChassisIds?.length) setSelectedChassis(r.compatibleChassisIds);
     if (r.notes) setNotes(r.notes);
     if (r.attributes) setAttrs((prev) => ({ ...prev, ...r.attributes }));
   };
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !selectedVendorId || !selectedCategoryId) return;
 
     const now = new Date().toISOString();
     const isEdit = editPart && !isClone;
     const part: LocalPart = {
       id: isEdit ? editPart.id : uuid(),
       userId: "local",
-      vendorId: vendor.id,
-      categoryId: category.id,
+      vendorId: selectedVendorId,
+      categoryId: selectedCategoryId,
       name: name.trim(),
       sku: sku.trim() || undefined,
       compatibleChassisIds: selectedChassis,
@@ -967,16 +944,52 @@ function AddPartForm({
   return (
     <>
       <h2 className="text-lg font-semibold mb-4">
-        {isClone ? "Clone" : editPart ? "Edit" : "Add"} {category.name.replace(/s$/, "")}
+        {isClone ? "Clone Part" : editPart ? "Edit Part" : "Add Part"}
       </h2>
 
       <div className="flex flex-col gap-4">
+        {/* Manufacturer */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-1 block">Manufacturer *</label>
+          <select
+            className={inputClass}
+            value={selectedVendorId}
+            onChange={(e) => setSelectedVendorId(e.target.value)}
+          >
+            <option value="">Select manufacturer...</option>
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>{v.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Category */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-2 block">Category *</label>
+          <div className="flex flex-wrap gap-2">
+            {templateCategories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategoryId(cat)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  selectedCategoryId === cat
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Name */}
         <div>
           <label className="text-xs text-neutral-400 mb-1 block">Part Name *</label>
           <input
             className={inputClass}
-            placeholder={`e.g. ${vendor.name} ${category.name.replace(/s$/, "")} ...`}
+            placeholder="e.g. PN Racing 53T Spur Gear"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -992,11 +1005,12 @@ function AddPartForm({
 
         {/* Compatible Templates */}
         <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Compatible Templates</label>
+          <label className="text-xs text-neutral-400 mb-2 block">Compatible Setup Sheets</label>
           <div className="flex flex-wrap gap-2">
             {setupTemplates.map((tmpl) => (
               <button
                 key={tmpl.id}
+                type="button"
                 onClick={() => toggleChassis(tmpl.id)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                   selectedChassis.includes(tmpl.id)
@@ -1009,54 +1023,6 @@ function AddPartForm({
             ))}
           </div>
         </div>
-
-        {/* Category-specific attributes */}
-        {category.attributes.length > 0 && (
-          <div>
-            <label className="text-xs text-neutral-400 mb-2 block">Specifications</label>
-            <div className="flex flex-col gap-3">
-              {category.attributes.map((attr) => (
-                <div key={attr.key}>
-                  <label className="text-xs text-neutral-500 mb-1 block">
-                    {attr.label}
-                    {attr.required && " *"}
-                  </label>
-                  {attr.type === "pick" && attr.options ? (
-                    <select
-                      className={inputClass}
-                      value={(attrs[attr.key] as string) ?? ""}
-                      onChange={(e) => setAttr(attr.key, e.target.value)}
-                    >
-                      <option value="">Select...</option>
-                      {attr.options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : attr.type === "number" ? (
-                    <input
-                      type="number"
-                      className={inputClass}
-                      placeholder={attr.unit ? `(${attr.unit})` : ""}
-                      value={attrs[attr.key] ?? ""}
-                      onChange={(e) =>
-                        setAttr(attr.key, e.target.value ? Number(e.target.value) : "")
-                      }
-                    />
-                  ) : (
-                    <input
-                      className={inputClass}
-                      placeholder={attr.label}
-                      value={(attrs[attr.key] as string) ?? ""}
-                      onChange={(e) => setAttr(attr.key, e.target.value)}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Notes */}
         <div>
@@ -1073,7 +1039,7 @@ function AddPartForm({
         <div className="flex gap-3">
           <button
             onClick={handleSave}
-            disabled={!name.trim()}
+            disabled={!name.trim() || !selectedVendorId || !selectedCategoryId}
             className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
           >
             {editPart ? "Save Changes" : "Add Part"}
@@ -1102,7 +1068,6 @@ function PartDetail({
   onDelete: () => Promise<void>;
 }) {
   const vendor = getVendorById(part.vendorId);
-  const category = getCategoryById(part.categoryId);
   const [files, setFiles] = useState<{ id: string; name: string; mimeType: string; url: string }[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -1198,7 +1163,7 @@ function PartDetail({
           <div>
             <h2 className="text-lg font-semibold">{part.name}</h2>
             <p className="text-xs text-neutral-500">
-              {vendor?.name} · {category?.name}
+              {vendor?.name} · {part.categoryId}
             </p>
           </div>
         </div>
@@ -1237,20 +1202,16 @@ function PartDetail({
           </div>
         )}
 
-        {category && Object.keys(part.attributes).length > 0 && (
+        {Object.keys(part.attributes).length > 0 && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
             <p className="text-xs text-neutral-500 mb-2">Specifications</p>
             <div className="grid grid-cols-2 gap-2">
-              {category.attributes.map((attr) => {
-                const val = part.attributes[attr.key];
+              {Object.entries(part.attributes).map(([key, val]) => {
                 if (val === undefined || val === "") return null;
                 return (
-                  <div key={attr.key}>
-                    <p className="text-xs text-neutral-500">{attr.label}</p>
-                    <p className="text-sm">
-                      {val}
-                      {attr.unit ? ` ${attr.unit}` : ""}
-                    </p>
+                  <div key={key}>
+                    <p className="text-xs text-neutral-500">{key}</p>
+                    <p className="text-sm">{val}</p>
                   </div>
                 );
               })}
@@ -1441,15 +1402,23 @@ function QuickAddPart({
   onSaved: (p: LocalPart) => void;
   onCancel: () => void;
 }) {
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<PartCategory | null>(null);
+  const [selectedVendorId, setSelectedVendorId] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedChassis, setSelectedChassis] = useState<string[]>([]);
-  const [attrs, setAttrs] = useState<Record<string, string | number>>({});
 
   const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
+
+  // Derive categories from templates
+  const templateCategories = useMemo(() => {
+    const catSet = new Set<string>();
+    for (const t of setupTemplates) {
+      for (const cap of t.capabilities) catSet.add(cap.category);
+    }
+    return [...catSet].sort();
+  }, [setupTemplates]);
 
   const toggleChassis = (id: string) => {
     setSelectedChassis((prev) =>
@@ -1457,44 +1426,27 @@ function QuickAddPart({
     );
   };
 
-  const setAttr = (key: string, value: string | number) => {
-    setAttrs((prev) => ({ ...prev, [key]: value }));
-  };
-
-  // Reset attrs when category changes
-  const handleCategoryChange = (cat: PartCategory | null) => {
-    setSelectedCategory(cat);
-    setAttrs({});
-  };
-
   const applyLookup = (r: PartLookupResult) => {
     if (r.name) setName(r.name);
-    if (r.vendorId) {
-      const v = vendors.find((v) => v.id === r.vendorId);
-      if (v) setSelectedVendor(v);
-    }
-    if (r.categoryId) {
-      const c = partCategories.find((c) => c.id === r.categoryId);
-      if (c) setSelectedCategory(c);
-    }
+    if (r.vendorId) setSelectedVendorId(r.vendorId);
+    if (r.categoryId) setSelectedCategoryId(r.categoryId);
     if (r.compatibleChassisIds?.length) setSelectedChassis(r.compatibleChassisIds);
     if (r.notes) setNotes(r.notes);
-    if (r.attributes) setAttrs((prev) => ({ ...prev, ...r.attributes }));
   };
 
   const handleSave = async () => {
-    if (!name.trim() || !selectedVendor || !selectedCategory) return;
+    if (!name.trim() || !selectedVendorId || !selectedCategoryId) return;
 
     const now = new Date().toISOString();
     const part: LocalPart = {
       id: uuid(),
       userId: "local",
-      vendorId: selectedVendor.id,
-      categoryId: selectedCategory.id,
+      vendorId: selectedVendorId,
+      categoryId: selectedCategoryId,
       name: name.trim(),
       sku: sku.trim() || undefined,
       compatibleChassisIds: selectedChassis,
-      attributes: attrs,
+      attributes: {},
       notes: notes.trim() || undefined,
       createdAt: now,
       updatedAt: now,
@@ -1518,11 +1470,8 @@ function QuickAddPart({
           <label className="text-xs text-neutral-400 mb-2 block">Manufacturer *</label>
           <select
             className={inputClass}
-            value={selectedVendor?.id ?? ""}
-            onChange={(e) => {
-              const v = vendors.find((v) => v.id === e.target.value);
-              setSelectedVendor(v ?? null);
-            }}
+            value={selectedVendorId}
+            onChange={(e) => setSelectedVendorId(e.target.value)}
           >
             <option value="">Select manufacturer...</option>
             {vendors.map((v) => (
@@ -1535,17 +1484,18 @@ function QuickAddPart({
         <div>
           <label className="text-xs text-neutral-400 mb-2 block">Category *</label>
           <div className="flex flex-wrap gap-2">
-            {partCategories.map((cat) => (
+            {templateCategories.map((cat) => (
               <button
-                key={cat.id}
-                onClick={() => handleCategoryChange(cat)}
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategoryId(cat)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedCategory?.id === cat.id
+                  selectedCategoryId === cat
                     ? "bg-blue-600 border-blue-500 text-white"
                     : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
                 }`}
               >
-                {cat.icon} {cat.name}
+                {cat}
               </button>
             ))}
           </div>
@@ -1570,13 +1520,14 @@ function QuickAddPart({
           inputClass={inputClass}
         />
 
-        {/* Compatible Templates */}
+        {/* Compatible Setup Sheets */}
         <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Compatible Templates</label>
+          <label className="text-xs text-neutral-400 mb-2 block">Compatible Setup Sheets</label>
           <div className="flex flex-wrap gap-2">
             {setupTemplates.map((tmpl) => (
               <button
                 key={tmpl.id}
+                type="button"
                 onClick={() => toggleChassis(tmpl.id)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                   selectedChassis.includes(tmpl.id)
@@ -1589,54 +1540,6 @@ function QuickAddPart({
             ))}
           </div>
         </div>
-
-        {/* Category-specific attributes */}
-        {selectedCategory && selectedCategory.attributes.length > 0 && (
-          <div>
-            <label className="text-xs text-neutral-400 mb-2 block">Specifications</label>
-            <div className="flex flex-col gap-3">
-              {selectedCategory.attributes.map((attr) => (
-                <div key={attr.key}>
-                  <label className="text-xs text-neutral-500 mb-1 block">
-                    {attr.label}
-                    {attr.required && " *"}
-                  </label>
-                  {attr.type === "pick" && attr.options ? (
-                    <select
-                      className={inputClass}
-                      value={(attrs[attr.key] as string) ?? ""}
-                      onChange={(e) => setAttr(attr.key, e.target.value)}
-                    >
-                      <option value="">Select...</option>
-                      {attr.options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : attr.type === "number" ? (
-                    <input
-                      type="number"
-                      className={inputClass}
-                      placeholder={attr.unit ? `(${attr.unit})` : ""}
-                      value={attrs[attr.key] ?? ""}
-                      onChange={(e) =>
-                        setAttr(attr.key, e.target.value ? Number(e.target.value) : "")
-                      }
-                    />
-                  ) : (
-                    <input
-                      className={inputClass}
-                      placeholder={attr.label}
-                      value={(attrs[attr.key] as string) ?? ""}
-                      onChange={(e) => setAttr(attr.key, e.target.value)}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Notes */}
         <div>
@@ -1653,7 +1556,7 @@ function QuickAddPart({
         <div className="flex gap-3">
           <button
             onClick={handleSave}
-            disabled={!name.trim() || !selectedVendor || !selectedCategory}
+            disabled={!name.trim() || !selectedVendorId || !selectedCategoryId}
             className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
           >
             Add Part
@@ -1800,7 +1703,7 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
   };
 
   const getVendorName = (id: string) => getVendorById(id)?.name ?? id;
-  const getCategoryName = (id: string) => getCategoryById(id)?.name ?? id;
+  const getCategoryName = (id: string) => id;
 
   return (
     <>
