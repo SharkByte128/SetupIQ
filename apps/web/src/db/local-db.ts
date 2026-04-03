@@ -183,6 +183,8 @@ export interface LocalPart {
   compatibleChassisIds: string[];
   attributes: Record<string, string | number>;
   notes?: string;
+  /** Sort order in Parts Bin list (null = bottom) */
+  sortOrder?: number;
   /** Link to server-side catalog part (null = manual / unlinked) */
   catalogPartId?: string;
   createdAt: string;

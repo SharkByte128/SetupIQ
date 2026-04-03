@@ -387,11 +387,18 @@ function PartsBinListView({
 
   // Apply filters
   const filteredParts = useMemo(() => {
-    return allParts.filter((p) => {
+    const parts = allParts.filter((p) => {
       if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) return false;
       if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) return false;
       if (templateFilters.size > 0 && !templateCategories.includes(p.categoryId)) return false;
       return true;
+    });
+    // Sort by sortOrder (nulls last), then by name
+    return parts.sort((a, b) => {
+      const aO = a.sortOrder ?? Infinity;
+      const bO = b.sortOrder ?? Infinity;
+      if (aO !== bO) return aO - bO;
+      return a.name.localeCompare(b.name);
     });
   }, [allParts, vendorFilters, categoryFilters, templateFilters, templateCategories]);
 
@@ -637,6 +644,7 @@ function PartRow({
   const [editNotes, setEditNotes] = useState(part.notes ?? "");
   const [editVendorId, setEditVendorId] = useState(part.vendorId);
   const [editCategoryId, setEditCategoryId] = useState(part.categoryId);
+  const [editSortOrder, setEditSortOrder] = useState(part.sortOrder?.toString() ?? "");
 
   // Sync local state when part changes from DB (e.g., after car compat toggle)
   useEffect(() => {
@@ -645,7 +653,8 @@ function PartRow({
     setEditNotes(part.notes ?? "");
     setEditVendorId(part.vendorId);
     setEditCategoryId(part.categoryId);
-  }, [part.name, part.sku, part.notes, part.vendorId, part.categoryId]);
+    setEditSortOrder(part.sortOrder?.toString() ?? "");
+  }, [part.name, part.sku, part.notes, part.vendorId, part.categoryId, part.sortOrder]);
 
   const handleBlurSave = useCallback(async (field: "name" | "sku" | "notes", value: string) => {
     const trimmed = value.trim();
@@ -660,6 +669,15 @@ function PartRow({
     const updated = { ...part, [field]: value };
     await onSave(updated);
   }, [part, onSave]);
+
+  const handleSortOrderBlur = useCallback(async () => {
+    const trimmed = editSortOrder.trim();
+    const newVal = trimmed === "" ? undefined : Number(trimmed);
+    if (newVal === part.sortOrder) return;
+    if (trimmed !== "" && isNaN(Number(trimmed))) return;
+    const updated = { ...part, sortOrder: newVal };
+    await onSave(updated);
+  }, [editSortOrder, part, onSave]);
 
   const inputClass =
     "w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-blue-500";
@@ -683,6 +701,9 @@ function PartRow({
             {vendor?.name && `${vendor.name} · `}
             {part.categoryId}
             {part.sku && ` · ${part.sku}`}
+            {part.sortOrder != null && (
+              <span className="text-neutral-600 ml-1">#{part.sortOrder}</span>
+            )}
           </p>
         </div>
 
@@ -706,6 +727,10 @@ function PartRow({
                 <div>
                   <p className="text-xs text-neutral-500">Category</p>
                   <p className="text-sm text-neutral-200">{part.categoryId || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-neutral-500">Sort Order</p>
+                  <p className="text-sm text-neutral-200">{part.sortOrder ?? "—"}</p>
                 </div>
               </div>
 
@@ -810,6 +835,18 @@ function PartRow({
                 />
               </div>
 
+              <div className="w-24">
+                <label className="text-xs text-neutral-500 mb-1 block">Sort Order</label>
+                <input
+                  type="number"
+                  className={inputClass}
+                  placeholder="—"
+                  value={editSortOrder}
+                  onChange={(e) => setEditSortOrder(e.target.value)}
+                  onBlur={handleSortOrderBlur}
+                />
+              </div>
+
               {/* Link to full detail (photos/PDFs) */}
               <div className="flex gap-2 pt-1">
                 <button
@@ -853,6 +890,7 @@ function AddPartForm({
   const [selectedCategoryId, setSelectedCategoryId] = useState(editPart?.categoryId ?? "");
   const [sku, setSku] = useState(editPart?.sku ?? "");
   const [notes, setNotes] = useState(editPart?.notes ?? "");
+  const [sortOrder, setSortOrder] = useState(editPart?.sortOrder?.toString() ?? "");
   const [attrs, setAttrs] = useState<Record<string, string | number>>(
     editPart?.attributes ?? {},
   );
@@ -890,6 +928,7 @@ function AddPartForm({
       compatibleChassisIds: [],
       attributes: attrs,
       notes: notes.trim() || undefined,
+      sortOrder: sortOrder.trim() === "" ? undefined : Number(sortOrder.trim()),
       createdAt: isEdit ? editPart.createdAt : now,
       updatedAt: now,
       _dirty: 1 as const,
@@ -972,6 +1011,18 @@ function AddPartForm({
             placeholder="Any additional notes..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+
+        {/* Sort Order */}
+        <div className="w-32">
+          <label className="text-xs text-neutral-400 mb-1 block">Sort Order</label>
+          <input
+            type="number"
+            className={inputClass}
+            placeholder="— (bottom)"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
           />
         </div>
 

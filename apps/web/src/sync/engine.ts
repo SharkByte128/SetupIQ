@@ -229,6 +229,7 @@ async function pushDirtyRecords(): Promise<void> {
       data: {
         vendorId: p.vendorId, categoryId: p.categoryId, name: p.name, sku: p.sku,
         compatibleChassisIds: p.compatibleChassisIds, attributes: p.attributes, notes: p.notes,
+        sortOrder: p.sortOrder,
       },
     }));
   }
@@ -450,6 +451,7 @@ async function pullFromServer(): Promise<void> {
             compatibleChassisIds: part.compatible_chassis_ids || part.compatibleChassisIds || [],
             attributes: part.attributes || {},
             notes: part.notes,
+            sortOrder: part.sort_order ?? part.sortOrder,
             createdAt: part.created_at || part.createdAt,
             updatedAt: part.updated_at || part.updatedAt,
             _dirty: 0,
