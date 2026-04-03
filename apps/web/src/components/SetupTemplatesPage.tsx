@@ -204,14 +204,12 @@ function TemplateDetail({
           >
             Clone
           </button>
-          {!template.builtIn && (
-            <button
-              onClick={onEdit}
-              className="text-sm text-blue-400 hover:text-blue-300"
-            >
-              Edit
-            </button>
-          )}
+          <button
+            onClick={onEdit}
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            Edit
+          </button>
         </div>
       </div>
 
@@ -444,15 +442,13 @@ function TemplateEditor({
                       >
                         {cap.name}
                         <span className="text-neutral-600 text-[10px]">({cap.valueType})</span>
-                        {!template?.builtIn && (
-                          <button
-                            onClick={() => removeCapability(cap.id)}
-                            className="text-red-500 hover:text-red-400 ml-0.5"
-                            title="Remove"
-                          >
-                            ×
-                          </button>
-                        )}
+                        <button
+                          onClick={() => removeCapability(cap.id)}
+                          className="text-red-500 hover:text-red-400 ml-0.5"
+                          title="Remove"
+                        >
+                          ×
+                        </button>
                       </span>
                     ))}
                   </div>
