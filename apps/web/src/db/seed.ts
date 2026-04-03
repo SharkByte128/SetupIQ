@@ -182,21 +182,36 @@ export async function seedDefaults(): Promise<void> {
  * Runs independently of main seed so existing users also get templates.
  */
 export async function seedSetupTemplates(): Promise<void> {
-  const seeded = await localDb.syncMeta.get("templates-seeded-v1");
+  const seeded = await localDb.syncMeta.get("templates-seeded-v2");
   if (seeded) return;
 
   const now = new Date().toISOString();
 
+  // Map car IDs to their matching chassis platform IDs
+  const carToChassisMap: Record<string, string[]> = {
+    "car-mr03-rwd":    ["chassis-kyosho-mr03"],
+    "car-mrx-me":      ["chassis-atomic-mrx"],
+    "car-rx28":        ["chassis-reflex-rx28"],
+    "car-evo2-5600kv": ["chassis-mr04-evo2"],
+  };
+
   for (const car of allCars) {
     const existing = await localDb.setupTemplates.get(car.id);
-    if (existing) continue;
+    if (existing) {
+      // Update existing built-in template with chassis IDs if missing
+      if (existing.builtIn && (!existing.compatibleChassisIds || existing.compatibleChassisIds.length === 0)) {
+        await localDb.setupTemplates.update(car.id, {
+          compatibleChassisIds: carToChassisMap[car.id] ?? [],
+          updatedAt: now,
+        });
+      }
+      continue;
+    }
 
     await localDb.setupTemplates.put({
       id: car.id,
       name: `${car.manufacturer} ${car.name}`,
-      manufacturer: car.manufacturer,
-      scale: car.scale,
-      driveType: car.driveType,
+      compatibleChassisIds: carToChassisMap[car.id] ?? [],
       capabilities: car.capabilities.map((c) => ({
         id: c.id,
         name: c.name,
@@ -209,5 +224,5 @@ export async function seedSetupTemplates(): Promise<void> {
     });
   }
 
-  await localDb.syncMeta.put({ key: "templates-seeded-v1", value: now });
+  await localDb.syncMeta.put({ key: "templates-seeded-v2", value: now });
 }

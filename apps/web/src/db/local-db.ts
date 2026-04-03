@@ -251,9 +251,7 @@ export interface HiddenGarageCar {
 export interface LocalSetupTemplate {
   id: string;
   name: string;
-  manufacturer?: string;
-  scale?: string;
-  driveType?: string;
+  compatibleChassisIds: string[];
   capabilities: { id: string; name: string; category: string; valueType: string }[];
   builtIn?: boolean;
   createdAt: string;
@@ -578,6 +576,18 @@ class SetupIQDatabase extends Dexie {
       hiddenGarageCars: "carId",
       setupTemplates: "id, name, builtIn",
       syncMeta: "key",
+    });
+
+    // v18: migrate setupTemplates from manufacturer/scale/driveType to compatibleChassisIds
+    this.version(18).stores({}).upgrade((tx) => {
+      return tx.table("setupTemplates").toCollection().modify((tmpl: any) => {
+        if (!tmpl.compatibleChassisIds) {
+          tmpl.compatibleChassisIds = [];
+        }
+        delete tmpl.manufacturer;
+        delete tmpl.scale;
+        delete tmpl.driveType;
+      });
     });
   }
 }

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { chassisPlatforms } from "@setupiq/shared";
 import { localDb, type LocalSetupTemplate } from "../db/local-db.js";
 import { v4 as uuid } from "uuid";
 
@@ -131,8 +132,7 @@ function TemplateList({
                     <p className="font-medium text-sm">{t.name}</p>
                     <p className="text-xs text-neutral-500 mt-0.5">
                       {t.capabilities.length} fields · {categories.length} categories
-                      {t.manufacturer && ` · ${t.manufacturer}`}
-                      {t.scale && ` · ${t.scale}`}
+                      {t.compatibleChassisIds.length > 0 && ` · ${t.compatibleChassisIds.map(id => chassisPlatforms.find(c => c.id === id)?.name ?? id).join(", ")}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -192,10 +192,19 @@ function TemplateDetail({
           <h2 className="text-lg font-semibold">{template.name}</h2>
           <p className="text-xs text-neutral-500">
             {template.capabilities.length} fields
-            {template.manufacturer && ` · ${template.manufacturer}`}
-            {template.scale && ` · ${template.scale}`}
-            {template.driveType && ` · ${template.driveType}`}
           </p>
+          {template.compatibleChassisIds.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {template.compatibleChassisIds.map((id) => {
+                const chassis = chassisPlatforms.find((c) => c.id === id);
+                return (
+                  <span key={id} className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">
+                    {chassis?.name ?? id}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -296,12 +305,18 @@ function TemplateEditor({
   onCancel: () => void;
 }) {
   const [name, setName] = useState(template?.name ?? "");
-  const [manufacturer, setManufacturer] = useState(template?.manufacturer ?? "");
-  const [scale, setScale] = useState(template?.scale ?? "1:28");
-  const [driveType, setDriveType] = useState(template?.driveType ?? "RWD");
+  const [selectedChassisIds, setSelectedChassisIds] = useState<string[]>(
+    template?.compatibleChassisIds ?? [],
+  );
   const [capabilities, setCapabilities] = useState(
     template?.capabilities ?? [],
   );
+
+  const toggleChassis = (id: string) => {
+    setSelectedChassisIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
 
   // New capability form
   const [newCapName, setNewCapName] = useState("");
@@ -337,9 +352,7 @@ function TemplateEditor({
     const saved: LocalSetupTemplate = {
       id: template?.id ?? uuid(),
       name: name.trim(),
-      manufacturer: manufacturer.trim() || undefined,
-      scale: scale.trim() || undefined,
-      driveType: driveType.trim() || undefined,
+      compatibleChassisIds: selectedChassisIds,
       capabilities,
       builtIn: false,
       createdAt: template?.createdAt ?? now,
@@ -382,37 +395,27 @@ function TemplateEditor({
           />
         </div>
 
-        {/* Metadata row */}
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs text-neutral-400 mb-1 block">Manufacturer</label>
-            <input
-              className={inputClass}
-              placeholder="e.g. Kyosho"
-              value={manufacturer}
-              onChange={(e) => setManufacturer(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-neutral-400 mb-1 block">Scale</label>
-            <input
-              className={inputClass}
-              placeholder="e.g. 1:28"
-              value={scale}
-              onChange={(e) => setScale(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-neutral-400 mb-1 block">Drive Type</label>
-            <select
-              className={inputClass}
-              value={driveType}
-              onChange={(e) => setDriveType(e.target.value)}
-            >
-              <option value="RWD">RWD</option>
-              <option value="AWD">AWD</option>
-              <option value="FWD">FWD</option>
-            </select>
+        {/* Compatible Chassis Models */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-2 block">Compatible Chassis Models</label>
+          <div className="flex flex-wrap gap-1.5">
+            {chassisPlatforms.map((cp) => {
+              const selected = selectedChassisIds.includes(cp.id);
+              return (
+                <button
+                  key={cp.id}
+                  type="button"
+                  onClick={() => toggleChassis(cp.id)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    selected
+                      ? "bg-blue-600/20 border-blue-500 text-blue-300"
+                      : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                  }`}
+                >
+                  {cp.name}
+                </button>
+              );
+            })}
           </div>
         </div>
 
