@@ -14,6 +14,7 @@ import {
 import { localDb } from "../db/local-db.js";
 import { allCars } from "@setupiq/shared";
 import { v4 as uuid } from "uuid";
+import { useAuth } from "../hooks/use-auth.js";
 
 // ─── HTML Sanitizer (admin-authored content) ──────────────────
 
@@ -522,6 +523,7 @@ function CatalogDetail({ partId }: { partId: string }) {
 // ─── Vendor Search View ───────────────────────────────────────
 
 function VendorSearchView() {
+  const { user } = useAuth();
   const [sources, setSources] = useState<VendorSource[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState("");
   const [query, setQuery] = useState("");
@@ -532,22 +534,16 @@ function VendorSearchView() {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
   const [addedSkus, setAddedSkus] = useState<Set<string>>(new Set());
 
-  // Load vendor sources on mount
+  // Load vendor sources on mount (only when logged in)
   useEffect(() => {
+    if (!user) return;
     getVendorSources()
       .then((data) => {
         setSources(data.sources);
         if (data.sources.length > 0) setSelectedSourceId(data.sources[0].id);
       })
-      .catch((err) => {
-        // 401 means not logged in — don't show a scary error
-        if (err?.message?.includes("401")) {
-          setError("Sign in to use Vendor Search");
-        } else {
-          setError("Failed to load vendor sources");
-        }
-      });
-  }, []);
+      .catch(() => setError("Failed to load vendor sources"));
+  }, [user]);
 
   const doSearch = useCallback(async () => {
     if (!selectedSourceId || !query.trim()) return;
@@ -602,8 +598,12 @@ function VendorSearchView() {
     <div className="px-4 py-2 space-y-3 flex-1 overflow-y-auto">
       <h2 className="text-lg font-semibold text-neutral-200">Vendor Search</h2>
 
+      {!user && (
+        <p className="text-sm text-neutral-500">Sign in to use Vendor Search.</p>
+      )}
+
       {/* Vendor selector */}
-      {sources.length === 0 && !error && (
+      {user && sources.length === 0 && !error && (
         <p className="text-sm text-neutral-500">
           No vendor sources configured. Add vendors in the{" "}
           <a href="/admin" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
