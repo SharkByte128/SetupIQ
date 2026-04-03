@@ -34,6 +34,7 @@ export const tracks = pgTable("tracks", {
   hours: text("hours"),
   timingSystem: text("timing_system"),
   timingFeedUrl: text("timing_feed_url"),
+  nltCommunityId: integer("nlt_community_id"),
   surfaceType: varchar("surface_type", { length: 20 }).notNull(),
   tileType: text("tile_type"),
   dimensions: text("dimensions"),

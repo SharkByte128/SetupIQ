@@ -212,6 +212,7 @@ export interface Track {
   hours?: string;
   timingSystem?: string;
   timingFeedUrl?: string;
+  nltCommunityId?: number;
   surfaceType: SurfaceType;
   tileType?: string;
   dimensions?: string;

@@ -568,12 +568,74 @@ function CarNltSync({ carId }: { carId: string }) {
   const [preview, setPreview] = useState<NltRaceData[] | null>(null);
   const [selectedMap, setSelectedMap] = useState<Record<number, "link" | "ignore">>({});
 
+  // Race listing from NLT community
+  interface NltRaceSummary { id: number; name: string; status: string; mode: string; startedAt: string | null; }
+  const [races, setRaces] = useState<NltRaceSummary[]>([]);
+  const [racesLoading, setRacesLoading] = useState(false);
+  const [racesError, setRacesError] = useState<string | null>(null);
+
   const car = getCarById(carId);
   const carName = car?.name ?? "";
+
+  // Timing name: the name this car races under at the track
+  const timingNameRecord = useLiveQuery(() => localDb.carTimingNames.get(carId), [carId]);
+  const [timingNameDraft, setTimingNameDraft] = useState("");
+  useEffect(() => {
+    setTimingNameDraft(timingNameRecord?.timingName ?? "");
+  }, [timingNameRecord]);
+
+  const saveTimingName = useCallback(async (name: string) => {
+    const trimmed = name.trim();
+    if (trimmed) {
+      await localDb.carTimingNames.put({ carId, timingName: trimmed });
+    } else {
+      await localDb.carTimingNames.delete(carId);
+    }
+  }, [carId]);
+
+  const matchName = timingNameRecord?.timingName || carName;
 
   const tracks = useLiveQuery(() => localDb.tracks.toArray()) ?? [];
   const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
   const feedUrl = selectedTrack?.timingFeedUrl;
+  const nltCommunityId = selectedTrack?.nltCommunityId;
+
+  // Fetch race list when track changes and has a feed URL
+  useEffect(() => {
+    if (!feedUrl && !nltCommunityId) { setRaces([]); return; }
+    setRacesLoading(true);
+    setRacesError(null);
+    const body: Record<string, unknown> = {};
+    if (nltCommunityId) body.communityId = nltCommunityId;
+    else body.feedUrl = feedUrl;
+    fetch(`${API_BASE}/api/nlt/races`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: "Failed" }));
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        return res.json() as Promise<{ races: NltRaceSummary[] }>;
+      })
+      .then((data) => {
+        setRaces(data.races);
+        // Restore last race if it's in the list
+        const lastRace = localStorage.getItem("nlt_last_race_number") ?? "";
+        if (data.races.some((r) => String(r.id) === lastRace)) {
+          setRaceNumber(lastRace);
+        } else {
+          setRaceNumber("");
+        }
+      })
+      .catch((err) => {
+        setRacesError(err instanceof Error ? err.message : "Failed to load races");
+        setRaces([]);
+      })
+      .finally(() => setRacesLoading(false));
+  }, [feedUrl]);
 
   const handleSync = async () => {
     const trimmed = raceNumber.trim();
@@ -607,10 +669,10 @@ function CarNltSync({ carId }: { carId: string }) {
       const data: NltRaceData[] = await res.json();
       if (data.length === 0) { setError("No results found."); return; }
       setPreview(data);
-      // Auto-match: if racer name matches this car's name, link it; otherwise ignore
+      // Auto-match: if racer name matches this car's timing name (or display name), link it
       const defaults: Record<number, "link" | "ignore"> = {};
       data.forEach((d, i) => {
-        defaults[i] = d.className.toLowerCase() === carName.toLowerCase() ? "link" : "ignore";
+        defaults[i] = d.className.toLowerCase() === matchName.toLowerCase() ? "link" : "ignore";
       });
       setSelectedMap(defaults);
     } catch (e) {
@@ -691,14 +753,42 @@ function CarNltSync({ carId }: { carId: string }) {
               <p className="text-[10px] text-amber-500">This track has no timing feed URL — set it in Tracks settings, or paste a full URL below.</p>
             )}
           </div>
-          <div className="flex gap-2">
+          {/* Timing name: the name this car races under at the track */}
+          <div className="space-y-0.5">
+            <label className="text-[10px] text-neutral-500">Timing Name</label>
             <input
               type="text"
-              value={raceNumber}
-              onChange={(e) => setRaceNumber(e.target.value)}
-              placeholder={feedUrl ? "Race / run number" : "Race number or full URL"}
-              className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+              value={timingNameDraft}
+              onChange={(e) => setTimingNameDraft(e.target.value)}
+              onBlur={() => saveTimingName(timingNameDraft)}
+              placeholder={carName}
+              className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
             />
+            <p className="text-[10px] text-neutral-600">Name used at the track for auto-matching laps to this car</p>
+          </div>
+          <div className="flex gap-2">
+            {races.length > 0 ? (
+              <select
+                value={raceNumber}
+                onChange={(e) => setRaceNumber(e.target.value)}
+                className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+              >
+                <option value="">— select race —</option>
+                {races.map((r) => (
+                  <option key={r.id} value={String(r.id)}>
+                    {r.name}{r.startedAt ? ` (${new Date(r.startedAt).toLocaleDateString()})` : ""}{r.status === "live" ? " LIVE" : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={raceNumber}
+                onChange={(e) => setRaceNumber(e.target.value)}
+                placeholder={feedUrl ? "Race / run number" : "Race number or full URL"}
+                className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+              />
+            )}
             <button
               onClick={handleSync}
               disabled={loading || !canSync}
@@ -707,6 +797,8 @@ function CarNltSync({ carId }: { carId: string }) {
               {loading ? "Syncing…" : "Import"}
             </button>
           </div>
+          {racesLoading && <p className="text-[10px] text-neutral-500">Loading races…</p>}
+          {racesError && <p className="text-[10px] text-amber-500">{racesError}</p>}
           {feedUrl && raceNumber.trim() && !raceNumber.trim().startsWith("http") && (
             <p className="text-[10px] text-neutral-600 truncate">
               {(feedUrl.endsWith("/") ? feedUrl : feedUrl + "/") + raceNumber.trim()}
@@ -727,7 +819,7 @@ function CarNltSync({ carId }: { carId: string }) {
                       onClick={() => setSelectedMap((s) => ({ ...s, [i]: isLinked ? "ignore" : "link" }))}
                       className={`text-[10px] px-2 py-0.5 rounded ${isLinked ? "bg-green-900/50 text-green-400" : "bg-neutral-700 text-neutral-500"}`}
                     >
-                      {isLinked ? `✓ Linked to ${carName}` : "Ignored — tap to link"}
+                      {isLinked ? `✓ Linked to ${matchName}` : "Ignored — tap to link"}
                     </button>
                   </div>
                 );

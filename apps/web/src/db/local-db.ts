@@ -59,6 +59,7 @@ export interface LocalTrack {
   hours?: string;
   timingSystem?: string;
   timingFeedUrl?: string;
+  nltCommunityId?: number;
   surfaceType: string;
   tileType?: string;
   dimensions?: string;
@@ -227,6 +228,12 @@ export interface LocalRacer {
   createdAt: string;
 }
 
+/** Maps a car (predefined or custom) to the racer/timing name used at the track. */
+export interface CarTimingName {
+  carId: string;
+  timingName: string;
+}
+
 class SetupIQDatabase extends Dexie {
   setupSnapshots!: Table<LocalSetupSnapshot, string>;
   runSessions!: Table<LocalRunSession, string>;
@@ -242,6 +249,7 @@ class SetupIQDatabase extends Dexie {
   customCars!: Table<LocalCustomCar, string>;
   trackFiles!: Table<LocalTrackFile, string>;
   racers!: Table<LocalRacer, string>;
+  carTimingNames!: Table<CarTimingName, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -434,6 +442,25 @@ class SetupIQDatabase extends Dexie {
       trackFiles: "id, trackId",
       customCars: "id, userId, manufacturer, _dirty",
       racers: "id, name, active",
+      syncMeta: "key",
+    });
+
+    this.version(13).stores({
+      setupSnapshots: "id, userId, carId, updatedAt, _dirty",
+      runSessions: "id, userId, carId, trackId, startedAt, _dirty",
+      runSegments: "id, sessionId, setupSnapshotId, _dirty",
+      tracks: "id, userId, updatedAt, _dirty",
+      components: "id, userId, type, _dirty",
+      measurements: "id, setupId, runSessionId, _dirty",
+      recommendations: "id, sessionId, status, _dirty",
+      carImages: "id, carId, updatedAt, _dirty",
+      raceResults: "id, userId, carId, date, className, hidden, _dirty",
+      parts: "id, userId, vendorId, categoryId, catalogPartId, _dirty",
+      partFiles: "id, partId",
+      trackFiles: "id, trackId",
+      customCars: "id, userId, manufacturer, _dirty",
+      racers: "id, name, active",
+      carTimingNames: "carId",
       syncMeta: "key",
     });
   }

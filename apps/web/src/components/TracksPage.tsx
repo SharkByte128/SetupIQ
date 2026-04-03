@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useTracks } from "../hooks/use-tracks.js";
 import { useHideDemoData, useIsDemoDataOwner, isDemoRecord } from "../hooks/use-demo-filter.js";
 import { localDb, type LocalTrackFile } from "../db/local-db.js";
 import type { SurfaceType } from "@setupiq/shared";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
 type View =
   | { kind: "list" }
@@ -44,6 +46,7 @@ export function TracksPage() {
                 hours: existing.hours ?? "",
                 timingSystem: existing.timingSystem ?? "",
                 timingFeedUrl: existing.timingFeedUrl ?? "",
+                nltCommunityId: existing.nltCommunityId,
                 surfaceType: existing.surfaceType as SurfaceType,
                 tileType: existing.tileType ?? "",
                 dimensions: existing.dimensions ?? "",
@@ -310,6 +313,7 @@ interface TrackFormData {
   hours: string;
   timingSystem: string;
   timingFeedUrl: string;
+  nltCommunityId?: number;
   surfaceType: SurfaceType;
   tileType: string;
   dimensions: string;
@@ -341,6 +345,37 @@ function TrackForm({
   const [hours, setHours] = useState(existing?.hours ?? "");
   const [timingSystem, setTimingSystem] = useState(existing?.timingSystem ?? "");
   const [timingFeedUrl, setTimingFeedUrl] = useState(existing?.timingFeedUrl ?? "");
+  const [nltCommunityId, setNltCommunityId] = useState<number | undefined>(existing?.nltCommunityId);
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  const resolveNltCommunity = useCallback(async (url: string) => {
+    if (!url.includes("nextleveltiming.com/communities/")) {
+      setNltCommunityId(undefined);
+      setResolveError(null);
+      return;
+    }
+    setResolving(true);
+    setResolveError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/nlt/resolve-community`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedUrl: url }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Failed" }));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json() as { communityId: number };
+      setNltCommunityId(data.communityId);
+    } catch (err) {
+      setResolveError(err instanceof Error ? err.message : "Failed to resolve community");
+      setNltCommunityId(undefined);
+    } finally {
+      setResolving(false);
+    }
+  }, []);
   const [surfaceType, setSurfaceType] = useState<SurfaceType>(
     existing?.surfaceType ?? "rcp"
   );
@@ -443,10 +478,22 @@ function TrackForm({
             type="url"
             value={timingFeedUrl}
             onChange={(e) => setTimingFeedUrl(e.target.value)}
+            onBlur={() => {
+              if (timingFeedUrl.trim() && timingFeedUrl !== existing?.timingFeedUrl) {
+                resolveNltCommunity(timingFeedUrl.trim());
+              }
+            }}
             placeholder="e.g. https://nextleveltiming.com/communities/my-club/races"
             className={inputClass}
           />
-          <p className="text-[10px] text-neutral-600 mt-0.5">Base URL for timing results — race number is appended when importing runs</p>
+          {resolving && <p className="text-[10px] text-blue-400 mt-0.5">Looking up NLT community ID…</p>}
+          {resolveError && <p className="text-[10px] text-red-400 mt-0.5">{resolveError}</p>}
+          {!resolving && !resolveError && nltCommunityId && (
+            <p className="text-[10px] text-green-400 mt-0.5">NLT community ID: {nltCommunityId}</p>
+          )}
+          {!resolving && !resolveError && !nltCommunityId && (
+            <p className="text-[10px] text-neutral-600 mt-0.5">Base URL for timing results — race number is appended when importing runs</p>
+          )}
         </div>
 
         <div>
@@ -531,6 +578,7 @@ function TrackForm({
               hours,
               timingSystem,
               timingFeedUrl,
+              nltCommunityId,
               surfaceType,
               tileType,
               dimensions,

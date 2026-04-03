@@ -20,6 +20,7 @@ export function useTracks(hideDemoData = false) {
       hours?: string;
       timingSystem?: string;
       timingFeedUrl?: string;
+      nltCommunityId?: number;
       surfaceType: SurfaceType;
       tileType?: string;
       dimensions?: string;
@@ -38,6 +39,7 @@ export function useTracks(hideDemoData = false) {
         hours: data.hours,
         timingSystem: data.timingSystem,
         timingFeedUrl: data.timingFeedUrl,
+        nltCommunityId: data.nltCommunityId,
         surfaceType: data.surfaceType,
         tileType: data.tileType,
         dimensions: data.dimensions,
@@ -65,6 +67,7 @@ export function useTracks(hideDemoData = false) {
         hours: string;
         timingSystem: string;
         timingFeedUrl: string;
+        nltCommunityId: number;
         surfaceType: SurfaceType;
         tileType: string;
         dimensions: string;

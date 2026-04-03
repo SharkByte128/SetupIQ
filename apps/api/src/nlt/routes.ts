@@ -73,17 +73,50 @@ function extractCommunitySlug(url: string): string | null {
 /**
  * Fetch the list of recent races for a NLT community.
  */
-export async function fetchNltCommunityRaces(feedUrl: string): Promise<NltRaceSummary[]> {
+/**
+ * Resolve a community slug to its numeric NLT ID by paginating the communities API.
+ */
+export async function resolveNltCommunityId(feedUrl: string): Promise<number> {
   const slug = extractCommunitySlug(feedUrl);
   if (!slug) throw new Error("Could not extract community slug from URL");
 
-  // NLT community API endpoint
-  const apiUrl = `https://nextleveltiming.com/api/communities/${slug}/races`;
+  const headers = {
+    "User-Agent": "SetupIQ/1.0 (RC race listing)",
+    "Accept": "application/json",
+  };
+
+  let page = 1;
+  while (page <= 10) {
+    const listRes = await fetch(`https://nextleveltiming.com/api/communities?page=${page}`, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!listRes.ok) throw new Error(`NLT communities API returned HTTP ${listRes.status}`);
+    const listJson = await listRes.json() as {
+      data: { id: number; slug: string }[];
+      links: { next: string | null };
+    };
+    const match = listJson.data.find((c) => c.slug === slug);
+    if (match) return match.id;
+    if (!listJson.links.next) break;
+    page++;
+  }
+
+  throw new Error(`Community "${slug}" not found on NLT`);
+}
+
+/**
+ * Fetch the list of recent races for a NLT community by numeric ID.
+ */
+export async function fetchNltCommunityRaces(communityId: number): Promise<NltRaceSummary[]> {
+  const headers = {
+    "User-Agent": "SetupIQ/1.0 (RC race listing)",
+    "Accept": "application/json",
+  };
+
+  const apiUrl = `https://nextleveltiming.com/api/communities/${communityId}/races`;
   const res = await fetch(apiUrl, {
-    headers: {
-      "User-Agent": "SetupIQ/1.0 (RC race listing)",
-      "Accept": "application/json",
-    },
+    headers,
     signal: AbortSignal.timeout(15000),
   });
 
@@ -249,9 +282,9 @@ export async function registerNltRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
-  // ─── List races for a community ──────────────────────────────
+  // ─── Resolve community slug → numeric ID ─────────────────────
 
-  app.post<{ Body: { feedUrl: string } }>("/api/nlt/races", {
+  app.post<{ Body: { feedUrl: string } }>("/api/nlt/resolve-community", {
     schema: {
       body: {
         type: "object",
@@ -276,7 +309,55 @@ export async function registerNltRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const races = await fetchNltCommunityRaces(feedUrl);
+      const communityId = await resolveNltCommunityId(feedUrl);
+      return { communityId };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to resolve community";
+      return reply.status(502).send({ error: message });
+    }
+  });
+
+  // ─── List races for a community ──────────────────────────────
+
+  app.post<{ Body: { feedUrl?: string; communityId?: number } }>("/api/nlt/races", {
+    schema: {
+      body: {
+        type: "object",
+        properties: {
+          feedUrl: { type: "string" },
+          communityId: { type: "number" },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const { feedUrl, communityId } = request.body;
+
+    // Use communityId directly if provided, otherwise resolve from feedUrl
+    let resolvedId = communityId;
+    if (!resolvedId) {
+      if (!feedUrl) return reply.status(400).send({ error: "Provide communityId or feedUrl" });
+
+      let parsed: URL;
+      try {
+        parsed = new URL(feedUrl);
+      } catch {
+        return reply.status(400).send({ error: "Invalid URL" });
+      }
+
+      if (parsed.hostname !== "nextleveltiming.com" && parsed.hostname !== "www.nextleveltiming.com") {
+        return reply.status(400).send({ error: "URL must be from nextleveltiming.com" });
+      }
+
+      try {
+        resolvedId = await resolveNltCommunityId(feedUrl);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to resolve community";
+        return reply.status(502).send({ error: message });
+      }
+    }
+
+    try {
+      const races = await fetchNltCommunityRaces(resolvedId);
       return { races };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to fetch races";

@@ -406,19 +406,23 @@ function NltSyncMini() {
   const tracks = useLiveQuery(() => localDb.tracks.toArray()) ?? [];
   const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
   const feedUrl = selectedTrack?.timingFeedUrl;
+  const nltCommunityId = selectedTrack?.nltCommunityId;
 
   // Fetch race list when track changes and has a feed URL
   useEffect(() => {
-    if (!feedUrl) {
+    if (!feedUrl && !nltCommunityId) {
       setRaces([]);
       return;
     }
     setRacesLoading(true);
     setRacesError(null);
+    const body: Record<string, unknown> = {};
+    if (nltCommunityId) body.communityId = nltCommunityId;
+    else body.feedUrl = feedUrl;
     fetch(`${API_BASE}/api/nlt/races`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ feedUrl }),
+      body: JSON.stringify(body),
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -429,7 +433,13 @@ function NltSyncMini() {
       })
       .then((data) => {
         setRaces(data.races);
-        setRaceNumber("");
+        // Restore last race if it's in the list
+        const lastRace = localStorage.getItem("nlt_last_race_number") ?? "";
+        if (data.races.some((r: NltRaceSummary) => String(r.id) === lastRace)) {
+          setRaceNumber(lastRace);
+        } else {
+          setRaceNumber("");
+        }
       })
       .catch((err) => {
         setRacesError(err instanceof Error ? err.message : "Failed to load races");
