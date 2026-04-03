@@ -1,27 +1,24 @@
-/// <reference lib="webworker" />
-declare const self: ServiceWorkerGlobalScope;
+var CACHE_NAME = "setupiq-shell-v1";
+var SHELL_ASSETS = ["/", "/index.html"];
 
-const CACHE_NAME = "setupiq-shell-v1";
-const SHELL_ASSETS = ["/", "/index.html"];
-
-self.addEventListener("install", (event) => {
+self.addEventListener("install", function (event) {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS))
+    caches.open(CACHE_NAME).then(function (cache) { return cache.addAll(SHELL_ASSETS); })
   );
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener("activate", function (event) {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches.keys().then(function (keys) {
+      return Promise.all(keys.filter(function (k) { return k !== CACHE_NAME; }).map(function (k) { return caches.delete(k); }));
+    })
   );
   self.clients.claim();
 });
 
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
+self.addEventListener("fetch", function (event) {
+  var request = event.request;
 
   // Never cache API calls or POST requests
   if (request.method !== "GET" || request.url.includes("/api/")) {
@@ -31,13 +28,11 @@ self.addEventListener("fetch", (event) => {
   // Network-first for navigation, cache-first for assets
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() => caches.match("/index.html") as Promise<Response>)
+      fetch(request).catch(function () { return caches.match("/index.html"); })
     );
   } else {
     event.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request))
+      caches.match(request).then(function (cached) { return cached || fetch(request); })
     );
   }
 });
-
-export {};
