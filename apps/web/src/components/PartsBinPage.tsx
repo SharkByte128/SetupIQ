@@ -220,7 +220,7 @@ function SkuLookupField({
 
 type View =
   | { type: "list" }
-  | { type: "add"; vendor: Vendor; category: PartCategory; editPart?: LocalPart }
+  | { type: "add"; vendor: Vendor; category: PartCategory; editPart?: LocalPart; isClone?: boolean }
   | { type: "quickAdd" }
   | { type: "suggest" }
   | { type: "detail"; part: LocalPart };
@@ -267,6 +267,11 @@ export function PartsBinPage() {
             const c = getCategoryById(p.categoryId);
             if (v && c) setView({ type: "add", vendor: v, category: c, editPart: p });
           }}
+          onClone={(p) => {
+            const v = getVendorById(p.vendorId);
+            const c = getCategoryById(p.categoryId);
+            if (v && c) setView({ type: "add", vendor: v, category: c, editPart: p, isClone: true });
+          }}
         />
       )}
       {view.type === "add" && (
@@ -274,6 +279,7 @@ export function PartsBinPage() {
           vendor={view.vendor}
           category={view.category}
           editPart={view.editPart}
+          isClone={view.isClone}
           onSaved={(p) => setView({ type: "detail", part: p })}
           onCancel={goBack}
         />
@@ -310,11 +316,13 @@ function PartsBinListView({
   onSuggest,
   onDetail,
   onEdit,
+  onClone,
 }: {
   onQuickAdd: () => void;
   onSuggest: () => void;
   onDetail: (p: LocalPart) => void;
   onEdit: (p: LocalPart) => void;
+  onClone: (p: LocalPart) => void;
 }) {
   const isMobile = useIsMobile();
   const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
@@ -555,6 +563,7 @@ function PartsBinListView({
               onToggleCarCompat={handleToggleCarCompat}
               onDetail={onDetail}
               onEdit={onEdit}
+              onClone={onClone}
             />
           ))}
         </div>
@@ -575,6 +584,7 @@ function PartRow({
   onToggleCarCompat,
   onDetail,
   onEdit,
+  onClone,
 }: {
   part: LocalPart;
   isExpanded: boolean;
@@ -585,6 +595,7 @@ function PartRow({
   onToggleCarCompat: (part: LocalPart, carId: string) => Promise<void>;
   onDetail: (p: LocalPart) => void;
   onEdit: (p: LocalPart) => void;
+  onClone: (p: LocalPart) => void;
 }) {
   const vendor = getVendorById(part.vendorId);
   const category = getCategoryById(part.categoryId);
@@ -746,6 +757,12 @@ function PartRow({
                   View Details
                 </button>
                 <button
+                  onClick={() => onClone(part)}
+                  className="flex-1 text-sm py-2 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
+                >
+                  Clone
+                </button>
+                <button
                   onClick={() => onEdit(part)}
                   className="flex-1 text-sm py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
                 >
@@ -861,6 +878,12 @@ function PartRow({
                 >
                   Photos & Documents →
                 </button>
+                <button
+                  onClick={() => onClone(part)}
+                  className="text-xs text-neutral-400 hover:text-neutral-300"
+                >
+                  Clone
+                </button>
               </div>
             </>
           )}
@@ -876,16 +899,20 @@ function AddPartForm({
   vendor,
   category,
   editPart,
+  isClone,
   onSaved,
   onCancel,
 }: {
   vendor: Vendor;
   category: PartCategory;
   editPart?: LocalPart;
+  isClone?: boolean;
   onSaved: (p: LocalPart) => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState(editPart?.name ?? "");
+  const [name, setName] = useState(
+    isClone && editPart ? `${editPart.name} (Copy)` : (editPart?.name ?? ""),
+  );
   const [sku, setSku] = useState(editPart?.sku ?? "");
   const [notes, setNotes] = useState(editPart?.notes ?? "");
   const [selectedChassis, setSelectedChassis] = useState<string[]>(
@@ -916,8 +943,9 @@ function AddPartForm({
     if (!name.trim()) return;
 
     const now = new Date().toISOString();
+    const isEdit = editPart && !isClone;
     const part: LocalPart = {
-      id: editPart?.id ?? uuid(),
+      id: isEdit ? editPart.id : uuid(),
       userId: "local",
       vendorId: vendor.id,
       categoryId: category.id,
@@ -926,7 +954,7 @@ function AddPartForm({
       compatibleChassisIds: selectedChassis,
       attributes: attrs,
       notes: notes.trim() || undefined,
-      createdAt: editPart?.createdAt ?? now,
+      createdAt: isEdit ? editPart.createdAt : now,
       updatedAt: now,
       _dirty: 1 as const,
     };
@@ -941,7 +969,7 @@ function AddPartForm({
   return (
     <>
       <h2 className="text-lg font-semibold mb-4">
-        {editPart ? "Edit" : "Add"} {category.name.replace(/s$/, "")}
+        {isClone ? "Clone" : editPart ? "Edit" : "Add"} {category.name.replace(/s$/, "")}
       </h2>
 
       <div className="flex flex-col gap-4">
