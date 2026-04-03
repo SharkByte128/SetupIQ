@@ -402,11 +402,6 @@ function PartsBinListView({
     });
   }, [allParts, vendorFilters, categoryFilters, templateFilters, templateCategories]);
 
-  // Inline edit save handler
-  const handleSavePart = useCallback(async (part: LocalPart) => {
-    await localDb.parts.put({ ...part, updatedAt: new Date().toISOString(), _dirty: 1 as const });
-  }, []);
-
   // Manufacturer pills: ≥5 parts = own pill, <5 = "Other"
   const MIN_VENDOR_COUNT = 5;
   const { prominentVendors, otherVendorCount } = useMemo(() => {
@@ -601,7 +596,6 @@ function PartsBinListView({
               onToggle={() => setExpandedId(expandedId === part.id ? null : part.id)}
               isMobile={isMobile}
               templateCategories={templateCategories}
-              onSave={handleSavePart}
               onDetail={onDetail}
               onEdit={onEdit}
               onClone={onClone}
@@ -621,7 +615,6 @@ function PartRow({
   onToggle,
   isMobile,
   templateCategories,
-  onSave,
   onDetail,
   onEdit,
   onClone,
@@ -631,7 +624,6 @@ function PartRow({
   onToggle: () => void;
   isMobile: boolean;
   templateCategories: string[];
-  onSave: (part: LocalPart) => Promise<void>;
   onDetail: (p: LocalPart) => void;
   onEdit: (p: LocalPart) => void;
   onClone: (p: LocalPart) => void;
@@ -662,24 +654,31 @@ function PartRow({
     const trimmed = value.trim();
     const currentVal = field === "name" ? part.name : field === "sku" ? (part.sku ?? "") : (part.notes ?? "");
     if (trimmed === currentVal) return;
-    const updated = { ...part, [field]: trimmed || (field === "name" ? part.name : undefined) };
-    await onSave(updated);
-  }, [part, onSave]);
+    const newValue = trimmed || (field === "name" ? part.name : undefined);
+    const base = { updatedAt: new Date().toISOString(), _dirty: 1 as const };
+    if (field === "name") await localDb.parts.update(part.id, { ...base, name: newValue! });
+    else if (field === "sku") await localDb.parts.update(part.id, { ...base, sku: newValue });
+    else await localDb.parts.update(part.id, { ...base, notes: newValue });
+  }, [part.id, part.name, part.sku, part.notes]);
 
   const handleSelectSave = useCallback(async (field: "vendorId" | "categoryId", value: string) => {
     if (value === part[field]) return;
-    const updated = { ...part, [field]: value };
-    await onSave(updated);
-  }, [part, onSave]);
+    const base = { updatedAt: new Date().toISOString(), _dirty: 1 as const };
+    if (field === "vendorId") await localDb.parts.update(part.id, { ...base, vendorId: value });
+    else await localDb.parts.update(part.id, { ...base, categoryId: value });
+  }, [part.id, part.vendorId, part.categoryId]);
 
   const handleSortOrderBlur = useCallback(async () => {
     const trimmed = editSortOrder.trim();
     const newVal = trimmed === "" ? undefined : Number(trimmed);
     if (newVal === part.sortOrder) return;
     if (trimmed !== "" && isNaN(Number(trimmed))) return;
-    const updated = { ...part, sortOrder: newVal };
-    await onSave(updated);
-  }, [editSortOrder, part, onSave]);
+    await localDb.parts.update(part.id, {
+      sortOrder: newVal,
+      updatedAt: new Date().toISOString(),
+      _dirty: 1 as const,
+    });
+  }, [editSortOrder, part.id, part.sortOrder]);
 
   const handleToggleTemplate = useCallback(async (templateId: string) => {
     const latest = await localDb.parts.get(part.id);
