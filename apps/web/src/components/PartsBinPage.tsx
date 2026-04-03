@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import {
   vendors,
   partCategories,
@@ -8,6 +9,7 @@ import {
   type Vendor,
   type PartCategory,
 } from "@setupiq/shared";
+import { allCars } from "@setupiq/shared";
 import { localDb, type LocalPart, type LocalPartFile } from "../db/local-db.js";
 import { lookupPartBySku, suggestPartsForChassis, type PartLookupResult, type SuggestedPart } from "../lib/gemini-parts.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -147,52 +149,36 @@ function SkuLookupField({
 // ── View Types ────────────────────────────────────────────────
 
 type View =
-  | { type: "vendors" }
-  | { type: "categories"; vendor: Vendor }
-  | { type: "parts"; vendor: Vendor; category: PartCategory }
+  | { type: "list" }
   | { type: "add"; vendor: Vendor; category: PartCategory; editPart?: LocalPart }
   | { type: "quickAdd" }
   | { type: "suggest" }
   | { type: "detail"; part: LocalPart };
 
+// ── Responsive helper ─────────────────────────────────────────
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return mobile;
+}
+
 // ── Main Component ────────────────────────────────────────────
 
 export function PartsBinPage() {
-  const [view, setView] = useState<View>({ type: "vendors" });
+  const [view, setView] = useState<View>({ type: "list" });
 
   const goBack = useCallback(() => {
-    switch (view.type) {
-      case "categories":
-        setView({ type: "vendors" });
-        break;
-      case "parts":
-        setView({ type: "categories", vendor: view.vendor });
-        break;
-      case "add":
-        setView({ type: "parts", vendor: view.vendor, category: view.category });
-        break;
-      case "quickAdd":
-        setView({ type: "vendors" });
-        break;
-      case "suggest":
-        setView({ type: "vendors" });
-        break;
-      case "detail":
-        {
-          const v = getVendorById(view.part.vendorId);
-          const c = getCategoryById(view.part.categoryId);
-          if (v && c) setView({ type: "parts", vendor: v, category: c });
-          else setView({ type: "vendors" });
-        }
-        break;
-      default:
-        break;
-    }
-  }, [view]);
+    setView({ type: "list" });
+  }, []);
 
   return (
     <div className="px-4 py-4">
-      {view.type !== "vendors" && (
+      {view.type !== "list" && (
         <button
           onClick={goBack}
           className="text-sm text-blue-400 hover:text-blue-300 mb-3"
@@ -201,26 +187,16 @@ export function PartsBinPage() {
         </button>
       )}
 
-      {view.type === "vendors" && (
-        <VendorGrid
-          onSelect={(v) => setView({ type: "categories", vendor: v })}
+      {view.type === "list" && (
+        <PartsBinListView
           onQuickAdd={() => setView({ type: "quickAdd" })}
           onSuggest={() => setView({ type: "suggest" })}
-        />
-      )}
-      {view.type === "categories" && (
-        <CategoryList
-          vendor={view.vendor}
-          onSelect={(c) => setView({ type: "parts", vendor: view.vendor, category: c })}
-        />
-      )}
-      {view.type === "parts" && (
-        <PartsList
-          vendor={view.vendor}
-          category={view.category}
-          onAdd={() => setView({ type: "add", vendor: view.vendor, category: view.category })}
           onDetail={(p) => setView({ type: "detail", part: p })}
-          onEdit={(p) => setView({ type: "add", vendor: view.vendor, category: view.category, editPart: p })}
+          onEdit={(p) => {
+            const v = getVendorById(p.vendorId);
+            const c = getCategoryById(p.categoryId);
+            if (v && c) setView({ type: "add", vendor: v, category: c, editPart: p });
+          }}
         />
       )}
       {view.type === "add" && (
@@ -250,22 +226,132 @@ export function PartsBinPage() {
       )}
       {view.type === "suggest" && (
         <SuggestPartsView
-          onDone={() => setView({ type: "vendors" })}
+          onDone={() => setView({ type: "list" })}
         />
       )}
     </div>
   );
 }
 
-// ── Vendor Grid ───────────────────────────────────────────────
+// ── Parts Bin List View (flat list + filters) ─────────────────
 
-function VendorGrid({ onSelect, onQuickAdd, onSuggest }: { onSelect: (v: Vendor) => void; onQuickAdd: () => void; onSuggest: () => void }) {
+function PartsBinListView({
+  onQuickAdd,
+  onSuggest,
+  onDetail,
+  onEdit,
+}: {
+  onQuickAdd: () => void;
+  onSuggest: () => void;
+  onDetail: (p: LocalPart) => void;
+  onEdit: (p: LocalPart) => void;
+}) {
+  const isMobile = useIsMobile();
+  const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
+  const customCars = useLiveQuery(() => localDb.customCars.toArray()) ?? [];
+
+  // Garage cars: predefined + custom
+  const garageCars = useMemo(() => {
+    const predefined = allCars.map((c) => ({ id: c.id, name: `${c.manufacturer} ${c.name}` }));
+    const custom = customCars.map((c) => ({ id: c.id, name: c.name }));
+    return [...predefined, ...custom];
+  }, [customCars]);
+
+  // Filter state
+  const [vendorFilters, setVendorFilters] = useState<Set<string>>(new Set());
+  const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set());
+  const [carFilters, setCarFilters] = useState<Set<string>>(new Set());
+
+  // Expand state
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Compute vendor counts
+  const vendorCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of allParts) m[p.vendorId] = (m[p.vendorId] || 0) + 1;
+    return m;
+  }, [allParts]);
+
+  // Compute category counts
+  const categoryCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of allParts) m[p.categoryId] = (m[p.categoryId] || 0) + 1;
+    return m;
+  }, [allParts]);
+
+  // Filter toggle helpers
+  const toggleVendor = (id: string) => {
+    setVendorFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleCategory = (id: string) => {
+    setCategoryFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleCar = (id: string) => {
+    setCarFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Apply filters
+  const filteredParts = useMemo(() => {
+    return allParts.filter((p) => {
+      if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) return false;
+      if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) return false;
+      if (carFilters.size > 0) {
+        // Part must be compatible with at least one selected car
+        // compatibleChassisIds stores chassis platform IDs, but we also support car IDs
+        const partCarIds = new Set(p.compatibleChassisIds ?? []);
+        const hasMatch = [...carFilters].some((carId) => partCarIds.has(carId));
+        if (!hasMatch) return false;
+      }
+      return true;
+    });
+  }, [allParts, vendorFilters, categoryFilters, carFilters]);
+
+  // Inline edit save handler
+  const handleSavePart = useCallback(async (part: LocalPart) => {
+    await localDb.parts.put({ ...part, updatedAt: new Date().toISOString(), _dirty: 1 as const });
+  }, []);
+
+  // Inline toggle compatible car on a part
+  const handleToggleCarCompat = useCallback(async (part: LocalPart, carId: string) => {
+    const current = part.compatibleChassisIds ?? [];
+    const next = current.includes(carId)
+      ? current.filter((id) => id !== carId)
+      : [...current, carId];
+    const updated = { ...part, compatibleChassisIds: next, updatedAt: new Date().toISOString(), _dirty: 1 as const };
+    await localDb.parts.put(updated);
+  }, []);
+
+  // Only show vendors that have parts
+  const activeVendors = useMemo(() =>
+    vendors.filter((v) => (vendorCounts[v.id] ?? 0) > 0),
+    [vendorCounts],
+  );
+
+  // Only show categories that have parts
+  const activeCategories = useMemo(() =>
+    partCategories.filter((c) => (categoryCounts[c.id] ?? 0) > 0),
+    [categoryCounts],
+  );
+
   return (
     <>
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-semibold">Parts Bin</h2>
-          <p className="text-sm text-neutral-400 mt-1">Choose a vendor to browse or add parts</p>
+          <p className="text-sm text-neutral-400 mt-0.5">{allParts.length} parts</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -282,159 +368,383 @@ function VendorGrid({ onSelect, onQuickAdd, onSuggest }: { onSelect: (v: Vendor)
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        {vendors.map((v) => (
-          <button
-            key={v.id}
-            onClick={() => onSelect(v)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex flex-col items-center gap-2 hover:border-neutral-600 transition-colors"
-          >
-            <VendorLogo slug={v.slug} size={48} />
-            <span className="text-xs font-medium text-neutral-300">{v.name}</span>
-          </button>
-        ))}
-      </div>
-    </>
-  );
-}
 
-// ── Category List ─────────────────────────────────────────────
-
-function CategoryList({
-  vendor,
-  onSelect,
-}: {
-  vendor: Vendor;
-  onSelect: (c: PartCategory) => void;
-}) {
-  const [counts, setCounts] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    localDb.parts
-      .where("vendorId")
-      .equals(vendor.id)
-      .toArray()
-      .then((parts) => {
-        const c: Record<string, number> = {};
-        for (const p of parts) {
-          c[p.categoryId] = (c[p.categoryId] || 0) + 1;
-        }
-        setCounts(c);
-      });
-  }, [vendor.id]);
-
-  return (
-    <>
-      <div className="flex items-center gap-3 mb-4">
-        <VendorLogo slug={vendor.slug} size={32} />
-        <h2 className="text-xl font-semibold">{vendor.name}</h2>
-      </div>
-      <div className="flex flex-col gap-2">
-        {partCategories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => onSelect(cat)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between hover:border-neutral-600 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-lg">{cat.icon}</span>
-              <span className="font-medium text-sm">{cat.name}</span>
-            </div>
-            <span className="text-xs text-neutral-500">
-              {counts[cat.id] || 0} parts
-            </span>
-          </button>
-        ))}
-      </div>
-    </>
-  );
-}
-
-// ── Parts List ────────────────────────────────────────────────
-
-function PartsList({
-  vendor,
-  category,
-  onAdd,
-  onDetail,
-  onEdit,
-}: {
-  vendor: Vendor;
-  category: PartCategory;
-  onAdd: () => void;
-  onDetail: (p: LocalPart) => void;
-  onEdit: (p: LocalPart) => void;
-}) {
-  const [parts, setParts] = useState<LocalPart[]>([]);
-
-  useEffect(() => {
-    localDb.parts
-      .where("[vendorId+categoryId]")
-      .equals([vendor.id, category.id])
-      .toArray()
-      .then(setParts)
-      .catch(() => {
-        // Fallback if compound index not found
-        localDb.parts
-          .where("vendorId")
-          .equals(vendor.id)
-          .filter((p) => p.categoryId === category.id)
-          .toArray()
-          .then(setParts);
-      });
-  }, [vendor.id, category.id]);
-
-  return (
-    <>
-      <div className="flex items-center gap-3 mb-1">
-        <VendorLogo slug={vendor.slug} size={24} />
-        <h2 className="text-lg font-semibold">{vendor.name}</h2>
-      </div>
-      <h3 className="text-sm text-neutral-400 mb-4">{category.icon} {category.name}</h3>
-
-      {parts.length === 0 ? (
-        <div className="text-center py-8 text-neutral-500">
-          <p className="text-sm">No {category.name.toLowerCase()} from {vendor.name} yet</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2 mb-4">
-          {parts.map((part) => (
-            <div
-              key={part.id}
-              className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between"
-            >
-              <button
-                onClick={() => onDetail(part)}
-                className="flex-1 text-left"
-              >
-                <p className="font-medium text-sm">{part.name}</p>
-                <p className="text-xs text-neutral-500">
-                  {part.sku && <span className="mr-2">SKU: {part.sku}</span>}
-                  {part.compatibleChassisIds.length > 0 &&
-                    part.compatibleChassisIds
-                      .map((id) => chassisPlatforms.find((c) => c.id === id)?.name)
-                      .filter(Boolean)
-                      .join(", ")}
-                </p>
-              </button>
-              <button
-                onClick={() => onEdit(part)}
-                className="text-xs text-blue-400 hover:text-blue-300 px-2"
-              >
-                Edit
-              </button>
-            </div>
-          ))}
+      {/* ── Vendor Filters ───────────────────────────── */}
+      {activeVendors.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs text-neutral-500 mb-1.5">Vendors</p>
+          <div className="flex flex-wrap gap-2">
+            {activeVendors.map((v) => {
+              const active = vendorFilters.has(v.id);
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => toggleVendor(v.id)}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    active
+                      ? "border-green-500 bg-green-900/20 text-green-300"
+                      : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
+                  }`}
+                >
+                  <VendorLogo slug={v.slug} size={16} />
+                  {v.name}
+                  <span className="text-neutral-600 ml-0.5">{vendorCounts[v.id] ?? 0}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      <button
-        onClick={onAdd}
-        className="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
-      >
-        + Add {category.name.replace(/s$/, "")}
-      </button>
+      {/* ── Category Filters ─────────────────────────── */}
+      {activeCategories.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs text-neutral-500 mb-1.5">Categories</p>
+          <div className="flex flex-wrap gap-2">
+            {activeCategories.map((c) => {
+              const active = categoryFilters.has(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => toggleCategory(c.id)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    active
+                      ? "border-green-500 bg-green-900/20 text-green-300"
+                      : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
+                  }`}
+                >
+                  {c.icon} {c.name}
+                  <span className="text-neutral-600 ml-1">{categoryCounts[c.id] ?? 0}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Car Filters ──────────────────────────────── */}
+      {garageCars.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs text-neutral-500 mb-1.5">Cars</p>
+          <div className="flex flex-wrap gap-2">
+            {garageCars.map((car) => {
+              const active = carFilters.has(car.id);
+              return (
+                <button
+                  key={car.id}
+                  onClick={() => toggleCar(car.id)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    active
+                      ? "border-green-500 bg-green-900/20 text-green-300"
+                      : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
+                  }`}
+                >
+                  🏎️ {car.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Active filter summary */}
+      {(vendorFilters.size > 0 || categoryFilters.size > 0 || carFilters.size > 0) && (
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs text-neutral-500">
+            Showing {filteredParts.length} of {allParts.length} parts
+          </p>
+          <button
+            onClick={() => { setVendorFilters(new Set()); setCategoryFilters(new Set()); setCarFilters(new Set()); }}
+            className="text-xs text-blue-400 hover:text-blue-300"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      {/* ── Parts List ───────────────────────────────── */}
+      {filteredParts.length === 0 ? (
+        <div className="text-center py-12 text-neutral-500">
+          <p className="text-sm">{allParts.length === 0 ? "No parts yet — add some!" : "No parts match your filters."}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {filteredParts.map((part) => (
+            <PartRow
+              key={part.id}
+              part={part}
+              isExpanded={expandedId === part.id}
+              onToggle={() => setExpandedId(expandedId === part.id ? null : part.id)}
+              isMobile={isMobile}
+              garageCars={garageCars}
+              onSave={handleSavePart}
+              onToggleCarCompat={handleToggleCarCompat}
+              onDetail={onDetail}
+              onEdit={onEdit}
+            />
+          ))}
+        </div>
+      )}
     </>
+  );
+}
+
+// ── Part Row (expandable, inline-edit on PC) ──────────────────
+
+function PartRow({
+  part,
+  isExpanded,
+  onToggle,
+  isMobile,
+  garageCars,
+  onSave,
+  onToggleCarCompat,
+  onDetail,
+  onEdit,
+}: {
+  part: LocalPart;
+  isExpanded: boolean;
+  onToggle: () => void;
+  isMobile: boolean;
+  garageCars: { id: string; name: string }[];
+  onSave: (part: LocalPart) => Promise<void>;
+  onToggleCarCompat: (part: LocalPart, carId: string) => Promise<void>;
+  onDetail: (p: LocalPart) => void;
+  onEdit: (p: LocalPart) => void;
+}) {
+  const vendor = getVendorById(part.vendorId);
+  const category = getCategoryById(part.categoryId);
+
+  // Local edit state (only used on PC)
+  const [editName, setEditName] = useState(part.name);
+  const [editSku, setEditSku] = useState(part.sku ?? "");
+  const [editNotes, setEditNotes] = useState(part.notes ?? "");
+
+  // Sync local state when part changes from DB (e.g., after car compat toggle)
+  useEffect(() => {
+    setEditName(part.name);
+    setEditSku(part.sku ?? "");
+    setEditNotes(part.notes ?? "");
+  }, [part.name, part.sku, part.notes]);
+
+  const handleBlurSave = useCallback(async (field: "name" | "sku" | "notes", value: string) => {
+    const trimmed = value.trim();
+    const currentVal = field === "name" ? part.name : field === "sku" ? (part.sku ?? "") : (part.notes ?? "");
+    if (trimmed === currentVal) return;
+    const updated = { ...part, [field]: trimmed || (field === "name" ? part.name : undefined) };
+    await onSave(updated);
+  }, [part, onSave]);
+
+  const inputClass =
+    "w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-blue-500";
+
+  return (
+    <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+      {/* Collapsed row */}
+      <button
+        onClick={onToggle}
+        className="w-full text-left p-3 flex gap-3 hover:bg-neutral-800/50 transition-colors"
+      >
+        {/* Vendor icon */}
+        <div className="flex-shrink-0 self-center">
+          {vendor && <VendorLogo slug={vendor.slug} size={28} />}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-neutral-200 truncate">{part.name}</p>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            {vendor?.name && `${vendor.name} · `}
+            {category && `${category.icon} ${category.name}`}
+            {part.sku && ` · ${part.sku}`}
+          </p>
+          {/* Car compatibility pills (compact in collapsed view) */}
+          {part.compatibleChassisIds.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {part.compatibleChassisIds.slice(0, 3).map((id) => {
+                const car = garageCars.find((c) => c.id === id);
+                const cp = chassisPlatforms.find((c) => c.id === id);
+                const label = car?.name ?? cp?.name ?? id;
+                return (
+                  <span key={id} className="text-[10px] bg-green-900/30 text-green-400 rounded-full px-1.5 py-0.5">
+                    {label}
+                  </span>
+                );
+              })}
+              {part.compatibleChassisIds.length > 3 && (
+                <span className="text-[10px] text-neutral-500">+{part.compatibleChassisIds.length - 3}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Expand chevron */}
+        <span className="text-neutral-600 self-center text-sm">
+          {isExpanded ? "▲" : "▼"}
+        </span>
+      </button>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <div className="border-t border-neutral-800 p-3 space-y-3">
+          {isMobile ? (
+            /* ── Mobile: Read-only view ────────────────── */
+            <>
+              {part.sku && (
+                <div>
+                  <p className="text-xs text-neutral-500">SKU</p>
+                  <p className="text-sm font-mono text-neutral-200">{part.sku}</p>
+                </div>
+              )}
+
+              {/* Attributes */}
+              {category && Object.keys(part.attributes).length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {category.attributes.map((attr) => {
+                    const val = part.attributes[attr.key];
+                    if (val === undefined || val === "") return null;
+                    return (
+                      <div key={attr.key}>
+                        <p className="text-xs text-neutral-500">{attr.label}</p>
+                        <p className="text-sm text-neutral-200">{val}{attr.unit ? ` ${attr.unit}` : ""}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {part.notes && (
+                <div>
+                  <p className="text-xs text-neutral-500">Notes</p>
+                  <p className="text-sm text-neutral-300">{part.notes}</p>
+                </div>
+              )}
+
+              {/* Car compatibility (read-only) */}
+              <div>
+                <p className="text-xs text-neutral-500 mb-1.5">Compatible Cars</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {garageCars.map((car) => {
+                    const compat = part.compatibleChassisIds.includes(car.id);
+                    return (
+                      <span
+                        key={car.id}
+                        className={`text-xs px-2.5 py-1 rounded-full border ${
+                          compat
+                            ? "border-green-500 bg-green-900/20 text-green-300"
+                            : "border-neutral-700 bg-neutral-900 text-neutral-600"
+                        }`}
+                      >
+                        {car.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => onDetail(part)}
+                  className="flex-1 text-sm py-2 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
+                >
+                  View Details
+                </button>
+                <button
+                  onClick={() => onEdit(part)}
+                  className="flex-1 text-sm py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                >
+                  Edit
+                </button>
+              </div>
+            </>
+          ) : (
+            /* ── Desktop: Inline edit (save on blur) ───── */
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-neutral-500 mb-1 block">Name</label>
+                  <input
+                    className={inputClass}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onBlur={() => handleBlurSave("name", editName)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-500 mb-1 block">SKU</label>
+                  <input
+                    className={inputClass}
+                    value={editSku}
+                    onChange={(e) => setEditSku(e.target.value)}
+                    onBlur={() => handleBlurSave("sku", editSku)}
+                  />
+                </div>
+              </div>
+
+              {/* Attributes (read-only in inline, go to full edit for changes) */}
+              {category && Object.keys(part.attributes).length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {category.attributes.map((attr) => {
+                    const val = part.attributes[attr.key];
+                    if (val === undefined || val === "") return null;
+                    return (
+                      <div key={attr.key}>
+                        <p className="text-xs text-neutral-500">{attr.label}</p>
+                        <p className="text-sm text-neutral-200">{val}{attr.unit ? ` ${attr.unit}` : ""}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs text-neutral-500 mb-1 block">Notes</label>
+                <textarea
+                  className={inputClass + " min-h-[40px] resize-y"}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  onBlur={() => handleBlurSave("notes", editNotes)}
+                />
+              </div>
+
+              {/* Car compatibility pills (interactive) */}
+              <div>
+                <p className="text-xs text-neutral-500 mb-1.5">Compatible Cars</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {garageCars.map((car) => {
+                    const compat = part.compatibleChassisIds.includes(car.id);
+                    return (
+                      <button
+                        key={car.id}
+                        onClick={() => onToggleCarCompat(part, car.id)}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                          compat
+                            ? "border-green-500 bg-green-900/20 text-green-300"
+                            : "border-neutral-700 bg-neutral-900 text-neutral-600 hover:border-neutral-500"
+                        }`}
+                      >
+                        {car.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Link to full detail (photos/PDFs) */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => onDetail(part)}
+                  className="text-xs text-blue-400 hover:text-blue-300"
+                >
+                  Photos & Documents →
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
