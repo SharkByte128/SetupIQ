@@ -184,7 +184,7 @@ async function pushDirtyRecords(): Promise<void> {
     body.setupSnapshots = dirtySetups.map((s) => ({
       id: s.id,
       updatedAt: s.updatedAt,
-      data: { carId: s.carId, name: s.name, entries: s.entries, wheelTireSetups: s.wheelTireSetups, notes: s.notes },
+      data: { carId: s.carId, name: s.name, entries: s.entries, wheelTireSetups: s.wheelTireSetups, sections: s.sections, notes: s.notes },
     }));
   }
 
@@ -349,6 +349,7 @@ async function pullFromServer(): Promise<void> {
             name: setup.name,
             entries: setup.entries,
             wheelTireSetups: setup.wheel_tire_setups || setup.wheelTireSetups,
+            sections: setup.sections,
             notes: setup.notes,
             createdAt: setup.created_at || setup.createdAt,
             updatedAt: setup.updated_at || setup.updatedAt,

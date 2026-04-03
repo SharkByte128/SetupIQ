@@ -60,7 +60,7 @@ export function useSetups(carId?: string, hideDemoData = false) {
   const updateSetup = useCallback(
     async (
       id: string,
-      patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "notes">>,
+      patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "sections" | "notes">>,
     ) => {
       await db.setupSnapshots.update(id, {
         ...patch,

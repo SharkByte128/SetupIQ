@@ -1,20 +1,32 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import type { SetupSnapshot, CarDefinition, SetupEntry, Capability, WheelTireSetup } from "@setupiq/shared";
-import { allTires, allWheels, getAllowedValues } from "@setupiq/shared";
+import { useLiveQuery } from "dexie-react-hooks";
+import type { SetupSnapshot, CarDefinition, SetupEntry, SetupSection, Capability, WheelTireSetup } from "@setupiq/shared";
+import { allTires, allWheels, getAllowedValues, partCategories, getVendorById } from "@setupiq/shared";
 import { exportSetupCsv, downloadCsv } from "../utils/export.js";
 import { WheelTireSelector } from "./WheelTireSelector.js";
+import { localDb, type LocalPart } from "../db/local-db.js";
+import { v4 as uuid } from "uuid";
 
 interface Props {
   setup: SetupSnapshot;
   car: CarDefinition;
+  chassisId?: string;
   allSetups: SetupSnapshot[];
   onClone?: () => void;
   onDelete?: () => void;
   onBack: () => void;
-  onAutoSave?: (patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "notes">>) => void;
+  onAutoSave?: (patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "sections" | "notes">>) => void;
 }
 
-export function SetupDetail({ setup, car, allSetups, onClone, onDelete, onBack, onAutoSave }: Props) {
+/** Map predefined car IDs to chassis platform IDs for parts filtering. */
+const predefinedChassisMap: Record<string, string> = {
+  "car-mr03-rwd": "chassis-kyosho-mr03",
+  "car-mrx-me": "chassis-atomic-mrx",
+  "car-rx28": "chassis-reflex-rx28",
+  "car-evo2-5600kv": "chassis-mr04-evo2",
+};
+
+export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, onClone, onDelete, onBack, onAutoSave }: Props) {
   const [compareId, setCompareId] = useState<string | null>(null);
   const [adminMode, setAdminMode] = useState(false);
   const [expandedCap, setExpandedCap] = useState<string | null>(null);
@@ -23,6 +35,18 @@ export function SetupDetail({ setup, car, allSetups, onClone, onDelete, onBack, 
   const [editingNotes, setEditingNotes] = useState(false);
   const [nameVal, setNameVal] = useState(setup.name);
   const [notesVal, setNotesVal] = useState(setup.notes ?? "");
+  const [managingSections, setManagingSections] = useState(false);
+
+  // Section state
+  const [liveSections, setLiveSections] = useState<SetupSection[]>(
+    () => [...(setup.sections ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
+  );
+
+  // Resolve chassis ID for parts filtering
+  const resolvedChassisId = chassisIdProp ?? predefinedChassisMap[car.id] ?? null;
+
+  // Fetch user's parts from the Parts Bin
+  const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
 
   // Live entries state for inline editing
   const [liveEntries, setLiveEntries] = useState<SetupEntry[]>(() => [...setup.entries]);
@@ -39,6 +63,7 @@ export function SetupDetail({ setup, car, allSetups, onClone, onDelete, onBack, 
     setLiveEntries([...setup.entries]);
     setNameVal(setup.name);
     setNotesVal(setup.notes ?? "");
+    setLiveSections([...(setup.sections ?? [])].sort((a, b) => a.sortOrder - b.sortOrder));
     const m: Record<string, WheelTireSetup> = {};
     for (const wts of setup.wheelTireSetups) {
       m[`${wts.position}-${wts.side}`] = wts;
@@ -69,11 +94,74 @@ export function SetupDetail({ setup, car, allSetups, onClone, onDelete, onBack, 
   const otherSetups = allSetups.filter((s) => s.id !== setup.id);
 
   const doAutoSave = useCallback(
-    (patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "notes">>) => {
+    (patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "sections" | "notes">>) => {
       onAutoSave?.(patch);
     },
     [onAutoSave],
   );
+
+  // ── Section management handlers ─────────────────────
+  const handleAddSection = useCallback(() => {
+    const newSection: SetupSection = {
+      id: uuid(),
+      name: "New Section",
+      columns: 1,
+      sortOrder: liveSections.length,
+      capabilityCategories: [],
+      partCategoryIds: [],
+    };
+    const next = [...liveSections, newSection];
+    setLiveSections(next);
+    doAutoSave({ sections: next });
+  }, [liveSections, doAutoSave]);
+
+  const handleUpdateSection = useCallback((id: string, patch: Partial<SetupSection>) => {
+    setLiveSections((prev) => {
+      const next = prev.map((s) => (s.id === id ? { ...s, ...patch } : s));
+      doAutoSave({ sections: next });
+      return next;
+    });
+  }, [doAutoSave]);
+
+  const handleRemoveSection = useCallback((id: string) => {
+    setLiveSections((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      doAutoSave({ sections: next });
+      return next;
+    });
+  }, [doAutoSave]);
+
+  const handleMoveSection = useCallback((id: string, dir: -1 | 1) => {
+    setLiveSections((prev) => {
+      const idx = prev.findIndex((s) => s.id === id);
+      if (idx < 0) return prev;
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+      const reordered = next.map((s, i) => ({ ...s, sortOrder: i }));
+      doAutoSave({ sections: reordered });
+      return reordered;
+    });
+  }, [doAutoSave]);
+
+  /** Filter parts for a given set of part-category IDs and the car's chassis. */
+  const getPartsForCategories = useCallback((partCatIds: string[]): LocalPart[] => {
+    if (partCatIds.length === 0) return [];
+    return allParts
+      .filter((p) => partCatIds.includes(p.categoryId))
+      .filter((p) =>
+        !resolvedChassisId ||
+        p.compatibleChassisIds.length === 0 ||
+        p.compatibleChassisIds.includes(resolvedChassisId),
+      )
+      .sort((a, b) => {
+        const sa = a.sortOrder ?? Infinity;
+        const sb = b.sortOrder ?? Infinity;
+        if (sa !== sb) return sa - sb;
+        return a.name.localeCompare(b.name);
+      });
+  }, [allParts, resolvedChassisId]);
 
   // Inline capability change + autosave
   const handleCapChange = useCallback(
@@ -186,61 +274,332 @@ export function SetupDetail({ setup, car, allSetups, onClone, onDelete, onBack, 
         </div>
       )}
 
-      {/* Settings by category */}
-      {Array.from(categories.entries()).map(([category, caps]) => (
-        <section key={category}>
-          <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">{category}</h3>
-          <div className="rounded-lg bg-neutral-900 border border-neutral-800 divide-y divide-neutral-800">
-            {caps.map((cap) => {
-              const val = valueMap.get(cap.id);
-              const cmpVal = compareMap?.get(cap.id);
-              const isDiff = compareMap !== null && String(val) !== String(cmpVal);
-              const displayVal = formatValue(cap, val);
-              const displayCmp = cmpVal !== undefined ? formatValue(cap, cmpVal) : null;
-              const isExpanded = expandedCap === cap.id;
+      {/* Manage Sections toggle */}
+      {adminMode && (
+        <button
+          onClick={() => setManagingSections((p) => !p)}
+          className={`text-xs px-2.5 py-1 rounded transition-colors ${
+            managingSections
+              ? "bg-blue-600 text-white"
+              : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+          }`}
+        >
+          {managingSections ? "Done Managing" : "Manage Sections"}
+        </button>
+      )}
 
-              return (
-                <div key={cap.id}>
-                  {/* View row — always visible */}
-                  <button
-                    onClick={() => setExpandedCap(isExpanded ? null : cap.id)}
-                    className={`w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors ${
-                      isDiff ? "bg-yellow-950/30" : isExpanded ? "bg-neutral-800/50" : "hover:bg-neutral-800/30"
-                    }`}
-                  >
-                    <span className="text-xs text-neutral-400">{cap.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium ${isDiff ? "text-yellow-300" : "text-neutral-200"}`}>
-                        {displayVal ?? "—"}
-                      </span>
-                      {isDiff && displayCmp !== null && (
-                        <span className="text-xs text-neutral-600">was {displayCmp}</span>
-                      )}
-                      <span className={`text-xs text-neutral-600 transition-transform ${isExpanded ? "rotate-180" : ""}`}>
-                        ▾
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* Edit row — expanded */}
-                  {isExpanded && (
-                    <div className="px-3 py-3 bg-neutral-950/50 border-t border-neutral-800">
-                      <InlineCapabilityEditor
-                        capability={cap}
-                        value={val}
-                        entries={liveEntries}
-                        car={car}
-                        onChange={handleCapChange}
-                        onDone={() => setExpandedCap(null)}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+      {/* Section management panel */}
+      {managingSections && (
+        <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-neutral-300">Sections</h3>
+            <button
+              onClick={handleAddSection}
+              className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-500"
+            >
+              + Add Section
+            </button>
           </div>
-        </section>
-      ))}
+
+          {liveSections.length === 0 && (
+            <p className="text-xs text-neutral-500">No sections yet. Add a section to organize capabilities and parts.</p>
+          )}
+
+          {liveSections.map((sec, idx) => (
+            <div key={sec.id} className="rounded-lg bg-neutral-800 border border-neutral-700 p-3 space-y-2">
+              {/* Section header: name + column count */}
+              <div className="flex items-center gap-2">
+                <input
+                  value={sec.name}
+                  onChange={(e) => handleUpdateSection(sec.id, { name: e.target.value })}
+                  className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-100 focus:outline-none focus:border-blue-500"
+                />
+                <select
+                  value={sec.columns}
+                  onChange={(e) => handleUpdateSection(sec.id, { columns: parseInt(e.target.value) })}
+                  className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
+                >
+                  {[1, 2, 3, 4].map((n) => (
+                    <option key={n} value={n}>{n} col{n > 1 ? "s" : ""}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => handleMoveSection(sec.id, -1)}
+                  disabled={idx === 0}
+                  className="text-xs text-neutral-400 hover:text-neutral-200 disabled:text-neutral-700 px-1"
+                >↑</button>
+                <button
+                  onClick={() => handleMoveSection(sec.id, 1)}
+                  disabled={idx === liveSections.length - 1}
+                  className="text-xs text-neutral-400 hover:text-neutral-200 disabled:text-neutral-700 px-1"
+                >↓</button>
+                <button
+                  onClick={() => handleRemoveSection(sec.id)}
+                  className="text-xs text-red-400 hover:text-red-300 px-1"
+                >✕</button>
+              </div>
+
+              {/* Capability categories assignment */}
+              <div>
+                <p className="text-xs text-neutral-500 mb-1">Capability Categories:</p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from(categories.keys()).map((cat) => {
+                    const isAssigned = sec.capabilityCategories.includes(cat);
+                    const assignedElsewhere = !isAssigned && liveSections.some((s) => s.id !== sec.id && s.capabilityCategories.includes(cat));
+                    return (
+                      <button
+                        key={cat}
+                        disabled={assignedElsewhere}
+                        onClick={() => {
+                          const next = isAssigned
+                            ? sec.capabilityCategories.filter((c) => c !== cat)
+                            : [...sec.capabilityCategories, cat];
+                          handleUpdateSection(sec.id, { capabilityCategories: next });
+                        }}
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                          isAssigned
+                            ? "bg-blue-600/20 border-blue-500 text-blue-300"
+                            : assignedElsewhere
+                              ? "bg-neutral-900 border-neutral-800 text-neutral-700 cursor-not-allowed"
+                              : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                        }`}
+                        title={assignedElsewhere ? `Already in another section` : undefined}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Parts categories assignment */}
+              <div>
+                <p className="text-xs text-neutral-500 mb-1">Parts Categories:</p>
+                <div className="flex flex-wrap gap-1">
+                  {partCategories.map((pc) => {
+                    const isAssigned = sec.partCategoryIds.includes(pc.id);
+                    const assignedElsewhere = !isAssigned && liveSections.some((s) => s.id !== sec.id && s.partCategoryIds.includes(pc.id));
+                    return (
+                      <button
+                        key={pc.id}
+                        disabled={assignedElsewhere}
+                        onClick={() => {
+                          const next = isAssigned
+                            ? sec.partCategoryIds.filter((c) => c !== pc.id)
+                            : [...sec.partCategoryIds, pc.id];
+                          handleUpdateSection(sec.id, { partCategoryIds: next });
+                        }}
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                          isAssigned
+                            ? "bg-green-600/20 border-green-500 text-green-300"
+                            : assignedElsewhere
+                              ? "bg-neutral-900 border-neutral-800 text-neutral-700 cursor-not-allowed"
+                              : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                        }`}
+                        title={assignedElsewhere ? `Already in another section` : undefined}
+                      >
+                        {pc.icon} {pc.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Section-based layout (if sections exist) ── */}
+      {liveSections.length > 0 ? (
+        <>
+          {liveSections.map((sec) => {
+            const sectionParts = getPartsForCategories(sec.partCategoryIds);
+            const colClass =
+              sec.columns === 2 ? "grid-cols-2"
+              : sec.columns === 3 ? "grid-cols-3"
+              : sec.columns === 4 ? "grid-cols-4"
+              : "";
+
+            return (
+              <section key={sec.id}>
+                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                  {sec.name}
+                  {sec.columns > 1 && <span className="text-neutral-600 ml-1">({sec.columns} col)</span>}
+                </h3>
+
+                {/* Capability categories in this section */}
+                <div className={sec.columns > 1 ? `grid ${colClass} gap-3` : ""}>
+                  {sec.capabilityCategories.map((catName) => {
+                    const caps = categories.get(catName);
+                    if (!caps) return null;
+                    return (
+                      <div key={catName}>
+                        <p className="text-xs text-neutral-500 mb-1 font-medium">{catName}</p>
+                        <div className="rounded-lg bg-neutral-900 border border-neutral-800 divide-y divide-neutral-800">
+                          {caps.map((cap) => {
+                            const val = valueMap.get(cap.id);
+                            const cmpVal = compareMap?.get(cap.id);
+                            const isDiff = compareMap !== null && String(val) !== String(cmpVal);
+                            const displayVal = formatValue(cap, val);
+                            const displayCmp = cmpVal !== undefined ? formatValue(cap, cmpVal) : null;
+                            const isExpanded = expandedCap === cap.id;
+                            return (
+                              <div key={cap.id}>
+                                <button
+                                  onClick={() => setExpandedCap(isExpanded ? null : cap.id)}
+                                  className={`w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors ${
+                                    isDiff ? "bg-yellow-950/30" : isExpanded ? "bg-neutral-800/50" : "hover:bg-neutral-800/30"
+                                  }`}
+                                >
+                                  <span className="text-xs text-neutral-400">{cap.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-xs font-medium ${isDiff ? "text-yellow-300" : "text-neutral-200"}`}>
+                                      {displayVal ?? "—"}
+                                    </span>
+                                    {isDiff && displayCmp !== null && (
+                                      <span className="text-xs text-neutral-600">was {displayCmp}</span>
+                                    )}
+                                    <span className={`text-xs text-neutral-600 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▾</span>
+                                  </div>
+                                </button>
+                                {isExpanded && (
+                                  <div className="px-3 py-3 bg-neutral-950/50 border-t border-neutral-800">
+                                    <InlineCapabilityEditor capability={cap} value={val} entries={liveEntries} car={car} onChange={handleCapChange} onDone={() => setExpandedCap(null)} />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Parts from Parts Bin in this section */}
+                {sectionParts.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs text-neutral-500 mb-1 font-medium">Parts Inventory</p>
+                    <div className={sec.columns > 1 ? `grid ${colClass} gap-2` : "space-y-1"}>
+                      {sectionParts.map((part) => {
+                        const vendor = getVendorById(part.vendorId);
+                        const partCat = partCategories.find((c) => c.id === part.categoryId);
+                        return (
+                          <div key={part.id} className="rounded bg-neutral-900 border border-neutral-800 px-3 py-2 flex items-center justify-between">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-neutral-200 truncate">
+                                {part.sortOrder != null && <span className="text-neutral-600 mr-1">#{part.sortOrder}</span>}
+                                {part.name}
+                              </p>
+                              <p className="text-xs text-neutral-500 truncate">
+                                {vendor?.name ?? "Unknown"} · {partCat?.name ?? part.categoryId}
+                                {part.sku && <span className="ml-1 text-neutral-600">({part.sku})</span>}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+
+          {/* Unsectioned capabilities (categories not assigned to any section) */}
+          {(() => {
+            const assignedCats = new Set(liveSections.flatMap((s) => s.capabilityCategories));
+            const unsectioned = Array.from(categories.entries()).filter(([catName]) => !assignedCats.has(catName));
+            if (unsectioned.length === 0) return null;
+            return unsectioned.map(([category, caps]) => (
+              <section key={category}>
+                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">{category}</h3>
+                <div className="rounded-lg bg-neutral-900 border border-neutral-800 divide-y divide-neutral-800">
+                  {caps.map((cap) => {
+                    const val = valueMap.get(cap.id);
+                    const cmpVal = compareMap?.get(cap.id);
+                    const isDiff = compareMap !== null && String(val) !== String(cmpVal);
+                    const displayVal = formatValue(cap, val);
+                    const displayCmp = cmpVal !== undefined ? formatValue(cap, cmpVal) : null;
+                    const isExpanded = expandedCap === cap.id;
+                    return (
+                      <div key={cap.id}>
+                        <button
+                          onClick={() => setExpandedCap(isExpanded ? null : cap.id)}
+                          className={`w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors ${
+                            isDiff ? "bg-yellow-950/30" : isExpanded ? "bg-neutral-800/50" : "hover:bg-neutral-800/30"
+                          }`}
+                        >
+                          <span className="text-xs text-neutral-400">{cap.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-medium ${isDiff ? "text-yellow-300" : "text-neutral-200"}`}>
+                              {displayVal ?? "—"}
+                            </span>
+                            {isDiff && displayCmp !== null && (
+                              <span className="text-xs text-neutral-600">was {displayCmp}</span>
+                            )}
+                            <span className={`text-xs text-neutral-600 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▾</span>
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="px-3 py-3 bg-neutral-950/50 border-t border-neutral-800">
+                            <InlineCapabilityEditor capability={cap} value={val} entries={liveEntries} car={car} onChange={handleCapChange} onDone={() => setExpandedCap(null)} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ));
+          })()}
+        </>
+      ) : (
+        /* ── Original flat category layout (no sections defined) ── */
+        <>
+          {Array.from(categories.entries()).map(([category, caps]) => (
+            <section key={category}>
+              <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">{category}</h3>
+              <div className="rounded-lg bg-neutral-900 border border-neutral-800 divide-y divide-neutral-800">
+                {caps.map((cap) => {
+                  const val = valueMap.get(cap.id);
+                  const cmpVal = compareMap?.get(cap.id);
+                  const isDiff = compareMap !== null && String(val) !== String(cmpVal);
+                  const displayVal = formatValue(cap, val);
+                  const displayCmp = cmpVal !== undefined ? formatValue(cap, cmpVal) : null;
+                  const isExpanded = expandedCap === cap.id;
+                  return (
+                    <div key={cap.id}>
+                      <button
+                        onClick={() => setExpandedCap(isExpanded ? null : cap.id)}
+                        className={`w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors ${
+                          isDiff ? "bg-yellow-950/30" : isExpanded ? "bg-neutral-800/50" : "hover:bg-neutral-800/30"
+                        }`}
+                      >
+                        <span className="text-xs text-neutral-400">{cap.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-medium ${isDiff ? "text-yellow-300" : "text-neutral-200"}`}>
+                            {displayVal ?? "—"}
+                          </span>
+                          {isDiff && displayCmp !== null && (
+                            <span className="text-xs text-neutral-600">was {displayCmp}</span>
+                          )}
+                          <span className={`text-xs text-neutral-600 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▾</span>
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-3 py-3 bg-neutral-950/50 border-t border-neutral-800">
+                          <InlineCapabilityEditor capability={cap} value={val} entries={liveEntries} car={car} onChange={handleCapChange} onDone={() => setExpandedCap(null)} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </>
+      )}
 
       {/* Wheel / Tire summary */}
       <section>

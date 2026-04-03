@@ -46,7 +46,7 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
   );
 
   const handleAutoSave = useCallback(
-    async (setupId: string, patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "notes">>) => {
+    async (setupId: string, patch: Partial<Pick<SetupSnapshot, "name" | "entries" | "wheelTireSetups" | "sections" | "notes">>) => {
       await updateSetup(setupId, patch);
       // Refresh the view.setup reference with updated data
       const updated = setups.find((s) => s.id === setupId);

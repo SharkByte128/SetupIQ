@@ -117,6 +117,17 @@ export interface WheelTireSetup {
   mount?: TireMount;
 }
 
+export interface SetupSection {
+  id: string;
+  name: string;
+  columns: number;
+  sortOrder: number;
+  /** Capability category names from the car definition (e.g. "Front Suspension") */
+  capabilityCategories: string[];
+  /** Parts-bin category IDs for showing parts inventory (e.g. "front-springs") */
+  partCategoryIds: string[];
+}
+
 export interface SetupSnapshot {
   id: UUID;
   userId: UUID;
@@ -124,6 +135,7 @@ export interface SetupSnapshot {
   name: string;
   entries: SetupEntry[];
   wheelTireSetups: WheelTireSetup[];
+  sections?: SetupSection[];
   notes?: string;
   createdAt: ISODateString;
   updatedAt: ISODateString;

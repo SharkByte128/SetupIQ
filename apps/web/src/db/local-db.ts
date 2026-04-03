@@ -15,6 +15,14 @@ export interface LocalSetupSnapshot {
     tireId?: string;
     mount?: { method: string; edgeGlue: string };
   }[];
+  sections?: {
+    id: string;
+    name: string;
+    columns: number;
+    sortOrder: number;
+    capabilityCategories: string[];
+    partCategoryIds: string[];
+  }[];
   notes?: string;
   createdAt: string;
   updatedAt: string;
