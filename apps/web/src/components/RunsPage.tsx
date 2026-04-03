@@ -382,22 +382,39 @@ function AnalyticsDashboard({
 
 function NltSyncMini() {
   const [expanded, setExpanded] = useState(false);
-  const [raceId, setRaceId] = useState(() => localStorage.getItem("nlt_last_race_id") ?? "");
+  const [selectedTrackId, setSelectedTrackId] = useState(() => localStorage.getItem("nlt_last_track_id") ?? "");
+  const [raceNumber, setRaceNumber] = useState(() => localStorage.getItem("nlt_last_race_number") ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<NltRaceData[] | null>(null);
   // "ignore" means hidden, any car id means linked
   const [selectedCars, setSelectedCars] = useState<Record<number, string | "ignore">>({});
 
+  const tracks = useLiveQuery(() => localDb.tracks.toArray()) ?? [];
+  const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
+  const feedUrl = selectedTrack?.timingFeedUrl;
+
   const handleSync = async () => {
-    const trimmed = raceId.trim();
+    const trimmed = raceNumber.trim();
     if (!trimmed) return;
-    localStorage.setItem("nlt_last_race_id", trimmed);
+    localStorage.setItem("nlt_last_race_number", trimmed);
+    if (selectedTrackId) localStorage.setItem("nlt_last_track_id", selectedTrackId);
     setLoading(true);
     setError(null);
     setPreview(null);
     try {
-      const url = trimmed.startsWith("http") ? trimmed : `https://nextleveltiming.com/communities/piedmont-micro-rc-racing-club/races/${trimmed}`;
+      let url: string;
+      if (trimmed.startsWith("http")) {
+        url = trimmed;
+      } else if (feedUrl) {
+        // Append race number to track's timing feed URL
+        const base = feedUrl.endsWith("/") ? feedUrl : feedUrl + "/";
+        url = base + trimmed;
+      } else {
+        setError("Select a track with a timing feed URL, or paste a full URL.");
+        setLoading(false);
+        return;
+      }
       const res = await fetch(`${API_BASE}/api/nlt/scrape`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -430,7 +447,16 @@ function NltSyncMini() {
 
   const handleSaveAll = async () => {
     if (!preview) return;
-    const sourceUrl = raceId.trim().startsWith("http") ? raceId.trim() : `https://nextleveltiming.com/communities/piedmont-micro-rc-racing-club/races/${raceId.trim()}`;
+    const trimmed = raceNumber.trim();
+    let sourceUrl: string;
+    if (trimmed.startsWith("http")) {
+      sourceUrl = trimmed;
+    } else if (feedUrl) {
+      const base = feedUrl.endsWith("/") ? feedUrl : feedUrl + "/";
+      sourceUrl = base + trimmed;
+    } else {
+      sourceUrl = trimmed;
+    }
     for (let i = 0; i < preview.length; i++) {
       const d = preview[i];
       const choice = selectedCars[i] ?? "ignore";
@@ -463,6 +489,7 @@ function NltSyncMini() {
   };
 
   const linkedCount = preview ? Object.values(selectedCars).filter((v) => v !== "ignore").length : 0;
+  const canSync = raceNumber.trim() && (raceNumber.trim().startsWith("http") || feedUrl);
 
   return (
     <div className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden">
@@ -476,22 +503,42 @@ function NltSyncMini() {
 
       {expanded && (
         <div className="px-3 pb-3 space-y-2 border-t border-neutral-800 pt-2">
+          <div className="space-y-1.5">
+            <select
+              value={selectedTrackId}
+              onChange={(e) => setSelectedTrackId(e.target.value)}
+              className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+            >
+              <option value="">— select track —</option>
+              {tracks.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}{t.timingFeedUrl ? " ✓" : ""}</option>
+              ))}
+            </select>
+            {selectedTrack && !feedUrl && (
+              <p className="text-[10px] text-amber-500">This track has no timing feed URL — set it in Tracks settings, or paste a full URL below.</p>
+            )}
+          </div>
           <div className="flex gap-2">
             <input
               type="text"
-              value={raceId}
-              onChange={(e) => setRaceId(e.target.value)}
-              placeholder="Race ID or URL"
+              value={raceNumber}
+              onChange={(e) => setRaceNumber(e.target.value)}
+              placeholder={feedUrl ? "Race / run number" : "Race number or full URL"}
               className="flex-1 rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
             />
             <button
               onClick={handleSync}
-              disabled={loading || !raceId.trim()}
+              disabled={loading || !canSync}
               className="rounded bg-blue-600 text-white px-4 py-1.5 text-xs font-medium hover:bg-blue-500 disabled:opacity-50"
             >
-              {loading ? "Syncing…" : "Start"}
+              {loading ? "Syncing…" : "Import"}
             </button>
           </div>
+          {feedUrl && raceNumber.trim() && !raceNumber.trim().startsWith("http") && (
+            <p className="text-[10px] text-neutral-600 truncate">
+              {(feedUrl.endsWith("/") ? feedUrl : feedUrl + "/") + raceNumber.trim()}
+            </p>
+          )}
           {error && <p className="text-xs text-red-400">{error}</p>}
 
           {preview && preview.length > 0 && (

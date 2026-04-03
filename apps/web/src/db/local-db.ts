@@ -58,6 +58,7 @@ export interface LocalTrack {
   phone?: string;
   hours?: string;
   timingSystem?: string;
+  timingFeedUrl?: string;
   surfaceType: string;
   tileType?: string;
   dimensions?: string;

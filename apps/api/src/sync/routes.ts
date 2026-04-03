@@ -41,65 +41,71 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user as AuthUser;
     const since = request.query.since ? new Date(request.query.since) : new Date(0);
 
-    const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages] = await Promise.all([
-      db.select().from(setupSnapshots).where(
-        and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
-      ),
-      db.select().from(tracks).where(
-        and(eq(tracks.userId, user.id), gt(tracks.updatedAt, since))
-      ),
-      db.select().from(components).where(
-        eq(components.userId, user.id)
-      ),
-      db.select().from(runSessions).where(
-        eq(runSessions.userId, user.id)
-      ),
-      Promise.resolve([]), // placeholder — segments queried below
-      Promise.resolve([]), // placeholder — measurements queried below
-      db.select().from(parts).where(
-        and(eq(parts.userId, user.id), gt(parts.updatedAt, since))
-      ),
-      db.select().from(raceResults).where(
-        eq(raceResults.userId, user.id)
-      ),
-      db.select().from(customCars).where(
-        and(eq(customCars.userId, user.id), gt(customCars.updatedAt, since))
-      ),
-      db.select().from(carImages).where(
-        and(eq(carImages.userId, user.id), gt(carImages.updatedAt, since))
-      ),
-    ]);
+    try {
+      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages] = await Promise.all([
+        db.select().from(setupSnapshots).where(
+          and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
+        ),
+        db.select().from(tracks).where(
+          and(eq(tracks.userId, user.id), gt(tracks.updatedAt, since))
+        ),
+        db.select().from(components).where(
+          eq(components.userId, user.id)
+        ),
+        db.select().from(runSessions).where(
+          eq(runSessions.userId, user.id)
+        ),
+        Promise.resolve([]), // placeholder — segments queried below
+        Promise.resolve([]), // placeholder — measurements queried below
+        db.select().from(parts).where(
+          and(eq(parts.userId, user.id), gt(parts.updatedAt, since))
+        ),
+        db.select().from(raceResults).where(
+          eq(raceResults.userId, user.id)
+        ),
+        db.select().from(customCars).where(
+          and(eq(customCars.userId, user.id), gt(customCars.updatedAt, since))
+        ),
+        db.select().from(carImages).where(
+          and(eq(carImages.userId, user.id), gt(carImages.updatedAt, since))
+        ),
+      ]);
 
-    // Segments & measurements scoped to user's sessions/setups
-    const allUserSessions = await db.select({ id: runSessions.id }).from(runSessions).where(eq(runSessions.userId, user.id));
-    const sessionIds = allUserSessions.map((s) => s.id);
-    const userSegments = sessionIds.length > 0
-      ? await db.select().from(runSegments).where(
-          inArray(runSegments.sessionId, sessionIds)
-        )
-      : [];
+      // Segments & measurements scoped to user's sessions/setups
+      const allUserSessions = await db.select({ id: runSessions.id }).from(runSessions).where(eq(runSessions.userId, user.id));
+      const sessionIds = allUserSessions.map((s) => s.id);
+      const userSegments = sessionIds.length > 0
+        ? await db.select().from(runSegments).where(
+            inArray(runSegments.sessionId, sessionIds)
+          )
+        : [];
 
-    const allUserSetups = await db.select({ id: setupSnapshots.id }).from(setupSnapshots).where(eq(setupSnapshots.userId, user.id));
-    const setupIds = allUserSetups.map((s) => s.id);
-    const userMeasurements = setupIds.length > 0
-      ? await db.select().from(measurements).where(
-          inArray(measurements.setupId, setupIds)
-        )
-      : [];
+      const allUserSetups = await db.select({ id: setupSnapshots.id }).from(setupSnapshots).where(eq(setupSnapshots.userId, user.id));
+      const setupIds = allUserSetups.map((s) => s.id);
+      const userMeasurements = setupIds.length > 0
+        ? await db.select().from(measurements).where(
+            inArray(measurements.setupId, setupIds)
+          )
+        : [];
 
-    return {
-      setupSnapshots: userSetups,
-      tracks: userTracks,
-      components: userComponents,
-      runSessions: userSessions,
-      runSegments: userSegments,
-      measurements: userMeasurements,
-      parts: userParts,
-      raceResults: userRaceResults,
-      customCars: userCustomCars,
-      carImages: userCarImages,
-      serverTime: new Date().toISOString(),
-    };
+      return {
+        setupSnapshots: userSetups,
+        tracks: userTracks,
+        components: userComponents,
+        runSessions: userSessions,
+        runSegments: userSegments,
+        measurements: userMeasurements,
+        parts: userParts,
+        raceResults: userRaceResults,
+        customCars: userCustomCars,
+        carImages: userCarImages,
+        serverTime: new Date().toISOString(),
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      request.log.error({ err }, "[sync/pull] DB query failed");
+      return reply.status(500).send({ error: "Sync pull failed", message });
+    }
   });
 
   // ─── Push: Upsert records from client ─────────────────────
@@ -158,6 +164,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             phone: record.data.phone as string | undefined,
             hours: record.data.hours as string | undefined,
             timingSystem: record.data.timingSystem as string | undefined,
+            timingFeedUrl: record.data.timingFeedUrl as string | undefined,
             surfaceType: (record.data.surfaceType as string) || "other",
             tileType: record.data.tileType as string | undefined,
             dimensions: record.data.dimensions as string | undefined,
@@ -174,6 +181,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
               phone: record.data.phone as string | undefined,
               hours: record.data.hours as string | undefined,
               timingSystem: record.data.timingSystem as string | undefined,
+              timingFeedUrl: record.data.timingFeedUrl as string | undefined,
               surfaceType: (record.data.surfaceType as string) || "other",
               tileType: record.data.tileType as string | undefined,
               dimensions: record.data.dimensions as string | undefined,

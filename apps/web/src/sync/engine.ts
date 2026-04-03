@@ -193,7 +193,7 @@ async function pushDirtyRecords(): Promise<void> {
       updatedAt: t.updatedAt,
       data: {
         name: t.name, location: t.location, address: t.address, phone: t.phone,
-        hours: t.hours, timingSystem: t.timingSystem, surfaceType: t.surfaceType,
+        hours: t.hours, timingSystem: t.timingSystem, timingFeedUrl: t.timingFeedUrl, surfaceType: t.surfaceType,
         tileType: t.tileType, dimensions: t.dimensions,
         layoutDescription: t.layoutDescription, notes: t.notes,
       },
@@ -367,6 +367,7 @@ async function pullFromServer(): Promise<void> {
             phone: track.phone,
             hours: track.hours,
             timingSystem: track.timing_system || track.timingSystem,
+            timingFeedUrl: track.timing_feed_url || track.timingFeedUrl,
             surfaceType: track.surface_type || track.surfaceType,
             tileType: track.tile_type || track.tileType,
             dimensions: track.dimensions,

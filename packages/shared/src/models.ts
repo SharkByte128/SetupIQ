@@ -211,6 +211,7 @@ export interface Track {
   phone?: string;
   hours?: string;
   timingSystem?: string;
+  timingFeedUrl?: string;
   surfaceType: SurfaceType;
   tileType?: string;
   dimensions?: string;
@@ -285,6 +286,30 @@ export interface RecommendationContext {
     outcome?: Recommendation["outcome"];
   }>;
   cornerWeights?: CornerWeights;
+}
+
+
+// ─── Catalog Part Images & Variants ───────────────────────────
+
+export interface CatalogPartImage {
+  id: UUID;
+  catalogPartId: UUID;
+  imageBase64?: string; // Only present in admin API
+  mimeType: string;
+  sortOrder: number;
+  variantFilter?: Record<string, string> | null;
+  createdAt: ISODateString;
+}
+
+export interface CatalogPartVariant {
+  id: UUID;
+  catalogPartId: UUID;
+  sku: string;
+  label: string;
+  variantAttributes: Record<string, string>;
+  status: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
 }
 
 // ─── Race Results ─────────────────────────────────────────────

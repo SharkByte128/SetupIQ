@@ -33,6 +33,7 @@ export const tracks = pgTable("tracks", {
   phone: text("phone"),
   hours: text("hours"),
   timingSystem: text("timing_system"),
+  timingFeedUrl: text("timing_feed_url"),
   surfaceType: varchar("surface_type", { length: 20 }).notNull(),
   tileType: text("tile_type"),
   dimensions: text("dimensions"),

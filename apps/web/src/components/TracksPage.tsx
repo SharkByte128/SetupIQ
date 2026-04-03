@@ -43,6 +43,7 @@ export function TracksPage() {
                 phone: existing.phone ?? "",
                 hours: existing.hours ?? "",
                 timingSystem: existing.timingSystem ?? "",
+                timingFeedUrl: existing.timingFeedUrl ?? "",
                 surfaceType: existing.surfaceType as SurfaceType,
                 tileType: existing.tileType ?? "",
                 dimensions: existing.dimensions ?? "",
@@ -308,6 +309,7 @@ interface TrackFormData {
   phone: string;
   hours: string;
   timingSystem: string;
+  timingFeedUrl: string;
   surfaceType: SurfaceType;
   tileType: string;
   dimensions: string;
@@ -338,6 +340,7 @@ function TrackForm({
   const [phone, setPhone] = useState(existing?.phone ?? "");
   const [hours, setHours] = useState(existing?.hours ?? "");
   const [timingSystem, setTimingSystem] = useState(existing?.timingSystem ?? "");
+  const [timingFeedUrl, setTimingFeedUrl] = useState(existing?.timingFeedUrl ?? "");
   const [surfaceType, setSurfaceType] = useState<SurfaceType>(
     existing?.surfaceType ?? "rcp"
   );
@@ -435,6 +438,18 @@ function TrackForm({
         </div>
 
         <div>
+          <label className="text-xs text-neutral-400 block mb-1">Timing Feed URL</label>
+          <input
+            type="url"
+            value={timingFeedUrl}
+            onChange={(e) => setTimingFeedUrl(e.target.value)}
+            placeholder="e.g. https://nextleveltiming.com/communities/my-club/races"
+            className={inputClass}
+          />
+          <p className="text-[10px] text-neutral-600 mt-0.5">Base URL for timing results — race number is appended when importing runs</p>
+        </div>
+
+        <div>
           <label className="text-xs text-neutral-400 block mb-1">Surface Type</label>
           <select
             value={surfaceType}
@@ -515,6 +530,7 @@ function TrackForm({
               phone,
               hours,
               timingSystem,
+              timingFeedUrl,
               surfaceType,
               tileType,
               dimensions,

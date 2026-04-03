@@ -19,6 +19,7 @@ export function useTracks(hideDemoData = false) {
       phone?: string;
       hours?: string;
       timingSystem?: string;
+      timingFeedUrl?: string;
       surfaceType: SurfaceType;
       tileType?: string;
       dimensions?: string;
@@ -36,6 +37,7 @@ export function useTracks(hideDemoData = false) {
         phone: data.phone,
         hours: data.hours,
         timingSystem: data.timingSystem,
+        timingFeedUrl: data.timingFeedUrl,
         surfaceType: data.surfaceType,
         tileType: data.tileType,
         dimensions: data.dimensions,
@@ -62,6 +64,7 @@ export function useTracks(hideDemoData = false) {
         phone: string;
         hours: string;
         timingSystem: string;
+        timingFeedUrl: string;
         surfaceType: SurfaceType;
         tileType: string;
         dimensions: string;
