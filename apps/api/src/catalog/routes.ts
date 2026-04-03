@@ -353,17 +353,22 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     const user = await requireAuth(request, reply);
     if (!user) return;
 
-    const rows = await db
-      .select({
-        id: vendorSources.id,
-        name: vendorSources.name,
-        type: vendorSources.type,
-      })
-      .from(vendorSources)
-      .where(eq(vendorSources.enabled, true))
-      .orderBy(vendorSources.name);
+    try {
+      const rows = await db
+        .select({
+          id: vendorSources.id,
+          name: vendorSources.name,
+          type: vendorSources.type,
+        })
+        .from(vendorSources)
+        .where(eq(vendorSources.enabled, true))
+        .orderBy(vendorSources.name);
 
-    return reply.send({ sources: rows });
+      return reply.send({ sources: rows });
+    } catch (err: unknown) {
+      request.log.error({ err }, "[vendor-sources] query failed (table may not exist yet)");
+      return reply.send({ sources: [] });
+    }
   });
 
   // ─── Live search a vendor store ─────────────────────────────
