@@ -111,7 +111,8 @@ export async function fetchNltCommunityRaces(communityId: number): Promise<NltRa
     "Accept": "application/json",
   };
 
-  const apiUrl = `https://nextleveltiming.com/api/communities/${communityId}/races`;
+  // NLT uses filter[community_id] on the /api/races endpoint (not /api/communities/{id}/races)
+  const apiUrl = `https://nextleveltiming.com/api/races?filter[community_id]=${communityId}&page=1`;
   const res = await fetch(apiUrl, {
     headers,
     signal: AbortSignal.timeout(15000),
@@ -122,7 +123,7 @@ export async function fetchNltCommunityRaces(communityId: number): Promise<NltRa
   }
 
   const json = await res.json() as { data: NltApiCommunityRace[] };
-  const races = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json as unknown as NltApiCommunityRace[] : []);
+  const races = Array.isArray(json.data) ? json.data : [];
 
   return races.map((r) => ({
     id: r.id,

@@ -269,7 +269,7 @@ export async function ingestVendorSource(sourceId: string): Promise<{ fetched: n
       allOffers.push(...normalizeWooProduct(product, sourceId));
     }
   } else {
-    throw new Error(`Unsupported source type: ${source.type}. Supported: "shopify", "woocommerce".`);
+    throw new Error(`Unsupported source type: ${source.type}. Supported: "shopify", "woocommerce". Note: "amain" type supports live search only, not bulk ingestion.`);
   }
 
   // Upsert offers

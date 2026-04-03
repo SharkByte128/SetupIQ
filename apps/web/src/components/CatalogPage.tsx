@@ -618,7 +618,7 @@ function VendorSearchView() {
             <select
               value={selectedSourceId}
               onChange={(e) => setSelectedSourceId(e.target.value)}
-              className={inputClass + " flex-shrink-0 w-40"}
+              className={inputClass + " flex-shrink-0 w-auto max-w-[12rem]"}
             >
               {sources.map((s) => (
                 <option key={s.id} value={s.id}>

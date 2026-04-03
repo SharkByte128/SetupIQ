@@ -39,6 +39,8 @@ export async function searchVendorStore(
       return searchShopify(source.baseUrl, query, limit);
     case "woocommerce":
       return searchWooCommerce(source.baseUrl, query, limit);
+    case "amain":
+      return searchAmain(source.baseUrl, query, limit);
     default:
       throw new Error(`Live search not supported for vendor type "${source.type}"`);
   }
@@ -97,6 +99,74 @@ async function searchShopify(
     category: p.product_type ?? "",
     rawData: p as unknown as Record<string, unknown>,
   }));
+}
+
+// ─── Amain Hobbies search (AJAX load-page endpoint) ──────────
+
+async function searchAmain(
+  baseUrl: string,
+  query: string,
+  limit: number,
+): Promise<VendorSearchResult[]> {
+  const base = baseUrl.replace(/\/$/, "");
+  const url = `${base}/boxes/search-results/load-page`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-Requested-With": "XMLHttpRequest",
+      "User-Agent": "SetupIQ-Catalog-Bot/1.0 (+https://setupiq.app)",
+    },
+    body: `search=${encodeURIComponent(query)}&page=1&sort=7`,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Amain search failed: HTTP ${res.status}`);
+  }
+
+  const data = await res.json() as { resultsHtml: string };
+  const html = data.resultsHtml ?? "";
+
+  // Parse product cards from HTML data attributes
+  const cardRe = /listing-product-card[^"]*"\s*data-id="(\d+)"\s*data-parent-id="\d+"\s*data-name="([^"]*)"\s*data-brand="([^"]*)"\s*data-price="([^"]*)"/g;
+  const urlRe = /data-url="(https:\/\/[^"]+)"/g;
+  const imgRe = /img[^>]*src="(https:\/\/images\.amainhobbies\.com[^"]+)"/g;
+  const stockRe = /data-cart-class="([^"]+)"/g;
+  const skuRe = /title="Add ([A-Z0-9]+-[A-Z0-9-]+) to cart"/ig;
+
+  const results: VendorSearchResult[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = cardRe.exec(html)) !== null) {
+    const [, id, rawName, brand, price] = match;
+    const name = rawName.replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&#x27;/g, "'");
+
+    // Find the next URL, image, stock status, and SKU after this card
+    const afterCard = html.slice(match.index);
+    const urlMatch = /data-url="(https:\/\/[^"]+)"/.exec(afterCard);
+    const imgMatch = /img[^>]*src="(https:\/\/images\.amainhobbies\.com[^"]+)"/.exec(afterCard);
+    const stockMatch = /data-cart-class="([^"]+)"/.exec(afterCard);
+    const skuMatch = /title="Add ([A-Z0-9]+-[A-Z0-9-]+) to cart"/i.exec(afterCard);
+
+    results.push({
+      vendorSku: skuMatch?.[1] || `amain-${id}`,
+      productName: name,
+      productUrl: urlMatch?.[1] || `${base}/p${id}`,
+      imageUrl: imgMatch?.[1] || null,
+      price: price || null,
+      currency: "USD",
+      description: "",
+      inStock: stockMatch?.[1] !== "backorder" && stockMatch?.[1] !== "out-of-stock",
+      vendor: brand,
+      category: "",
+      rawData: { id, brand, stockClass: stockMatch?.[1] || "" } as unknown as Record<string, unknown>,
+    });
+
+    if (results.length >= limit) break;
+  }
+
+  return results;
 }
 
 // ─── WooCommerce search (Store API) ──────────────────────────
