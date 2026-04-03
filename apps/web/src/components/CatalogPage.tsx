@@ -531,7 +531,7 @@ function VendorSearchView() {
   const [vendorName, setVendorName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedSku, setExpandedSku] = useState<string | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [addedSkus, setAddedSkus] = useState<Set<string>>(new Set());
 
   // Load vendor sources on mount (only when logged in)
@@ -549,7 +549,7 @@ function VendorSearchView() {
     if (!selectedSourceId || !query.trim()) return;
     setLoading(true);
     setError(null);
-    setExpandedSku(null);
+    setExpandedIdx(null);
     try {
       const data = await searchVendor(selectedSourceId, query.trim());
       setResults(data.results);
@@ -662,18 +662,18 @@ function VendorSearchView() {
 
       {/* Results */}
       <div className="space-y-2">
-        {results.map((item) => {
-          const isExpanded = expandedSku === item.vendorSku;
+        {results.map((item, idx) => {
+          const isExpanded = expandedIdx === idx;
           const isAdded = addedSkus.has(item.vendorSku);
 
           return (
             <div
-              key={item.vendorSku}
+              key={`${item.vendorSku}-${idx}`}
               className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden"
             >
               {/* Collapsed row */}
               <button
-                onClick={() => setExpandedSku(isExpanded ? null : item.vendorSku)}
+                onClick={() => setExpandedIdx(isExpanded ? null : idx)}
                 className="w-full text-left p-3 flex gap-3 hover:bg-neutral-800/50 transition-colors"
               >
                 {/* Thumbnail */}
