@@ -71,6 +71,76 @@ function VendorLogo({ slug, size = 48 }: { slug: string; size?: number }) {
           <text x="24" y="40" textAnchor="middle" fill="#ffffff" fontSize="5.5" fontFamily="Arial, sans-serif">REFLEX</text>
         </svg>
       );
+    case "gl-racing":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#1a3a1a" />
+          <text x="24" y="28" textAnchor="middle" fill="#4ade80" fontSize="16" fontWeight="bold" fontFamily="Arial, sans-serif">GL</text>
+          <text x="24" y="40" textAnchor="middle" fill="#4ade80" fontSize="6" fontFamily="Arial, sans-serif">RACING</text>
+        </svg>
+      );
+    case "mpower":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#2d1a4e" />
+          <text x="24" y="28" textAnchor="middle" fill="#c084fc" fontSize="13" fontWeight="bold" fontFamily="Arial, sans-serif">MP</text>
+          <text x="24" y="40" textAnchor="middle" fill="#c084fc" fontSize="5.5" fontFamily="Arial, sans-serif">MPOWER</text>
+        </svg>
+      );
+    case "hobby-plus":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#1a1a3a" />
+          <text x="24" y="28" textAnchor="middle" fill="#60a5fa" fontSize="10" fontWeight="bold" fontFamily="Arial, sans-serif">H+</text>
+          <text x="24" y="40" textAnchor="middle" fill="#60a5fa" fontSize="5" fontFamily="Arial, sans-serif">HOBBY+</text>
+        </svg>
+      );
+    case "yeah-racing":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#3a2a0a" />
+          <text x="24" y="28" textAnchor="middle" fill="#fbbf24" fontSize="10" fontWeight="bold" fontFamily="Arial, sans-serif">YR</text>
+          <text x="24" y="40" textAnchor="middle" fill="#fbbf24" fontSize="5" fontFamily="Arial, sans-serif">YEAH</text>
+        </svg>
+      );
+    case "3racing":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#0a2a3a" />
+          <text x="24" y="28" textAnchor="middle" fill="#22d3ee" fontSize="14" fontWeight="bold" fontFamily="Arial, sans-serif">3R</text>
+          <text x="24" y="40" textAnchor="middle" fill="#22d3ee" fontSize="5.5" fontFamily="Arial, sans-serif">3RACING</text>
+        </svg>
+      );
+    case "futaba":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#1a2e1a" />
+          <text x="24" y="30" textAnchor="middle" fill="#86efac" fontSize="9" fontWeight="bold" fontFamily="Arial, sans-serif">FUTABA</text>
+        </svg>
+      );
+    case "ko-propo":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#2a2a2a" />
+          <text x="24" y="28" textAnchor="middle" fill="#e5e5e5" fontSize="12" fontWeight="bold" fontFamily="Arial, sans-serif">KO</text>
+          <text x="24" y="40" textAnchor="middle" fill="#e5e5e5" fontSize="5.5" fontFamily="Arial, sans-serif">PROPO</text>
+        </svg>
+      );
+    case "spektrum":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#3a1a0a" />
+          <text x="24" y="30" textAnchor="middle" fill="#fb923c" fontSize="8" fontWeight="bold" fontFamily="Arial, sans-serif">SPEKTRUM</text>
+        </svg>
+      );
+    case "hobbywing":
+      return (
+        <svg {...s} viewBox="0 0 48 48">
+          <rect width="48" height="48" rx="8" fill="#0a1a3a" />
+          <text x="24" y="28" textAnchor="middle" fill="#38bdf8" fontSize="10" fontWeight="bold" fontFamily="Arial, sans-serif">HW</text>
+          <text x="24" y="40" textAnchor="middle" fill="#38bdf8" fontSize="4.5" fontFamily="Arial, sans-serif">HOBBYWING</text>
+        </svg>
+      );
     default:
       return (
         <svg {...s} viewBox="0 0 48 48">
@@ -369,10 +439,10 @@ function PartsBinListView({
         </div>
       </div>
 
-      {/* ── Vendor Filters ───────────────────────────── */}
+      {/* ── Manufacturer Filters ────────────────────── */}
       {activeVendors.length > 0 && (
         <div className="mb-3">
-          <p className="text-xs text-neutral-500 mb-1.5">Vendors</p>
+          <p className="text-xs text-neutral-500 mb-1.5">Manufacturers</p>
           <div className="flex flex-wrap gap-2">
             {activeVendors.map((v) => {
               const active = vendorFilters.has(v.id);
@@ -519,19 +589,29 @@ function PartRow({
   const [editName, setEditName] = useState(part.name);
   const [editSku, setEditSku] = useState(part.sku ?? "");
   const [editNotes, setEditNotes] = useState(part.notes ?? "");
+  const [editVendorId, setEditVendorId] = useState(part.vendorId);
+  const [editCategoryId, setEditCategoryId] = useState(part.categoryId);
 
   // Sync local state when part changes from DB (e.g., after car compat toggle)
   useEffect(() => {
     setEditName(part.name);
     setEditSku(part.sku ?? "");
     setEditNotes(part.notes ?? "");
-  }, [part.name, part.sku, part.notes]);
+    setEditVendorId(part.vendorId);
+    setEditCategoryId(part.categoryId);
+  }, [part.name, part.sku, part.notes, part.vendorId, part.categoryId]);
 
   const handleBlurSave = useCallback(async (field: "name" | "sku" | "notes", value: string) => {
     const trimmed = value.trim();
     const currentVal = field === "name" ? part.name : field === "sku" ? (part.sku ?? "") : (part.notes ?? "");
     if (trimmed === currentVal) return;
     const updated = { ...part, [field]: trimmed || (field === "name" ? part.name : undefined) };
+    await onSave(updated);
+  }, [part, onSave]);
+
+  const handleSelectSave = useCallback(async (field: "vendorId" | "categoryId", value: string) => {
+    if (value === part[field]) return;
+    const updated = { ...part, [field]: value };
     await onSave(updated);
   }, [part, onSave]);
 
@@ -590,6 +670,17 @@ function PartRow({
           {isMobile ? (
             /* ── Mobile: Read-only view ────────────────── */
             <>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-xs text-neutral-500">Manufacturer</p>
+                  <p className="text-sm text-neutral-200">{vendor?.name ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-neutral-500">Category</p>
+                  <p className="text-sm text-neutral-200">{category ? `${category.icon} ${category.name}` : "—"}</p>
+                </div>
+              </div>
+
               {part.sku && (
                 <div>
                   <p className="text-xs text-neutral-500">SKU</p>
@@ -679,6 +770,33 @@ function PartRow({
                     onChange={(e) => setEditSku(e.target.value)}
                     onBlur={() => handleBlurSave("sku", editSku)}
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-neutral-500 mb-1 block">Manufacturer</label>
+                  <select
+                    className={inputClass}
+                    value={editVendorId}
+                    onChange={(e) => { setEditVendorId(e.target.value); handleSelectSave("vendorId", e.target.value); }}
+                  >
+                    {vendors.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-500 mb-1 block">Category</label>
+                  <select
+                    className={inputClass}
+                    value={editCategoryId}
+                    onChange={(e) => { setEditCategoryId(e.target.value); handleSelectSave("categoryId", e.target.value); }}
+                  >
+                    {partCategories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1330,25 +1448,22 @@ function QuickAddPart({
       <h2 className="text-lg font-semibold mb-4">Add Part</h2>
 
       <div className="flex flex-col gap-4">
-        {/* Vendor picker */}
+        {/* Manufacturer picker */}
         <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Vendor *</label>
-          <div className="grid grid-cols-3 gap-2">
+          <label className="text-xs text-neutral-400 mb-2 block">Manufacturer *</label>
+          <select
+            className={inputClass}
+            value={selectedVendor?.id ?? ""}
+            onChange={(e) => {
+              const v = vendors.find((v) => v.id === e.target.value);
+              setSelectedVendor(v ?? null);
+            }}
+          >
+            <option value="">Select manufacturer...</option>
             {vendors.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => setSelectedVendor(v)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
-                  selectedVendor?.id === v.id
-                    ? "bg-blue-600/20 border-blue-500"
-                    : "bg-neutral-900 border-neutral-800 hover:border-neutral-600"
-                }`}
-              >
-                <VendorLogo slug={v.slug} size={32} />
-                <span className="text-[10px] text-neutral-400">{v.name}</span>
-              </button>
+              <option key={v.id} value={v.id}>{v.name}</option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* Category picker */}

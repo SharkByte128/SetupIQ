@@ -16,6 +16,16 @@ export const vendors: Vendor[] = [
   { id: "vendor-silver-horse", name: "Silver Horse", slug: "silver-horse" },
   { id: "vendor-atomic-rc", name: "ATOMIC RC", slug: "atomic-rc" },
   { id: "vendor-reflex-racing", name: "Reflex Racing", slug: "reflex-racing" },
+  { id: "vendor-gl-racing", name: "GL Racing", slug: "gl-racing" },
+  { id: "vendor-mpower", name: "MPower", slug: "mpower" },
+  { id: "vendor-hobby-plus", name: "Hobby Plus", slug: "hobby-plus" },
+  { id: "vendor-yeah-racing", name: "Yeah Racing", slug: "yeah-racing" },
+  { id: "vendor-3racing", name: "3Racing", slug: "3racing" },
+  { id: "vendor-futaba", name: "Futaba", slug: "futaba" },
+  { id: "vendor-ko-propo", name: "KO Propo", slug: "ko-propo" },
+  { id: "vendor-spektrum", name: "Spektrum", slug: "spektrum" },
+  { id: "vendor-hobbywing", name: "Hobbywing", slug: "hobbywing" },
+  { id: "vendor-other", name: "Other", slug: "other" },
 ];
 
 export function getVendorById(id: string): Vendor | undefined {
