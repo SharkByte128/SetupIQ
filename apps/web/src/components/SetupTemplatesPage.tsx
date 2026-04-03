@@ -179,12 +179,6 @@ function TemplateDetail({
     return map;
   }, [template.capabilities]);
 
-  // Count parts using this template
-  const partCount = useLiveQuery(async () => {
-    const parts = await localDb.parts.toArray();
-    return parts.filter((p) => p.compatibleChassisIds.includes(template.id)).length;
-  }, [template.id]) ?? 0;
-
   return (
     <>
       <div className="flex items-center justify-between mb-4">
@@ -221,14 +215,6 @@ function TemplateDetail({
           </button>
         </div>
       </div>
-
-      {partCount > 0 && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2 mb-3">
-          <p className="text-xs text-neutral-400">
-            {partCount} part{partCount !== 1 ? "s" : ""} compatible with this template
-          </p>
-        </div>
-      )}
 
       {/* Capabilities grouped by category */}
       <div className="flex flex-col gap-3">

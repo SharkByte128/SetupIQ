@@ -319,15 +319,9 @@ function PartsBinListView({
   const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
   const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
-  // Templates as compatibility options
-  const garageCars = useMemo(() => {
-    return setupTemplates.map((t) => ({ id: t.id, name: t.name }));
-  }, [setupTemplates]);
-
   // Filter state
   const [vendorFilters, setVendorFilters] = useState<Set<string>>(new Set());
   const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set());
-  const [carFilters, setCarFilters] = useState<Set<string>>(new Set());
 
   // Expand state
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -361,43 +355,20 @@ function PartsBinListView({
       return next;
     });
   };
-  const toggleCar = (id: string) => {
-    setCarFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+
 
   // Apply filters
   const filteredParts = useMemo(() => {
     return allParts.filter((p) => {
       if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) return false;
       if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) return false;
-      if (carFilters.size > 0) {
-        // Part must be compatible with at least one selected car
-        // compatibleChassisIds stores chassis platform IDs, but we also support car IDs
-        const partCarIds = new Set(p.compatibleChassisIds ?? []);
-        const hasMatch = [...carFilters].some((carId) => partCarIds.has(carId));
-        if (!hasMatch) return false;
-      }
       return true;
     });
-  }, [allParts, vendorFilters, categoryFilters, carFilters]);
+  }, [allParts, vendorFilters, categoryFilters]);
 
   // Inline edit save handler
   const handleSavePart = useCallback(async (part: LocalPart) => {
     await localDb.parts.put({ ...part, updatedAt: new Date().toISOString(), _dirty: 1 as const });
-  }, []);
-
-  // Inline toggle compatible car on a part
-  const handleToggleCarCompat = useCallback(async (part: LocalPart, carId: string) => {
-    const current = part.compatibleChassisIds ?? [];
-    const next = current.includes(carId)
-      ? current.filter((id) => id !== carId)
-      : [...current, carId];
-    const updated = { ...part, compatibleChassisIds: next, updatedAt: new Date().toISOString(), _dirty: 1 as const };
-    await localDb.parts.put(updated);
   }, []);
 
   // Only show vendors that have parts
@@ -500,39 +471,14 @@ function PartsBinListView({
         </div>
       )}
 
-      {/* ── Setup Sheet Filters ──────────────────────── */}
-      {garageCars.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs text-neutral-500 mb-1.5">Setup Sheets</p>
-          <div className="flex flex-wrap gap-2">
-            {garageCars.map((car) => {
-              const active = carFilters.has(car.id);
-              return (
-                <button
-                  key={car.id}
-                  onClick={() => toggleCar(car.id)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    active
-                      ? "border-green-500 bg-green-900/20 text-green-300"
-                      : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
-                  }`}
-                >
-                  📋 {car.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Active filter summary */}
-      {(vendorFilters.size > 0 || categoryFilters.size > 0 || carFilters.size > 0) && (
+      {(vendorFilters.size > 0 || categoryFilters.size > 0) && (
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs text-neutral-500">
             Showing {filteredParts.length} of {allParts.length} parts
           </p>
           <button
-            onClick={() => { setVendorFilters(new Set()); setCategoryFilters(new Set()); setCarFilters(new Set()); }}
+            onClick={() => { setVendorFilters(new Set()); setCategoryFilters(new Set()); }}
             className="text-xs text-blue-400 hover:text-blue-300"
           >
             Clear filters
@@ -554,10 +500,8 @@ function PartsBinListView({
               isExpanded={expandedId === part.id}
               onToggle={() => setExpandedId(expandedId === part.id ? null : part.id)}
               isMobile={isMobile}
-              garageCars={garageCars}
               templateCategories={templateCategories}
               onSave={handleSavePart}
-              onToggleCarCompat={handleToggleCarCompat}
               onDetail={onDetail}
               onEdit={onEdit}
               onClone={onClone}
@@ -576,10 +520,8 @@ function PartRow({
   isExpanded,
   onToggle,
   isMobile,
-  garageCars,
   templateCategories,
   onSave,
-  onToggleCarCompat,
   onDetail,
   onEdit,
   onClone,
@@ -588,10 +530,8 @@ function PartRow({
   isExpanded: boolean;
   onToggle: () => void;
   isMobile: boolean;
-  garageCars: { id: string; name: string }[];
   templateCategories: string[];
   onSave: (part: LocalPart) => Promise<void>;
-  onToggleCarCompat: (part: LocalPart, carId: string) => Promise<void>;
   onDetail: (p: LocalPart) => void;
   onEdit: (p: LocalPart) => void;
   onClone: (p: LocalPart) => void;
@@ -651,23 +591,6 @@ function PartRow({
             {part.categoryId}
             {part.sku && ` · ${part.sku}`}
           </p>
-          {/* Car compatibility pills (compact in collapsed view) */}
-          {part.compatibleChassisIds.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {part.compatibleChassisIds.slice(0, 3).map((id) => {
-                const car = garageCars.find((c) => c.id === id);
-                const label = car?.name ?? id;
-                return (
-                  <span key={id} className="text-[10px] bg-green-900/30 text-green-400 rounded-full px-1.5 py-0.5">
-                    {label}
-                  </span>
-                );
-              })}
-              {part.compatibleChassisIds.length > 3 && (
-                <span className="text-[10px] text-neutral-500">+{part.compatibleChassisIds.length - 3}</span>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Expand chevron */}
@@ -706,28 +629,6 @@ function PartRow({
                   <p className="text-sm text-neutral-300">{part.notes}</p>
                 </div>
               )}
-
-              {/* Template compatibility (read-only) */}
-              <div>
-                <p className="text-xs text-neutral-500 mb-1.5">Compatible Templates</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {garageCars.map((car) => {
-                    const compat = part.compatibleChassisIds.includes(car.id);
-                    return (
-                      <span
-                        key={car.id}
-                        className={`text-xs px-2.5 py-1 rounded-full border ${
-                          compat
-                            ? "border-green-500 bg-green-900/20 text-green-300"
-                            : "border-neutral-700 bg-neutral-900 text-neutral-600"
-                        }`}
-                      >
-                        {car.name}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
 
               {/* Action buttons */}
               <div className="flex gap-2 pt-1">
@@ -816,29 +717,6 @@ function PartRow({
                 />
               </div>
 
-              {/* Template compatibility pills (interactive) */}
-              <div>
-                <p className="text-xs text-neutral-500 mb-1.5">Compatible Templates</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {garageCars.map((car) => {
-                    const compat = part.compatibleChassisIds.includes(car.id);
-                    return (
-                      <button
-                        key={car.id}
-                        onClick={() => onToggleCarCompat(part, car.id)}
-                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                          compat
-                            ? "border-green-500 bg-green-900/20 text-green-300"
-                            : "border-neutral-700 bg-neutral-900 text-neutral-600 hover:border-neutral-500"
-                        }`}
-                      >
-                        {car.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* Link to full detail (photos/PDFs) */}
               <div className="flex gap-2 pt-1">
                 <button
@@ -882,9 +760,6 @@ function AddPartForm({
   const [selectedCategoryId, setSelectedCategoryId] = useState(editPart?.categoryId ?? "");
   const [sku, setSku] = useState(editPart?.sku ?? "");
   const [notes, setNotes] = useState(editPart?.notes ?? "");
-  const [selectedChassis, setSelectedChassis] = useState<string[]>(
-    editPart?.compatibleChassisIds ?? [],
-  );
   const [attrs, setAttrs] = useState<Record<string, string | number>>(
     editPart?.attributes ?? {},
   );
@@ -900,16 +775,9 @@ function AddPartForm({
     return [...catSet].sort();
   }, [setupTemplates]);
 
-  const toggleChassis = (id: string) => {
-    setSelectedChassis((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-    );
-  };
-
   const applyLookup = (r: PartLookupResult) => {
     if (r.name) setName(r.name);
     if (r.vendorId) setSelectedVendorId(r.vendorId);
-    if (r.compatibleChassisIds?.length) setSelectedChassis(r.compatibleChassisIds);
     if (r.notes) setNotes(r.notes);
     if (r.attributes) setAttrs((prev) => ({ ...prev, ...r.attributes }));
   };
@@ -926,7 +794,7 @@ function AddPartForm({
       categoryId: selectedCategoryId,
       name: name.trim(),
       sku: sku.trim() || undefined,
-      compatibleChassisIds: selectedChassis,
+      compatibleChassisIds: [],
       attributes: attrs,
       notes: notes.trim() || undefined,
       createdAt: isEdit ? editPart.createdAt : now,
@@ -1003,27 +871,6 @@ function AddPartForm({
           inputClass={inputClass}
         />
 
-        {/* Compatible Templates */}
-        <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Compatible Setup Sheets</label>
-          <div className="flex flex-wrap gap-2">
-            {setupTemplates.map((tmpl) => (
-              <button
-                key={tmpl.id}
-                type="button"
-                onClick={() => toggleChassis(tmpl.id)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedChassis.includes(tmpl.id)
-                    ? "bg-blue-600 border-blue-500 text-white"
-                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
-                }`}
-              >
-                {tmpl.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Notes */}
         <div>
           <label className="text-xs text-neutral-400 mb-1 block">Notes</label>
@@ -1074,8 +921,6 @@ function PartDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [viewingPdf, setViewingPdf] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
-
-  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
   // Load files on mount / part change
   useEffect(() => {
@@ -1180,25 +1025,6 @@ function PartDetail({
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
             <p className="text-xs text-neutral-500">SKU</p>
             <p className="text-sm font-mono">{part.sku}</p>
-          </div>
-        )}
-
-        {part.compatibleChassisIds.length > 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
-            <p className="text-xs text-neutral-500 mb-2">Compatible Templates</p>
-            <div className="flex flex-wrap gap-1.5">
-              {part.compatibleChassisIds.map((id) => {
-                const tmpl = setupTemplates.find((t) => t.id === id);
-                return (
-                  <span
-                    key={id}
-                    className="text-xs px-2 py-1 bg-neutral-800 rounded-full text-neutral-300"
-                  >
-                    {tmpl?.name ?? id}
-                  </span>
-                );
-              })}
-            </div>
           </div>
         )}
 
@@ -1407,7 +1233,6 @@ function QuickAddPart({
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [notes, setNotes] = useState("");
-  const [selectedChassis, setSelectedChassis] = useState<string[]>([]);
 
   const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
@@ -1420,17 +1245,10 @@ function QuickAddPart({
     return [...catSet].sort();
   }, [setupTemplates]);
 
-  const toggleChassis = (id: string) => {
-    setSelectedChassis((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-    );
-  };
-
   const applyLookup = (r: PartLookupResult) => {
     if (r.name) setName(r.name);
     if (r.vendorId) setSelectedVendorId(r.vendorId);
     if (r.categoryId) setSelectedCategoryId(r.categoryId);
-    if (r.compatibleChassisIds?.length) setSelectedChassis(r.compatibleChassisIds);
     if (r.notes) setNotes(r.notes);
   };
 
@@ -1445,7 +1263,7 @@ function QuickAddPart({
       categoryId: selectedCategoryId,
       name: name.trim(),
       sku: sku.trim() || undefined,
-      compatibleChassisIds: selectedChassis,
+      compatibleChassisIds: [],
       attributes: {},
       notes: notes.trim() || undefined,
       createdAt: now,
@@ -1519,27 +1337,6 @@ function QuickAddPart({
           onLookupResult={applyLookup}
           inputClass={inputClass}
         />
-
-        {/* Compatible Setup Sheets */}
-        <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Compatible Setup Sheets</label>
-          <div className="flex flex-wrap gap-2">
-            {setupTemplates.map((tmpl) => (
-              <button
-                key={tmpl.id}
-                type="button"
-                onClick={() => toggleChassis(tmpl.id)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedChassis.includes(tmpl.id)
-                    ? "bg-blue-600 border-blue-500 text-white"
-                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
-                }`}
-              >
-                {tmpl.name}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Notes */}
         <div>
@@ -1639,7 +1436,7 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
       categoryId: s.categoryId,
       name: s.name,
       sku: s.sku ?? "",
-      compatibleChassisIds: s.compatibleChassisIds,
+      compatibleChassisIds: [],
       attributes: s.attributes,
       notes: s.notes ?? "",
       createdAt: now,
