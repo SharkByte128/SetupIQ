@@ -147,3 +147,36 @@ export async function getSetupOptions(carPlatformId: string): Promise<{
 }> {
   return apiFetch(`/api/setup/options?carPlatformId=${encodeURIComponent(carPlatformId)}`);
 }
+
+// ─── Vendor Search API ────────────────────────────────────────
+
+export interface VendorSource {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface VendorSearchResult {
+  vendorSku: string;
+  productName: string;
+  productUrl: string;
+  imageUrl: string | null;
+  price: string | null;
+  currency: string;
+  description: string;
+  inStock: boolean;
+  vendor: string;
+  category: string;
+}
+
+export async function getVendorSources(): Promise<{ sources: VendorSource[] }> {
+  return apiFetch("/api/catalog/vendor-sources");
+}
+
+export async function searchVendor(
+  vendorSourceId: string,
+  q: string,
+): Promise<{ results: VendorSearchResult[]; vendorName: string; vendorSourceId: string }> {
+  const qs = new URLSearchParams({ vendorSourceId, q });
+  return apiFetch(`/api/catalog/vendor-search?${qs}`);
+}

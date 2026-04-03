@@ -4,10 +4,16 @@ import {
   getCatalogPart,
   addToPartsBin,
   apiUrl,
+  getVendorSources,
+  searchVendor,
   type CatalogPart,
   type CatalogPartDetail,
+  type VendorSource,
+  type VendorSearchResult,
 } from "../api/client.js";
+import { localDb } from "../db/local-db.js";
 import { allCars } from "@setupiq/shared";
+import { v4 as uuid } from "uuid";
 
 // ─── HTML Sanitizer (admin-authored content) ──────────────────
 
@@ -72,7 +78,8 @@ const categories = [
 
 type View =
   | { kind: "search" }
-  | { kind: "detail"; partId: string };
+  | { kind: "detail"; partId: string }
+  | { kind: "vendor-search" };
 
 // ─── Main Component ───────────────────────────────────────────
 
@@ -96,11 +103,40 @@ export function CatalogPage({ onBack }: { onBack: () => void }) {
         )}
       </div>
 
+      {/* Tabs */}
+      {view.kind !== "detail" && (
+        <div className="flex gap-1 px-4 mb-2">
+          <button
+            onClick={() => setView({ kind: "search" })}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              view.kind === "search"
+                ? "bg-blue-600 text-white"
+                : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            Parts Catalog
+          </button>
+          <button
+            onClick={() => setView({ kind: "vendor-search" })}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              view.kind === "vendor-search"
+                ? "bg-blue-600 text-white"
+                : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            Vendor Search
+          </button>
+        </div>
+      )}
+
       {view.kind === "search" && (
         <CatalogSearch onSelect={(id) => setView({ kind: "detail", partId: id })} />
       )}
       {view.kind === "detail" && (
         <CatalogDetail partId={view.partId} />
+      )}
+      {view.kind === "vendor-search" && (
+        <VendorSearchView />
       )}
     </div>
   );
@@ -479,6 +515,277 @@ function CatalogDetail({ partId }: { partId: string }) {
           📄 View Instructions (PDF)
         </a>
       )}
+    </div>
+  );
+}
+
+// ─── Vendor Search View ───────────────────────────────────────
+
+function VendorSearchView() {
+  const [sources, setSources] = useState<VendorSource[]>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState("");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<VendorSearchResult[]>([]);
+  const [vendorName, setVendorName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedSku, setExpandedSku] = useState<string | null>(null);
+  const [addedSkus, setAddedSkus] = useState<Set<string>>(new Set());
+
+  // Load vendor sources on mount
+  useEffect(() => {
+    getVendorSources()
+      .then((data) => {
+        setSources(data.sources);
+        if (data.sources.length > 0) setSelectedSourceId(data.sources[0].id);
+      })
+      .catch(() => setError("Failed to load vendor sources"));
+  }, []);
+
+  const doSearch = useCallback(async () => {
+    if (!selectedSourceId || !query.trim()) return;
+    setLoading(true);
+    setError(null);
+    setExpandedSku(null);
+    try {
+      const data = await searchVendor(selectedSourceId, query.trim());
+      setResults(data.results);
+      setVendorName(data.vendorName);
+    } catch (err: any) {
+      setError(err.message || "Vendor search failed");
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedSourceId, query]);
+
+  const handleAddToBin = async (item: VendorSearchResult) => {
+    const now = new Date().toISOString();
+    const part = {
+      id: uuid(),
+      userId: "",
+      vendorId: vendorName || "vendor-search",
+      categoryId: item.category || "other",
+      name: item.productName,
+      sku: item.vendorSku,
+      compatibleChassisIds: [] as string[],
+      attributes: {
+        ...(item.price ? { price: item.price } : {}),
+        ...(item.currency ? { currency: item.currency } : {}),
+        ...(item.vendor ? { brand: item.vendor } : {}),
+        ...(item.category ? { vendorCategory: item.category } : {}),
+      } as Record<string, string | number>,
+      notes: [
+        item.productUrl ? `URL: ${item.productUrl}` : "",
+        item.description || "",
+      ].filter(Boolean).join("\n"),
+      catalogPartId: undefined,
+      createdAt: now,
+      updatedAt: now,
+      _dirty: 1 as const,
+    };
+
+    await localDb.parts.add(part);
+    setAddedSkus((prev) => new Set(prev).add(item.vendorSku));
+  };
+
+  const inputClass = "w-full text-sm bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-neutral-200 placeholder-neutral-600";
+
+  return (
+    <div className="px-4 py-2 space-y-3 flex-1 overflow-y-auto">
+      <h2 className="text-lg font-semibold text-neutral-200">Vendor Search</h2>
+
+      {/* Vendor selector */}
+      {sources.length === 0 && !error && (
+        <p className="text-sm text-neutral-500">
+          No vendor sources configured. Add vendors in the{" "}
+          <a href="/admin" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+            Admin Panel
+          </a>.
+        </p>
+      )}
+
+      {sources.length > 0 && (
+        <>
+          <div className="flex gap-2">
+            <select
+              value={selectedSourceId}
+              onChange={(e) => setSelectedSourceId(e.target.value)}
+              className={inputClass + " flex-shrink-0 w-40"}
+            >
+              {sources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+
+            <form
+              onSubmit={(e) => { e.preventDefault(); doSearch(); }}
+              className="flex gap-2 flex-1"
+            >
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search vendor store…"
+                className={inputClass + " flex-1"}
+              />
+              <button
+                type="submit"
+                disabled={loading || !query.trim()}
+                className="rounded bg-blue-600 text-white px-3 py-2 text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
+              >
+                {loading ? "…" : "Search"}
+              </button>
+            </form>
+          </div>
+        </>
+      )}
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {loading && (
+        <p className="text-center text-neutral-500 text-sm py-8">Searching {vendorName || "vendor"}…</p>
+      )}
+
+      {!loading && results.length === 0 && query && !error && (
+        <p className="text-center text-neutral-500 text-sm py-8">No results found.</p>
+      )}
+
+      {/* Results */}
+      <div className="space-y-2">
+        {results.map((item) => {
+          const isExpanded = expandedSku === item.vendorSku;
+          const isAdded = addedSkus.has(item.vendorSku);
+
+          return (
+            <div
+              key={item.vendorSku}
+              className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden"
+            >
+              {/* Collapsed row */}
+              <button
+                onClick={() => setExpandedSku(isExpanded ? null : item.vendorSku)}
+                className="w-full text-left p-3 flex gap-3 hover:bg-neutral-800/50 transition-colors"
+              >
+                {/* Thumbnail */}
+                <div className="w-14 h-14 rounded bg-neutral-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-neutral-600 text-xl">📦</span>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-neutral-200 truncate">{item.productName}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    {item.vendor && `${item.vendor} · `}
+                    {item.vendorSku}
+                    {item.price && ` · $${item.price}`}
+                  </p>
+                  <div className="flex gap-1.5 mt-1">
+                    {item.inStock ? (
+                      <span className="text-[10px] bg-green-900/40 text-green-400 rounded px-1.5 py-0.5">In Stock</span>
+                    ) : (
+                      <span className="text-[10px] bg-red-900/40 text-red-400 rounded px-1.5 py-0.5">Out of Stock</span>
+                    )}
+                    {item.category && (
+                      <span className="text-[10px] bg-neutral-800 text-neutral-400 rounded px-1.5 py-0.5">{item.category}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expand chevron */}
+                <span className="text-neutral-600 self-center text-sm">
+                  {isExpanded ? "▲" : "▼"}
+                </span>
+              </button>
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <div className="border-t border-neutral-800 p-3 space-y-3">
+                  {/* Larger image */}
+                  {item.imageUrl && (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.productName}
+                      className="w-full max-h-48 object-contain rounded bg-neutral-800"
+                    />
+                  )}
+
+                  {/* Description */}
+                  {item.description && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-neutral-400 uppercase mb-1">Description</h4>
+                      <p className="text-sm text-neutral-300">{item.description}</p>
+                    </div>
+                  )}
+
+                  {/* Specs grid */}
+                  <div className="space-y-1">
+                    {item.price && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-neutral-500">Price</span>
+                        <span className="text-neutral-200 font-medium">${item.price} {item.currency}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-500">SKU</span>
+                      <span className="text-neutral-200">{item.vendorSku}</span>
+                    </div>
+                    {item.vendor && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-neutral-500">Brand</span>
+                        <span className="text-neutral-200">{item.vendor}</span>
+                      </div>
+                    )}
+                    {item.category && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-neutral-500">Category</span>
+                        <span className="text-neutral-200">{item.category}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-500">Availability</span>
+                      <span className={item.inStock ? "text-green-400" : "text-red-400"}>
+                        {item.inStock ? "In Stock" : "Out of Stock"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAddToBin(item)}
+                      disabled={isAdded}
+                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
+                        isAdded
+                          ? "bg-green-600/20 text-green-400 border border-green-700"
+                          : "bg-blue-600 text-white hover:bg-blue-500"
+                      }`}
+                    >
+                      {isAdded ? "✓ Added to Parts Bin" : "+ Add to Parts Bin"}
+                    </button>
+                    {item.productUrl && (
+                      <a
+                        href={item.productUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-md py-2 px-3 text-sm font-medium bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
+                      >
+                        View ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   userPartsBin,
 } from "../db/schema.js";
 import { eq, and, ilike, or, inArray, sql } from "drizzle-orm";
+import { searchVendorStore } from "./vendor-search.js";
 
 type AuthUser = { id: string; email: string; displayName: string };
 
@@ -340,6 +341,64 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     }
 
     return reply.send({ options });
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // VENDOR SEARCH (public, requires auth)
+  // ═══════════════════════════════════════════════════════════
+
+  // ─── List enabled vendor sources (for dropdown) ─────────────
+
+  app.get("/api/catalog/vendor-sources", async (request, reply) => {
+    const user = await requireAuth(request, reply);
+    if (!user) return;
+
+    const rows = await db
+      .select({
+        id: vendorSources.id,
+        name: vendorSources.name,
+        type: vendorSources.type,
+      })
+      .from(vendorSources)
+      .where(eq(vendorSources.enabled, true))
+      .orderBy(vendorSources.name);
+
+    return reply.send({ sources: rows });
+  });
+
+  // ─── Live search a vendor store ─────────────────────────────
+
+  app.get("/api/catalog/vendor-search", async (request: FastifyRequest<{
+    Querystring: { vendorSourceId: string; q: string; limit?: string };
+  }>, reply: FastifyReply) => {
+    const user = await requireAuth(request, reply);
+    if (!user) return;
+
+    const { vendorSourceId, q } = request.query;
+    if (!vendorSourceId || !q) {
+      return reply.status(400).send({ error: "vendorSourceId and q are required" });
+    }
+
+    const limit = Math.min(50, Math.max(1, parseInt(request.query.limit ?? "20", 10)));
+
+    const [source] = await db
+      .select()
+      .from(vendorSources)
+      .where(and(eq(vendorSources.id, vendorSourceId), eq(vendorSources.enabled, true)))
+      .limit(1);
+
+    if (!source) {
+      return reply.status(404).send({ error: "Vendor source not found or disabled" });
+    }
+
+    try {
+      const results = await searchVendorStore(source, q, limit);
+      return reply.send({ results, vendorName: source.name, vendorSourceId: source.id });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      request.log.error({ err }, "[vendor-search] failed");
+      return reply.status(502).send({ error: "Vendor search failed", message });
+    }
   });
 
   // ═══════════════════════════════════════════════════════════
