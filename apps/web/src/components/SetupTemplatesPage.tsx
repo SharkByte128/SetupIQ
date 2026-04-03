@@ -225,15 +225,28 @@ function TemplateDetail({
           >
             <p className="text-xs text-neutral-500 font-medium mb-2">{category}</p>
             <div className="flex flex-wrap gap-1.5">
-              {caps.map((cap) => (
+              {caps.map((cap) => {
+                const defaultLabel =
+                  cap.defaultValue !== undefined && cap.defaultValue !== ""
+                    ? cap.valueType === "pick" && cap.options
+                      ? cap.options.find((o) => String(o.value) === String(cap.defaultValue))?.label ?? String(cap.defaultValue)
+                      : cap.valueType === "toggle"
+                        ? cap.defaultValue ? "On" : "Off"
+                        : String(cap.defaultValue)
+                    : null;
+                return (
                 <span
                   key={cap.id}
                   className="text-xs px-2.5 py-1 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300"
-                  title={`Type: ${cap.valueType}`}
+                  title={`Type: ${cap.valueType}${defaultLabel ? ` · Box: ${defaultLabel}` : ""}`}
                 >
                   {cap.name}
+                  {defaultLabel && (
+                    <span className="text-green-400 ml-1 text-[10px]">= {defaultLabel}</span>
+                  )}
                 </span>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
@@ -329,6 +342,9 @@ function TemplateEditor({
   // Pick-options editor state
   const [editingOptionsCapId, setEditingOptionsCapId] = useState<string | null>(null);
   const [newOptionLabel, setNewOptionLabel] = useState("");
+
+  // Expanded capability (shows default + options)
+  const [expandedCapId, setExpandedCapId] = useState<string | null>(null);
 
   // Drag-and-drop state
   const dragCapId = useRef<string | null>(null);
@@ -426,6 +442,12 @@ function TemplateEditor({
       prev.map((c) =>
         c.id === capId ? { ...c, options: (c.options ?? []).filter((_, i) => i !== optIdx) } : c,
       ),
+    );
+  };
+
+  const setDefaultValue = (capId: string, val: string | number | boolean | undefined) => {
+    setCapabilities((prev) =>
+      prev.map((c) => (c.id === capId ? { ...c, defaultValue: val } : c)),
     );
   };
 
@@ -618,7 +640,16 @@ function TemplateEditor({
 
                     {/* Capabilities in this section */}
                     <div className="flex flex-col gap-1">
-                      {caps.map((cap) => (
+                      {caps.map((cap) => {
+                        const isExpanded = expandedCapId === cap.id;
+                        const hasDefault = cap.defaultValue !== undefined && cap.defaultValue !== "";
+                        const defaultLabel =
+                          cap.valueType === "pick" && cap.options
+                            ? cap.options.find((o) => String(o.value) === String(cap.defaultValue))?.label
+                            : cap.valueType === "toggle"
+                              ? cap.defaultValue ? "On" : "Off"
+                              : undefined;
+                        return (
                         <div key={cap.id}>
                           <span
                             draggable
@@ -626,22 +657,24 @@ function TemplateEditor({
                             className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300 cursor-grab active:cursor-grabbing"
                           >
                             <span className="text-neutral-600 select-none">⠿</span>
-                            {cap.name}
+                            <button
+                              onClick={() => setExpandedCapId(isExpanded ? null : cap.id)}
+                              className="hover:text-white"
+                            >
+                              {cap.name}
+                            </button>
                             <span className="text-neutral-600 text-[10px]">({cap.valueType})</span>
+                            {hasDefault && (
+                              <span className="text-[10px] text-green-400" title="Has box/default value">
+                                = {defaultLabel ?? String(cap.defaultValue)}
+                              </span>
+                            )}
                             {cap.valueType === "pick" && (
-                              <button
-                                onClick={() =>
-                                  setEditingOptionsCapId(
-                                    editingOptionsCapId === cap.id ? null : cap.id,
-                                  )
-                                }
-                                className="text-blue-400 hover:text-blue-300 text-[10px] ml-0.5"
-                                title="Edit pick options"
-                              >
+                              <span className="text-neutral-600 text-[10px]">
                                 {(cap.options?.length ?? 0) > 0
                                   ? `${cap.options!.length} opts`
-                                  : "opts"}
-                              </button>
+                                  : ""}
+                              </span>
                             )}
                             <button
                               onClick={() => removeCapability(cap.id)}
@@ -652,52 +685,136 @@ function TemplateEditor({
                             </button>
                           </span>
 
-                          {/* Inline pick options editor */}
-                          {editingOptionsCapId === cap.id && cap.valueType === "pick" && (
-                            <div className="ml-4 mt-1 mb-1 p-2 bg-neutral-800 border border-neutral-700 rounded-lg">
-                              <p className="text-[10px] text-neutral-500 mb-1.5">
-                                Pick options for <span className="text-neutral-300">{cap.name}</span>
-                              </p>
-                              {(cap.options ?? []).length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-1.5">
-                                  {(cap.options ?? []).map((opt, oi) => (
-                                    <span
-                                      key={oi}
-                                      className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-neutral-300"
+                          {/* Expanded: default value + pick options */}
+                          {isExpanded && (
+                            <div className="ml-4 mt-1 mb-1 p-2 bg-neutral-800 border border-neutral-700 rounded-lg flex flex-col gap-2">
+                              {/* Default value editor */}
+                              <div>
+                                <p className="text-[10px] text-neutral-500 mb-1">
+                                  Box / Default value for <span className="text-neutral-300">{cap.name}</span>
+                                </p>
+                                {cap.valueType === "pick" ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    <button
+                                      onClick={() => setDefaultValue(cap.id, undefined)}
+                                      className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                                        cap.defaultValue === undefined
+                                          ? "bg-neutral-700 border-neutral-500 text-neutral-200"
+                                          : "bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-500"
+                                      }`}
                                     >
-                                      {opt.label}
+                                      None
+                                    </button>
+                                    {(cap.options ?? []).map((opt) => (
                                       <button
-                                        onClick={() => removeOption(cap.id, oi)}
-                                        className="text-red-500 hover:text-red-400"
+                                        key={String(opt.value)}
+                                        onClick={() => setDefaultValue(cap.id, opt.value)}
+                                        className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                                          String(cap.defaultValue) === String(opt.value)
+                                            ? "bg-green-600/20 border-green-500 text-green-300"
+                                            : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                                        }`}
                                       >
-                                        ×
+                                        {opt.label}
                                       </button>
-                                    </span>
-                                  ))}
+                                    ))}
+                                    {(cap.options ?? []).length === 0 && (
+                                      <span className="text-[10px] text-neutral-600 italic">Add pick options first</span>
+                                    )}
+                                  </div>
+                                ) : cap.valueType === "numeric" ? (
+                                  <input
+                                    type="number"
+                                    className="bg-neutral-900 border border-neutral-700 rounded px-2 py-0.5 text-xs text-neutral-100 w-28 focus:outline-none focus:border-blue-500"
+                                    placeholder="Default"
+                                    value={cap.defaultValue !== undefined ? String(cap.defaultValue) : ""}
+                                    onChange={(e) =>
+                                      setDefaultValue(cap.id, e.target.value === "" ? undefined : Number(e.target.value))
+                                    }
+                                  />
+                                ) : cap.valueType === "toggle" ? (
+                                  <div className="flex gap-1">
+                                    {[
+                                      { label: "None", val: undefined },
+                                      { label: "Off", val: false },
+                                      { label: "On", val: true },
+                                    ].map((opt) => (
+                                      <button
+                                        key={String(opt.val)}
+                                        onClick={() => setDefaultValue(cap.id, opt.val)}
+                                        className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                                          cap.defaultValue === opt.val
+                                            ? "bg-green-600/20 border-green-500 text-green-300"
+                                            : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                                        }`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  /* text */
+                                  <input
+                                    className="bg-neutral-900 border border-neutral-700 rounded px-2 py-0.5 text-xs text-neutral-100 w-48 focus:outline-none focus:border-blue-500"
+                                    placeholder="Default text"
+                                    value={cap.defaultValue !== undefined ? String(cap.defaultValue) : ""}
+                                    onChange={(e) =>
+                                      setDefaultValue(cap.id, e.target.value || undefined)
+                                    }
+                                  />
+                                )}
+                              </div>
+
+                              {/* Pick options editor (only for pick type) */}
+                              {cap.valueType === "pick" && (
+                                <div className="border-t border-neutral-700 pt-2">
+                                  <p className="text-[10px] text-neutral-500 mb-1.5">
+                                    Pick options
+                                  </p>
+                                  {(cap.options ?? []).length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mb-1.5">
+                                      {(cap.options ?? []).map((opt, oi) => (
+                                        <span
+                                          key={oi}
+                                          className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-900 border border-neutral-700 text-neutral-300"
+                                        >
+                                          {opt.label}
+                                          <button
+                                            onClick={() => removeOption(cap.id, oi)}
+                                            className="text-red-500 hover:text-red-400"
+                                          >
+                                            ×
+                                          </button>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-2 py-0.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500"
+                                      placeholder="Option label"
+                                      value={editingOptionsCapId === cap.id ? newOptionLabel : ""}
+                                      onFocus={() => setEditingOptionsCapId(cap.id)}
+                                      onChange={(e) => { setEditingOptionsCapId(cap.id); setNewOptionLabel(e.target.value); }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") addOption(cap.id);
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => addOption(cap.id)}
+                                      disabled={!newOptionLabel.trim() || editingOptionsCapId !== cap.id}
+                                      className="text-[10px] text-blue-400 hover:text-blue-300 disabled:opacity-40"
+                                    >
+                                      + Add
+                                    </button>
+                                  </div>
                                 </div>
                               )}
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-2 py-0.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500"
-                                  placeholder="Option label"
-                                  value={newOptionLabel}
-                                  onChange={(e) => setNewOptionLabel(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") addOption(cap.id);
-                                  }}
-                                />
-                                <button
-                                  onClick={() => addOption(cap.id)}
-                                  disabled={!newOptionLabel.trim()}
-                                  className="text-[10px] text-blue-400 hover:text-blue-300 disabled:opacity-40"
-                                >
-                                  + Add
-                                </button>
-                              </div>
                             </div>
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                       {caps.length === 0 && (
                         <span className="text-[10px] text-neutral-600 italic">Empty section — drag fields here</span>
                       )}

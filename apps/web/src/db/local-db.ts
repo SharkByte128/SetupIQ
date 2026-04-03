@@ -270,6 +270,7 @@ export interface LocalSetupTemplate {
     category: string;
     valueType: string;
     options?: { label: string; value: string | number; color?: string }[];
+    defaultValue?: string | number | boolean;
   }[];
   builtIn?: boolean;
   createdAt: string;
