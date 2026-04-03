@@ -83,7 +83,11 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
   const [editScale, setEditScale] = useState("");
   const [editDriveType, setEditDriveType] = useState<"RWD" | "AWD" | "FWD">("RWD");
   const [editNotes, setEditNotes] = useState("");
+  const [editSetupTemplateId, setEditSetupTemplateId] = useState("");
   const [detailsDirty, setDetailsDirty] = useState(false);
+
+  // Setup templates for the selector
+  const allTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
   // Notes for predefined cars (stored in carNotes table)
   const predefinedCarNote = useLiveQuery(
@@ -109,6 +113,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
       setEditScale(customCar.scale);
       setEditDriveType(customCar.driveType);
       setEditNotes(customCar.notes ?? "");
+      setEditSetupTemplateId(customCar.setupTemplateId ?? "");
     }
   }, [customCar]);
 
@@ -146,11 +151,12 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
       scale: editScale.trim() || "1:28",
       driveType: editDriveType,
       notes: editNotes.trim() || undefined,
+      setupTemplateId: editSetupTemplateId || undefined,
       updatedAt: new Date().toISOString(),
       _dirty: 1 as const,
     });
     setDetailsDirty(false);
-  }, [carId, customCar, editName, editChassisId, editScale, editDriveType, editNotes]);
+  }, [carId, customCar, editName, editChassisId, editScale, editDriveType, editNotes, editSetupTemplateId]);
 
   const handleSavePredefinedNotes = useCallback(async () => {
     await localDb.carNotes.put({
@@ -318,6 +324,52 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
                     value={editNotes}
                     onChange={(e) => { setEditNotes(e.target.value); setDetailsDirty(true); }}
                   />
+                </div>
+
+                {/* Setup Template */}
+                <div>
+                  <label className="text-xs text-neutral-400 mb-1 block">Setup Template</label>
+                  <select
+                    className={inputClass}
+                    value={editSetupTemplateId}
+                    onChange={(e) => { setEditSetupTemplateId(e.target.value); setDetailsDirty(true); }}
+                  >
+                    <option value="">None</option>
+                    {(() => {
+                      // Show compatible templates first, then others
+                      const compatible = allTemplates.filter(
+                        (t) => t.compatibleChassisIds.length === 0 || t.compatibleChassisIds.includes(editChassisId),
+                      );
+                      const other = allTemplates.filter(
+                        (t) => t.compatibleChassisIds.length > 0 && !t.compatibleChassisIds.includes(editChassisId),
+                      );
+                      return (
+                        <>
+                          {compatible.length > 0 && (
+                            <optgroup label="Compatible">
+                              {compatible.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name} ({t.capabilities.length} fields)
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {other.length > 0 && (
+                            <optgroup label="Other Templates">
+                              {other.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name} ({t.capabilities.length} fields)
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </select>
+                  <p className="text-[10px] text-neutral-600 mt-1">
+                    Defines which fields appear on this car's setup sheet.
+                  </p>
                 </div>
 
                 {/* Save */}

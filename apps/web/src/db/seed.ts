@@ -192,7 +192,7 @@ export async function seedSetupTemplates(): Promise<void> {
     "car-mr03-rwd":    ["chassis-kyosho-mr03"],
     "car-mrx-me":      ["chassis-atomic-mrx"],
     "car-rx28":        ["chassis-reflex-rx28"],
-    "car-evo2-5600kv": ["chassis-mr04-evo2"],
+    "car-evo2-5600kv": ["chassis-kyosho-mr04-evo2"],
   };
 
   for (const car of allCars) {

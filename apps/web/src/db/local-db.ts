@@ -220,6 +220,7 @@ export interface LocalCustomCar {
   scale: string;
   driveType: "RWD" | "AWD" | "FWD";
   notes?: string;
+  setupTemplateId?: string;
   createdAt: string;
   updatedAt: string;
   _dirty: 0 | 1;
@@ -607,6 +608,24 @@ class SetupIQDatabase extends Dexie {
         delete tmpl.scale;
         delete tmpl.driveType;
       });
+    });
+
+    // v19: rename chassis-mr04-evo2 → chassis-kyosho-mr04-evo2
+    this.version(19).stores({}).upgrade((tx) => {
+      return Promise.all([
+        tx.table("customCars").toCollection().modify((car: any) => {
+          if (car.chassisId === "chassis-mr04-evo2") {
+            car.chassisId = "chassis-kyosho-mr04-evo2";
+          }
+        }),
+        tx.table("setupTemplates").toCollection().modify((tmpl: any) => {
+          if (tmpl.compatibleChassisIds?.includes("chassis-mr04-evo2")) {
+            tmpl.compatibleChassisIds = tmpl.compatibleChassisIds.map(
+              (id: string) => id === "chassis-mr04-evo2" ? "chassis-kyosho-mr04-evo2" : id,
+            );
+          }
+        }),
+      ]);
     });
   }
 }

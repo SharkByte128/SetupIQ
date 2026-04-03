@@ -47,7 +47,7 @@ export const chassisPlatforms: ChassisPlatform[] = [
   { id: "chassis-kyosho-mr04", name: "Kyosho MR-04", manufacturer: "Kyosho", scale: "1:28", driveType: "RWD" },
   { id: "chassis-kyosho-ma030", name: "Kyosho MA-030", manufacturer: "Kyosho", scale: "1:28", driveType: "AWD" },
   { id: "chassis-pn-25", name: "PN 2.5 Chassis", manufacturer: "PN Racing", scale: "1:28", driveType: "RWD" },
-  { id: "chassis-mr04-evo2", name: "MR-04 Evo2", manufacturer: "GL Racing", scale: "1:28", driveType: "RWD" },
+  { id: "chassis-kyosho-mr04-evo2", name: "Kyosho MR-04 EVO2", manufacturer: "Kyosho", scale: "1:28", driveType: "RWD" },
   { id: "chassis-gla-v2", name: "GLA-V2", manufacturer: "GL Racing", scale: "1:28", driveType: "AWD" },
   { id: "chassis-atomic-mrx", name: "Atomic MRX", manufacturer: "ATOMIC RC", scale: "1:28", driveType: "RWD" },
   { id: "chassis-reflex-rx28", name: "Reflex RX28", manufacturer: "Reflex Racing", scale: "1:28", driveType: "RWD" },
