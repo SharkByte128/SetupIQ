@@ -1,13 +1,9 @@
 import { useState, useEffect } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
 import { localDb } from "../db/local-db.js";
 import { allCars } from "@setupiq/shared";
 
 /** Set of predefined car IDs from the shared package. */
 const PREDEFINED_CAR_IDS = new Set(allCars.map((c) => c.id));
-
-/** The username that owns demo/built-in data and may edit it. */
-export const DEMO_DATA_OWNER = "sharkbyte128";
 
 /** Read the "hide demo data" preference from syncMeta. */
 export function useHideDemoData(): boolean {
@@ -22,33 +18,22 @@ export function useHideDemoData(): boolean {
   return hide;
 }
 
-/**
- * Returns true if the current sync user is the demo data owner.
- * Reactive — updates whenever sync_username changes in syncMeta.
- */
-export function useIsDemoDataOwner(): boolean {
-  const username = useLiveQuery(
-    () => localDb.syncMeta.get("sync_username").then((r) => r?.value?.toLowerCase() ?? null),
-    [],
-  );
-  return username === DEMO_DATA_OWNER;
-}
-
 /** Returns true if a car ID belongs to a built-in / predefined car. */
 export function isPredefinedCar(carId: string): boolean {
   return PREDEFINED_CAR_IDS.has(carId);
 }
 
 /**
- * Returns true if a record is "demo data" that should be hidden
- * when the user has enabled "Hide Demo Data".
+ * Returns true if a record is "demo/seed data" that should be hidden
+ * when the user has enabled "Hide Demo Data" or treated as read-only.
  *
- * Demo data = userId "local" (seed data that hasn't been synced yet).
- * Once synced (userId is a real user UUID), data is owned by that user
- * and is no longer considered demo regardless of carId.
+ * Seed data = userId "local" AND _dirty 0 (pre-seeded, never user-modified).
+ * User-created offline records also have userId "local" but _dirty 1,
+ * so they are NOT considered demo data and are freely editable.
+ * Synced records have a real UUID for userId regardless of _dirty.
  */
-export function isDemoRecord(record: { userId?: string; carId?: string }): boolean {
-  return record.userId === "local";
+export function isDemoRecord(record: { userId?: string; _dirty?: number }): boolean {
+  return record.userId === "local" && (record._dirty ?? 0) === 0;
 }
 
 /**

@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { allCars } from "@setupiq/shared";
 import type { SetupSnapshot, SetupEntry, WheelTireSetup } from "@setupiq/shared";
 import { useSetups } from "../hooks/use-setups.js";
-import { useHideDemoData } from "../hooks/use-demo-filter.js";
+import { useHideDemoData, isDemoRecord } from "../hooks/use-demo-filter.js";
 import { SetupList } from "./SetupList.js";
 import { SetupEditor } from "./SetupEditor.js";
 import { SetupDetail } from "./SetupDetail.js";
@@ -27,9 +27,6 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
   const hideDemoData = useHideDemoData();
 
   const { setups, loading, createSetup, updateSetup, cloneSetup, deleteSetup } = useSetups(car.id, hideDemoData);
-
-  // Setups are always user-owned — no read-only restriction
-  const readOnly = false;
 
   const handleSaveNew = useCallback(
     async (name: string, entries: SetupEntry[], wts: WheelTireSetup[], notes?: string) => {
@@ -102,7 +99,7 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
             setups={setups}
             loading={loading}
             onSelect={(s) => setView({ kind: "detail", setup: s })}
-            onNew={readOnly ? undefined : () => setView({ kind: "new" })}
+            onNew={() => setView({ kind: "new" })}
           />
         </>
       )}
@@ -130,17 +127,20 @@ export function SetupsPage({ forcedCarId }: SetupsPageProps) {
         </>
       )}
 
-      {view.kind === "detail" && (
-        <SetupDetail
-          setup={view.setup}
-          car={car}
-          allSetups={setups}
-          onClone={readOnly ? undefined : () => handleClone(view.setup)}
-          onDelete={readOnly ? undefined : () => handleDelete(view.setup.id)}
-          onBack={() => setView({ kind: "list" })}
-          onAutoSave={readOnly ? undefined : (patch) => handleAutoSave(view.setup.id, patch)}
-        />
-      )}
+      {view.kind === "detail" && (() => {
+        const setupReadOnly = isDemoRecord(view.setup as { userId?: string; _dirty?: number });
+        return (
+          <SetupDetail
+            setup={view.setup}
+            car={car}
+            allSetups={setups}
+            onClone={() => handleClone(view.setup)}
+            onDelete={setupReadOnly ? undefined : () => handleDelete(view.setup.id)}
+            onBack={() => setView({ kind: "list" })}
+            onAutoSave={setupReadOnly ? undefined : (patch) => handleAutoSave(view.setup.id, patch)}
+          />
+        );
+      })()}
     </div>
   );
 }

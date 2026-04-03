@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useTracks } from "../hooks/use-tracks.js";
-import { useHideDemoData, useIsDemoDataOwner, isDemoRecord } from "../hooks/use-demo-filter.js";
+import { useHideDemoData, isDemoRecord } from "../hooks/use-demo-filter.js";
 import { localDb, type LocalTrackFile } from "../db/local-db.js";
 import type { SurfaceType } from "@setupiq/shared";
 
@@ -23,7 +23,6 @@ const surfaceTypes: { value: SurfaceType; label: string }[] = [
 export function TracksPage() {
   const [view, setView] = useState<View>({ kind: "list" });
   const hideDemoData = useHideDemoData();
-  const isDemoOwner = useIsDemoDataOwner();
   const { tracks, loading, saving, createTrack, updateTrack, deleteTrack } =
     useTracks(hideDemoData);
 
@@ -31,7 +30,7 @@ export function TracksPage() {
     const existing = view.trackId
       ? tracks.find((t) => t.id === view.trackId)
       : undefined;
-    const readOnly = existing ? isDemoRecord(existing) && !isDemoOwner : false;
+    const readOnly = existing ? isDemoRecord(existing) : false;
 
     return (
       <TrackForm
