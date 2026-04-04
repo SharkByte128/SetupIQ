@@ -2,9 +2,21 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   vendors,
+  partCategories,
+  chassisPlatforms,
+  getCategoryById,
   getVendorById,
+  type Vendor,
+  type PartCategory,
+  type PartAttribute,
 } from "@setupiq/shared";
-import { localDb, type LocalPart, type LocalPartFile } from "../db/local-db.js";
+import {
+  localDb,
+  type LocalPart,
+  type LocalPartFile,
+  type LocalPartCategory,
+  type LocalCategoryImage,
+} from "../db/local-db.js";
 import { lookupPartBySku, suggestPartsForChassis, type PartLookupResult, type SuggestedPart } from "../lib/gemini-parts.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
@@ -63,76 +75,6 @@ function VendorLogo({ slug, size = 48 }: { slug: string; size?: number }) {
           <rect width="48" height="48" rx="8" fill="#003366" />
           <text x="24" y="28" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold" fontFamily="Arial, sans-serif">RR</text>
           <text x="24" y="40" textAnchor="middle" fill="#ffffff" fontSize="5.5" fontFamily="Arial, sans-serif">REFLEX</text>
-        </svg>
-      );
-    case "gl-racing":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#1a3a1a" />
-          <text x="24" y="28" textAnchor="middle" fill="#4ade80" fontSize="16" fontWeight="bold" fontFamily="Arial, sans-serif">GL</text>
-          <text x="24" y="40" textAnchor="middle" fill="#4ade80" fontSize="6" fontFamily="Arial, sans-serif">RACING</text>
-        </svg>
-      );
-    case "mpower":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#2d1a4e" />
-          <text x="24" y="28" textAnchor="middle" fill="#c084fc" fontSize="13" fontWeight="bold" fontFamily="Arial, sans-serif">MP</text>
-          <text x="24" y="40" textAnchor="middle" fill="#c084fc" fontSize="5.5" fontFamily="Arial, sans-serif">MPOWER</text>
-        </svg>
-      );
-    case "hobby-plus":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#1a1a3a" />
-          <text x="24" y="28" textAnchor="middle" fill="#60a5fa" fontSize="10" fontWeight="bold" fontFamily="Arial, sans-serif">H+</text>
-          <text x="24" y="40" textAnchor="middle" fill="#60a5fa" fontSize="5" fontFamily="Arial, sans-serif">HOBBY+</text>
-        </svg>
-      );
-    case "yeah-racing":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#3a2a0a" />
-          <text x="24" y="28" textAnchor="middle" fill="#fbbf24" fontSize="10" fontWeight="bold" fontFamily="Arial, sans-serif">YR</text>
-          <text x="24" y="40" textAnchor="middle" fill="#fbbf24" fontSize="5" fontFamily="Arial, sans-serif">YEAH</text>
-        </svg>
-      );
-    case "3racing":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#0a2a3a" />
-          <text x="24" y="28" textAnchor="middle" fill="#22d3ee" fontSize="14" fontWeight="bold" fontFamily="Arial, sans-serif">3R</text>
-          <text x="24" y="40" textAnchor="middle" fill="#22d3ee" fontSize="5.5" fontFamily="Arial, sans-serif">3RACING</text>
-        </svg>
-      );
-    case "futaba":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#1a2e1a" />
-          <text x="24" y="30" textAnchor="middle" fill="#86efac" fontSize="9" fontWeight="bold" fontFamily="Arial, sans-serif">FUTABA</text>
-        </svg>
-      );
-    case "ko-propo":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#2a2a2a" />
-          <text x="24" y="28" textAnchor="middle" fill="#e5e5e5" fontSize="12" fontWeight="bold" fontFamily="Arial, sans-serif">KO</text>
-          <text x="24" y="40" textAnchor="middle" fill="#e5e5e5" fontSize="5.5" fontFamily="Arial, sans-serif">PROPO</text>
-        </svg>
-      );
-    case "spektrum":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#3a1a0a" />
-          <text x="24" y="30" textAnchor="middle" fill="#fb923c" fontSize="8" fontWeight="bold" fontFamily="Arial, sans-serif">SPEKTRUM</text>
-        </svg>
-      );
-    case "hobbywing":
-      return (
-        <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#0a1a3a" />
-          <text x="24" y="28" textAnchor="middle" fill="#38bdf8" fontSize="10" fontWeight="bold" fontFamily="Arial, sans-serif">HW</text>
-          <text x="24" y="40" textAnchor="middle" fill="#38bdf8" fontSize="4.5" fontFamily="Arial, sans-serif">HOBBYWING</text>
         </svg>
       );
     default:
@@ -210,39 +152,150 @@ function SkuLookupField({
   );
 }
 
+// ── Merged categories hook ────────────────────────────────────
+
+/** Merge built-in partCategories with user's custom overrides & additions */
+function useAllCategories(): PartCategory[] {
+  const customCats = useLiveQuery(() => localDb.customPartCategories.toArray()) ?? [];
+  return useMemo(() => {
+    const overrideMap = new Map(customCats.filter(c => c.builtIn).map(c => [c.id, c]));
+    const merged = partCategories.map((cat) => {
+      const ov = overrideMap.get(cat.id);
+      if (ov) return { ...cat, name: ov.name, icon: ov.icon, attributes: ov.attributes as PartAttribute[] };
+      return cat;
+    });
+    const custom = customCats
+      .filter(c => !c.builtIn)
+      .map(c => ({ id: c.id as PartCategory["id"], name: c.name, icon: c.icon, attributes: c.attributes as PartAttribute[] }));
+    return [...merged, ...custom];
+  }, [customCats]);
+}
+
+// ── Category image hook ───────────────────────────────────────
+
+function useCategoryImages(): Map<string, string> {
+  const images = useLiveQuery(() => localDb.categoryImages.toArray()) ?? [];
+  const [urls, setUrls] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const next = new Map<string, string>();
+    for (const img of images) {
+      next.set(img.categoryId, URL.createObjectURL(img.blob));
+    }
+    setUrls((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return next;
+    });
+    return () => { next.forEach((url) => URL.revokeObjectURL(url)); };
+  }, [images]);
+
+  return urls;
+}
+
+// ── Part thumbnail hook (first image per part) ────────────────
+
+function usePartThumbnails(partIds: string[]): Map<string, string> {
+  const key = partIds.join(",");
+  const files = useLiveQuery(
+    () => localDb.partFiles.where("partId").anyOf(partIds).toArray(),
+    [key],
+  ) ?? [];
+
+  const [urls, setUrls] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const next = new Map<string, string>();
+    for (const f of files) {
+      if (f.mimeType.startsWith("image/") && !next.has(f.partId)) {
+        next.set(f.partId, URL.createObjectURL(f.blob));
+      }
+    }
+    setUrls((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return next;
+    });
+    return () => { next.forEach((url) => URL.revokeObjectURL(url)); };
+  }, [files]);
+
+  return urls;
+}
+
+// ── Admin toggle component ────────────────────────────────────
+
+function AdminToggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!enabled)}
+      className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+        enabled
+          ? "bg-amber-600/20 border-amber-500 text-amber-400"
+          : "bg-neutral-800 border-neutral-700 text-neutral-500 hover:border-neutral-500"
+      }`}
+    >
+      <span className="text-[10px]">{enabled ? "🔓" : "🔒"}</span>
+      Admin
+    </button>
+  );
+}
+
 // ── View Types ────────────────────────────────────────────────
 
+type MergedCategory = PartCategory;
+
 type View =
-  | { type: "list" }
-  | { type: "add"; editPart?: LocalPart; isClone?: boolean }
+  | { type: "categories" }
+  | { type: "parts"; category: MergedCategory }
+  | { type: "add"; category: MergedCategory; vendor?: Vendor; editPart?: LocalPart }
+  | { type: "detail"; part: LocalPart }
+  | { type: "editCategory"; category: MergedCategory }
+  | { type: "newCategory"; cloneFrom?: MergedCategory }
   | { type: "quickAdd" }
-  | { type: "suggest" }
-  | { type: "detail"; part: LocalPart };
-
-// ── Responsive helper ─────────────────────────────────────────
-
-function useIsMobile() {
-  const [mobile, setMobile] = useState(window.innerWidth < 768);
-  useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
-  }, []);
-  return mobile;
-}
+  | { type: "suggest" };
 
 // ── Main Component ────────────────────────────────────────────
 
 export function PartsBinPage() {
-  const [view, setView] = useState<View>({ type: "list" });
+  const [view, setView] = useState<View>({ type: "categories" });
+  const [adminMode, setAdminMode] = useState(() => localStorage.getItem("partsBinAdmin") === "1");
+
+  const toggleAdmin = useCallback((v: boolean) => {
+    setAdminMode(v);
+    localStorage.setItem("partsBinAdmin", v ? "1" : "0");
+  }, []);
 
   const goBack = useCallback(() => {
-    setView({ type: "list" });
-  }, []);
+    switch (view.type) {
+      case "parts":
+        setView({ type: "categories" });
+        break;
+      case "add":
+        setView({ type: "parts", category: view.category });
+        break;
+      case "detail":
+        {
+          const c = getCategoryById(view.part.categoryId);
+          if (c) setView({ type: "parts", category: c });
+          else setView({ type: "categories" });
+        }
+        break;
+      case "editCategory":
+        setView({ type: "parts", category: view.category });
+        break;
+      case "newCategory":
+        setView({ type: "categories" });
+        break;
+      case "quickAdd":
+      case "suggest":
+        setView({ type: "categories" });
+        break;
+      default:
+        break;
+    }
+  }, [view]);
 
   return (
     <div className="px-4 py-4">
-      {view.type !== "list" && (
+      {view.type !== "categories" && (
         <button
           onClick={goBack}
           className="text-sm text-blue-400 hover:text-blue-300 mb-3"
@@ -251,23 +304,40 @@ export function PartsBinPage() {
         </button>
       )}
 
-      {view.type === "list" && (
-        <PartsBinListView
+      {view.type === "categories" && (
+        <CategoryGrid
+          adminMode={adminMode}
+          onToggleAdmin={toggleAdmin}
+          onSelect={(c) => setView({ type: "parts", category: c })}
           onQuickAdd={() => setView({ type: "quickAdd" })}
           onSuggest={() => setView({ type: "suggest" })}
+          onNewCategory={(cloneFrom) => setView({ type: "newCategory", cloneFrom })}
+        />
+      )}
+      {view.type === "parts" && (
+        <CategoryPartsGrid
+          category={view.category}
+          adminMode={adminMode}
+          onToggleAdmin={toggleAdmin}
+          onAdd={(vendor) => setView({ type: "add", category: view.category, vendor })}
           onDetail={(p) => setView({ type: "detail", part: p })}
           onEdit={(p) => {
-            setView({ type: "add", editPart: p });
+            const v = getVendorById(p.vendorId);
+            setView({ type: "add", category: view.category, vendor: v, editPart: p });
           }}
-          onClone={(p) => {
-            setView({ type: "add", editPart: p, isClone: true });
+          onClonePart={(p) => {
+            const v = getVendorById(p.vendorId);
+            const clone = { ...p, id: uuid(), name: `${p.name} (copy)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), _dirty: 1 as const };
+            localDb.parts.put(clone);
           }}
+          onManageForm={() => setView({ type: "editCategory", category: view.category })}
         />
       )}
       {view.type === "add" && (
         <AddPartForm
+          category={view.category}
+          presetVendor={view.vendor}
           editPart={view.editPart}
-          isClone={view.isClone}
           onSaved={(p) => setView({ type: "detail", part: p })}
           onCancel={goBack}
         />
@@ -276,13 +346,24 @@ export function PartsBinPage() {
         <PartDetail
           part={view.part}
           onEdit={() => {
-            setView({ type: "add", editPart: view.part });
+            const v = getVendorById(view.part.vendorId);
+            const c = getCategoryById(view.part.categoryId);
+            if (c) setView({ type: "add", category: c, vendor: v, editPart: view.part });
           }}
-          onDelete={async () => {
-            await localDb.partFiles.where("partId").equals(view.part.id).delete();
-            await localDb.parts.delete(view.part.id);
-            setView({ type: "list" });
-          }}
+        />
+      )}
+      {view.type === "editCategory" && (
+        <CategoryFormEditor
+          category={view.category}
+          onSaved={(updated) => setView({ type: "parts", category: updated })}
+          onCancel={goBack}
+        />
+      )}
+      {view.type === "newCategory" && (
+        <CategoryCreator
+          cloneFrom={view.cloneFrom}
+          onCreated={(cat) => setView({ type: "parts", category: cat })}
+          onCancel={goBack}
         />
       )}
       {view.type === "quickAdd" && (
@@ -292,726 +373,731 @@ export function PartsBinPage() {
         />
       )}
       {view.type === "suggest" && (
-        <SuggestPartsView
-          onDone={() => setView({ type: "list" })}
-        />
+        <SuggestPartsView onDone={() => setView({ type: "categories" })} />
       )}
     </div>
   );
 }
 
-// ── Parts Bin List View (flat list + filters) ─────────────────
+// ── Category Grid (Main View) ─────────────────────────────────
 
-function PartsBinListView({
+function CategoryGrid({
+  adminMode,
+  onToggleAdmin,
+  onSelect,
   onQuickAdd,
   onSuggest,
-  onDetail,
-  onEdit,
-  onClone,
+  onNewCategory,
 }: {
+  adminMode: boolean;
+  onToggleAdmin: (v: boolean) => void;
+  onSelect: (c: MergedCategory) => void;
   onQuickAdd: () => void;
   onSuggest: () => void;
-  onDetail: (p: LocalPart) => void;
-  onEdit: (p: LocalPart) => void;
-  onClone: (p: LocalPart) => void;
+  onNewCategory: (cloneFrom?: MergedCategory) => void;
 }) {
-  const isMobile = useIsMobile();
-  const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
-  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
+  const allCategories = useAllCategories();
+  const categoryImages = useCategoryImages();
+  const [chassisFilter, setChassisFilter] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
-  // Filter state
-  const [vendorFilters, setVendorFilters] = useState<Set<string>>(new Set());
-  const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set());
-  const [templateFilters, setTemplateFilters] = useState<Set<string>>(new Set());
-
-  // Expand state
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  // Derive categories from setup template capabilities
-  const templateCategories = useMemo(() => {
-    const catSet = new Set<string>();
-    // If template filter is active, only derive categories from those templates
-    const source = templateFilters.size > 0
-      ? setupTemplates.filter((t) => templateFilters.has(t.id))
-      : setupTemplates;
-    for (const t of source) {
-      for (const cap of t.capabilities) catSet.add(cap.category);
-    }
-    return [...catSet].sort();
-  }, [setupTemplates, templateFilters]);
-
-  // Compute vendor counts over FILTERED parts (respecting category + template filters)
-  const vendorCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const p of allParts) {
-      if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) continue;
-      if (templateFilters.size > 0) {
-        const matchesByCategory = templateCategories.includes(p.categoryId);
-        const matchesByAssignment = (p.setupTemplateIds ?? []).some((id) => templateFilters.has(id));
-        if (!matchesByCategory && !matchesByAssignment) continue;
+  // Count parts per category
+  useEffect(() => {
+    localDb.parts.toArray().then((parts) => {
+      const c: Record<string, number> = {};
+      for (const p of parts) {
+        c[p.categoryId] = (c[p.categoryId] || 0) + 1;
       }
-      m[p.vendorId] = (m[p.vendorId] || 0) + 1;
+      setCounts(c);
+    });
+  }, []);
+
+  // Filter categories by chassis compatibility
+  const [compatCategoryIds, setCompatCategoryIds] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!chassisFilter) {
+      setCompatCategoryIds(null);
+      return;
     }
-    return m;
-  }, [allParts, categoryFilters, templateFilters, templateCategories]);
-
-  // Compute category counts over FILTERED parts (respecting vendor + template filters)
-  const categoryCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const p of allParts) {
-      if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) continue;
-      if (templateFilters.size > 0) {
-        const matchesByCategory = templateCategories.includes(p.categoryId);
-        const matchesByAssignment = (p.setupTemplateIds ?? []).some((id) => templateFilters.has(id));
-        if (!matchesByCategory && !matchesByAssignment) continue;
+    localDb.parts.toArray().then((parts) => {
+      const ids = new Set<string>();
+      for (const p of parts) {
+        if (p.compatibleChassisIds.includes(chassisFilter)) {
+          ids.add(p.categoryId);
+        }
       }
-      m[p.categoryId] = (m[p.categoryId] || 0) + 1;
-    }
-    return m;
-  }, [allParts, vendorFilters, templateFilters, templateCategories]);
-
-  // Filter toggle helpers
-  const toggleVendor = (id: string) => {
-    setVendorFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
+      // Always show categories even if no parts yet
+      setCompatCategoryIds(ids.size > 0 ? ids : null);
     });
-  };
-  const toggleCategory = (id: string) => {
-    setCategoryFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-  const toggleTemplate = (id: string) => {
-    setTemplateFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+  }, [chassisFilter]);
 
-  // Apply filters
-  const filteredParts = useMemo(() => {
-    const parts = allParts.filter((p) => {
-      if (vendorFilters.size > 0 && !vendorFilters.has(p.vendorId)) return false;
-      if (categoryFilters.size > 0 && !categoryFilters.has(p.categoryId)) return false;
-      if (templateFilters.size > 0) {
-        const matchesByCategory = templateCategories.includes(p.categoryId);
-        const matchesByAssignment = (p.setupTemplateIds ?? []).some((id) => templateFilters.has(id));
-        if (!matchesByCategory && !matchesByAssignment) return false;
-      }
-      return true;
-    });
-    // Sort by sortOrder (nulls last), then by name
-    return parts.sort((a, b) => {
-      const aO = a.sortOrder ?? Infinity;
-      const bO = b.sortOrder ?? Infinity;
-      if (aO !== bO) return aO - bO;
-      return a.name.localeCompare(b.name);
-    });
-  }, [allParts, vendorFilters, categoryFilters, templateFilters, templateCategories]);
+  const filteredCategories = compatCategoryIds
+    ? allCategories.filter((c) => compatCategoryIds.has(c.id))
+    : allCategories;
 
-  // Manufacturer pills: ≥5 parts = own pill, <5 = "Other"
-  const MIN_VENDOR_COUNT = 5;
-  const { prominentVendors, otherVendorCount } = useMemo(() => {
-    const prominent: typeof vendors[number][] = [];
-    let otherCount = 0;
-    for (const v of vendors) {
-      const count = vendorCounts[v.id] ?? 0;
-      if (count === 0) continue;
-      if (count >= MIN_VENDOR_COUNT) {
-        prominent.push(v);
-      } else {
-        otherCount += count;
-      }
-    }
-    // Also count any vendorIds not in the known vendors list
-    for (const [vid, count] of Object.entries(vendorCounts)) {
-      if (!vendors.some((v) => v.id === vid)) {
-        otherCount += count;
-      }
-    }
-    return { prominentVendors: prominent, otherVendorCount: otherCount };
-  }, [vendorCounts]);
+  // Upload thumbnail for a category
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTargetCatId, setUploadTargetCatId] = useState<string | null>(null);
 
-  // Collect "other" vendor IDs for filtering
-  const otherVendorIds = useMemo(() => {
-    const prominentIds = new Set(prominentVendors.map((v) => v.id));
-    return new Set(
-      Object.keys(vendorCounts).filter((vid) => !prominentIds.has(vid)),
-    );
-  }, [vendorCounts, prominentVendors]);
-
-  // Only show categories that have parts (considering active filters)
-  const activeCategories = useMemo(() =>
-    templateCategories.filter((c) => (categoryCounts[c] ?? 0) > 0),
-    [templateCategories, categoryCounts],
-  );
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTargetCatId) return;
+    const resized = await resizeImage(file, 400);
+    // Remove old image for this category
+    const old = await localDb.categoryImages.where("categoryId").equals(uploadTargetCatId).toArray();
+    if (old.length > 0) await localDb.categoryImages.bulkDelete(old.map(o => o.id));
+    const record: LocalCategoryImage = {
+      id: uuid(),
+      categoryId: uploadTargetCatId,
+      blob: resized,
+      name: file.name,
+      mimeType: "image/webp",
+      createdAt: new Date().toISOString(),
+    };
+    await localDb.categoryImages.add(record);
+    e.target.value = "";
+    setUploadTargetCatId(null);
+  }, [uploadTargetCatId]);
 
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h2 className="text-xl font-semibold">Parts Bin</h2>
-          <p className="text-sm text-neutral-400 mt-0.5">{allParts.length} parts</p>
+          <p className="text-xs text-neutral-500 mt-0.5">Browse parts by category</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <AdminToggle enabled={adminMode} onChange={onToggleAdmin} />
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-2 mb-3">
+        <button
+          onClick={onSuggest}
+          className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+        >
+          ✨ AI Suggest
+        </button>
+        <button
+          onClick={onQuickAdd}
+          className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+        >
+          + Add Part
+        </button>
+      </div>
+
+      {/* Setup template / chassis filter pills */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        <button
+          onClick={() => setChassisFilter(null)}
+          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+            !chassisFilter
+              ? "bg-blue-600 border-blue-500 text-white"
+              : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+          }`}
+        >
+          All
+        </button>
+        {chassisPlatforms.map((cp) => (
           <button
-            onClick={onSuggest}
-            className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+            key={cp.id}
+            onClick={() => setChassisFilter(cp.id)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              chassisFilter === cp.id
+                ? "bg-blue-600 border-blue-500 text-white"
+                : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+            }`}
           >
-            ✨ AI Suggest
+            {cp.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Category thumbnail grid */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {filteredCategories.map((cat) => {
+          const thumbUrl = categoryImages.get(cat.id);
+          return (
+            <div key={cat.id} className="relative group">
+              <button
+                onClick={() => onSelect(cat)}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden flex flex-col hover:border-neutral-600 transition-colors"
+              >
+                {/* Thumbnail */}
+                <div className="w-full aspect-square bg-neutral-800 flex items-center justify-center overflow-hidden">
+                  {thumbUrl ? (
+                    <img src={thumbUrl} alt={cat.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-4xl">{cat.icon}</span>
+                  )}
+                </div>
+                {/* Label */}
+                <div className="px-2 py-2 text-left">
+                  <p className="text-sm font-medium truncate">{cat.name}</p>
+                  <p className="text-[11px] text-neutral-500">{counts[cat.id] || 0} parts</p>
+                </div>
+              </button>
+              {/* Admin: upload thumbnail */}
+              {adminMode && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setUploadTargetCatId(cat.id); fileInputRef.current?.click(); }}
+                  className="absolute top-1 right-1 bg-black/70 text-amber-400 rounded-full w-7 h-7 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Change thumbnail"
+                >
+                  📷
+                </button>
+              )}
+              {/* Admin: clone category */}
+              {adminMode && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onNewCategory(cat); }}
+                  className="absolute top-1 left-1 bg-black/70 text-amber-400 rounded-full w-7 h-7 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Clone category"
+                >
+                  📋
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Admin: create new category card */}
+        {adminMode && (
+          <button
+            onClick={() => onNewCategory()}
+            className="w-full bg-neutral-900 border-2 border-dashed border-neutral-700 rounded-lg overflow-hidden flex flex-col items-center justify-center aspect-square hover:border-amber-500 transition-colors"
+          >
+            <span className="text-3xl text-neutral-600 mb-1">+</span>
+            <span className="text-xs text-neutral-500">New Category</span>
+          </button>
+        )}
+      </div>
+
+      {/* Hidden file input for category thumbnail */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageUpload}
+      />
+    </>
+  );
+}
+
+// ── Category Parts Grid ───────────────────────────────────────
+
+function CategoryPartsGrid({
+  category,
+  adminMode,
+  onToggleAdmin,
+  onAdd,
+  onDetail,
+  onEdit,
+  onClonePart,
+  onManageForm,
+}: {
+  category: MergedCategory;
+  adminMode: boolean;
+  onToggleAdmin: (v: boolean) => void;
+  onAdd: (vendor?: Vendor) => void;
+  onDetail: (p: LocalPart) => void;
+  onEdit: (p: LocalPart) => void;
+  onClonePart: (p: LocalPart) => void;
+  onManageForm: () => void;
+}) {
+  const parts = useLiveQuery(
+    () => localDb.parts.where("categoryId").equals(category.id).toArray(),
+    [category.id],
+  ) ?? [];
+  const thumbnails = usePartThumbnails(parts.map(p => p.id));
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">{category.icon}</span>
+          <div>
+            <h2 className="text-lg font-semibold">{category.name}</h2>
+            <p className="text-xs text-neutral-500">{parts.length} parts</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <AdminToggle enabled={adminMode} onChange={onToggleAdmin} />
+        </div>
+      </div>
+
+      {/* Admin action bar */}
+      {adminMode && (
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={onManageForm}
+            className="bg-amber-600/20 border border-amber-600 text-amber-400 text-xs font-medium px-3 py-2 rounded-lg transition-colors hover:bg-amber-600/30"
+          >
+            ⚙️ Manage Form
           </button>
           <button
-            onClick={onQuickAdd}
-            className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+            onClick={() => onAdd()}
+            className="bg-amber-600/20 border border-amber-600 text-amber-400 text-xs font-medium px-3 py-2 rounded-lg transition-colors hover:bg-amber-600/30"
           >
             + Add Part
           </button>
         </div>
-      </div>
-
-      {/* ── Setup Template Filters ──────────────────── */}
-      {setupTemplates.length > 0 && (
-        <div className="mb-3">
-          <p className="text-xs text-neutral-500 mb-1.5">Setup Templates</p>
-          <div className="flex flex-wrap gap-2">
-            {setupTemplates.map((t) => {
-              const active = templateFilters.has(t.id);
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => toggleTemplate(t.id)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    active
-                      ? "border-green-500 bg-green-900/20 text-green-300"
-                      : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
-                  }`}
-                >
-                  📋 {t.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       )}
 
-      {/* ── Manufacturer Filters ────────────────────── */}
-      {(prominentVendors.length > 0 || otherVendorCount > 0) && (
-        <div className="mb-3">
-          <p className="text-xs text-neutral-500 mb-1.5">Manufacturers</p>
-          <div className="flex flex-wrap gap-2">
-            {prominentVendors.map((v) => {
-              const active = vendorFilters.has(v.id);
-              return (
-                <button
-                  key={v.id}
-                  onClick={() => toggleVendor(v.id)}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    active
-                      ? "border-green-500 bg-green-900/20 text-green-300"
-                      : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
-                  }`}
-                >
-                  <VendorLogo slug={v.slug} size={16} />
-                  {v.name}
-                  <span className="text-neutral-600 ml-0.5">{vendorCounts[v.id] ?? 0}</span>
-                </button>
-              );
-            })}
-            {otherVendorCount > 0 && (
-              <button
-                onClick={() => {
-                  // Toggle all "other" vendor IDs at once
-                  setVendorFilters((prev) => {
-                    const next = new Set(prev);
-                    const allSelected = [...otherVendorIds].every((id) => next.has(id));
-                    if (allSelected) {
-                      otherVendorIds.forEach((id) => next.delete(id));
-                    } else {
-                      otherVendorIds.forEach((id) => next.add(id));
-                    }
-                    return next;
-                  });
-                }}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  [...otherVendorIds].every((id) => vendorFilters.has(id))
-                    ? "border-green-500 bg-green-900/20 text-green-300"
-                    : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
-                }`}
-              >
-                Other
-                <span className="text-neutral-600 ml-1">{otherVendorCount}</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Category Filters ─────────────────────────── */}
-      {activeCategories.length > 0 && (
-        <div className="mb-3">
-          <p className="text-xs text-neutral-500 mb-1.5">Categories</p>
-          <div className="flex flex-wrap gap-2">
-            {activeCategories.map((cat) => {
-              const active = categoryFilters.has(cat);
-              return (
-                <button
-                  key={cat}
-                  onClick={() => toggleCategory(cat)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    active
-                      ? "border-green-500 bg-green-900/20 text-green-300"
-                      : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500"
-                  }`}
-                >
-                  {cat}
-                  <span className="text-neutral-600 ml-1">{categoryCounts[cat] ?? 0}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Active filter summary */}
-      {(vendorFilters.size > 0 || categoryFilters.size > 0 || templateFilters.size > 0) && (
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs text-neutral-500">
-            Showing {filteredParts.length} of {allParts.length} parts
-          </p>
+      {/* Parts thumbnail grid */}
+      {parts.length === 0 ? (
+        <div className="text-center py-12 text-neutral-500">
+          <p className="text-lg mb-1">{category.icon}</p>
+          <p className="text-sm">No {category.name.toLowerCase()} yet</p>
           <button
-            onClick={() => { setVendorFilters(new Set()); setCategoryFilters(new Set()); setTemplateFilters(new Set()); }}
-            className="text-xs text-blue-400 hover:text-blue-300"
+            onClick={() => onAdd()}
+            className="mt-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-6 py-2.5 rounded-lg transition-colors"
           >
-            Clear filters
+            + Add First Part
           </button>
         </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 mb-4">
+          {parts.map((part) => {
+            const thumbUrl = thumbnails.get(part.id);
+            const vendor = getVendorById(part.vendorId);
+            const attrs = category.attributes;
+            const firstAttr = attrs.length > 0 ? part.attributes[attrs[0].key] : undefined;
+            return (
+              <div key={part.id} className="relative group">
+                <button
+                  onClick={() => onDetail(part)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden flex flex-col hover:border-neutral-600 transition-colors text-left"
+                >
+                  {/* Thumbnail */}
+                  <div className="w-full aspect-square bg-neutral-800 flex items-center justify-center overflow-hidden">
+                    {thumbUrl ? (
+                      <img src={thumbUrl} alt={part.name} className="w-full h-full object-cover" />
+                    ) : vendor ? (
+                      <VendorLogo slug={vendor.slug} size={48} />
+                    ) : (
+                      <span className="text-4xl text-neutral-600">{category.icon}</span>
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div className="px-2 py-2">
+                    <p className="text-xs font-medium truncate">{part.name}</p>
+                    <p className="text-[10px] text-neutral-500 truncate">
+                      {vendor?.name}
+                      {firstAttr ? ` · ${firstAttr}` : ""}
+                    </p>
+                    {part.sku && (
+                      <p className="text-[10px] text-neutral-600 font-mono truncate">{part.sku}</p>
+                    )}
+                  </div>
+                </button>
+                {/* Admin overlays */}
+                {adminMode && (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onEdit(part); }}
+                      className="absolute top-1 right-1 bg-black/70 text-amber-400 rounded-full w-6 h-6 text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Edit"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onClonePart(part); }}
+                      className="absolute top-1 left-1 bg-black/70 text-amber-400 rounded-full w-6 h-6 text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Clone part"
+                    >
+                      📋
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      {/* ── Parts List ───────────────────────────────── */}
-      {filteredParts.length === 0 ? (
-        <div className="text-center py-12 text-neutral-500">
-          <p className="text-sm">{allParts.length === 0 ? "No parts yet — add some!" : "No parts match your filters."}</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {filteredParts.map((part) => (
-            <PartRow
-              key={part.id}
-              part={part}
-              isExpanded={expandedId === part.id}
-              onToggle={() => setExpandedId(expandedId === part.id ? null : part.id)}
-              isMobile={isMobile}
-              templateCategories={templateCategories}
-              onDetail={onDetail}
-              onEdit={onEdit}
-              onClone={onClone}
-            />
-          ))}
-        </div>
+      {/* Add button (always visible if there are parts) */}
+      {!adminMode && parts.length > 0 && (
+        <button
+          onClick={() => onAdd()}
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
+        >
+          + Add {category.name.replace(/s$/, "")}
+        </button>
       )}
     </>
   );
 }
 
-// ── Part Row (expandable, inline-edit on PC) ──────────────────
+// ── Category Form Editor (Admin) ──────────────────────────────
 
-function PartRow({
-  part,
-  isExpanded,
-  onToggle,
-  isMobile,
-  templateCategories,
-  onDetail,
-  onEdit,
-  onClone,
+function CategoryFormEditor({
+  category,
+  onSaved,
+  onCancel,
 }: {
-  part: LocalPart;
-  isExpanded: boolean;
-  onToggle: () => void;
-  isMobile: boolean;
-  templateCategories: string[];
-  onDetail: (p: LocalPart) => void;
-  onEdit: (p: LocalPart) => void;
-  onClone: (p: LocalPart) => void;
+  category: MergedCategory;
+  onSaved: (updated: MergedCategory) => void;
+  onCancel: () => void;
 }) {
-  const vendor = getVendorById(part.vendorId);
+  const [catName, setCatName] = useState(category.name);
+  const [catIcon, setCatIcon] = useState(category.icon);
+  const [fields, setFields] = useState<PartAttribute[]>(() =>
+    category.attributes.map((a) => ({ ...a })),
+  );
 
-  // Local edit state (only used on PC)
-  const [editName, setEditName] = useState(part.name);
-  const [editSku, setEditSku] = useState(part.sku ?? "");
-  const [editNotes, setEditNotes] = useState(part.notes ?? "");
-  const [editVendorId, setEditVendorId] = useState(part.vendorId);
-  const [editCategoryId, setEditCategoryId] = useState(part.categoryId);
-  const [editSortOrder, setEditSortOrder] = useState(part.sortOrder?.toString() ?? "");
+  const addField = () => {
+    setFields((prev) => [
+      ...prev,
+      { key: `field_${Date.now()}`, label: "", type: "text" },
+    ]);
+  };
 
-  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
+  const removeField = (index: number) => {
+    setFields((prev) => prev.filter((_, i) => i !== index));
+  };
 
-  // Sync local state when part changes from DB (e.g., after car compat toggle)
-  useEffect(() => {
-    setEditName(part.name);
-    setEditSku(part.sku ?? "");
-    setEditNotes(part.notes ?? "");
-    setEditVendorId(part.vendorId);
-    setEditCategoryId(part.categoryId);
-    setEditSortOrder(part.sortOrder?.toString() ?? "");
-  }, [part.name, part.sku, part.notes, part.vendorId, part.categoryId, part.sortOrder]);
+  const updateField = (index: number, patch: Partial<PartAttribute>) => {
+    setFields((prev) =>
+      prev.map((f, i) => (i === index ? { ...f, ...patch } : f)),
+    );
+  };
 
-  const handleBlurSave = useCallback(async (field: "name" | "sku" | "notes", value: string) => {
-    const trimmed = value.trim();
-    const currentVal = field === "name" ? part.name : field === "sku" ? (part.sku ?? "") : (part.notes ?? "");
-    if (trimmed === currentVal) return;
-    const newValue = trimmed || (field === "name" ? part.name : undefined);
-    const base = { updatedAt: new Date().toISOString(), _dirty: 1 as const };
-    if (field === "name") await localDb.parts.update(part.id, { ...base, name: newValue! });
-    else if (field === "sku") await localDb.parts.update(part.id, { ...base, sku: newValue });
-    else await localDb.parts.update(part.id, { ...base, notes: newValue });
-  }, [part.id, part.name, part.sku, part.notes]);
+  const moveField = (index: number, dir: -1 | 1) => {
+    const next = [...fields];
+    const target = index + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setFields(next);
+  };
 
-  const handleSelectSave = useCallback(async (field: "vendorId" | "categoryId", value: string) => {
-    if (value === part[field]) return;
-    const base = { updatedAt: new Date().toISOString(), _dirty: 1 as const };
-    if (field === "vendorId") await localDb.parts.update(part.id, { ...base, vendorId: value });
-    else await localDb.parts.update(part.id, { ...base, categoryId: value });
-  }, [part.id, part.vendorId, part.categoryId]);
-
-  const handleSortOrderBlur = useCallback(async () => {
-    const trimmed = editSortOrder.trim();
-    const newVal = trimmed === "" ? undefined : Number(trimmed);
-    if (newVal === part.sortOrder) return;
-    if (trimmed !== "" && isNaN(Number(trimmed))) return;
-    await localDb.parts.update(part.id, {
-      sortOrder: newVal,
-      updatedAt: new Date().toISOString(),
-      _dirty: 1 as const,
-    });
-  }, [editSortOrder, part.id, part.sortOrder]);
-
-  const handleToggleTemplate = useCallback(async (templateId: string) => {
-    const latest = await localDb.parts.get(part.id);
-    if (!latest) return;
-    const current = latest.setupTemplateIds ?? [];
-    const next = current.includes(templateId)
-      ? current.filter((id: string) => id !== templateId)
-      : [...current, templateId];
-    await localDb.parts.update(part.id, {
-      setupTemplateIds: next,
-      updatedAt: new Date().toISOString(),
-      _dirty: 1 as const,
-    });
-  }, [part.id]);
+  const handleSave = async () => {
+    if (!catName.trim()) return;
+    const isBuiltIn = partCategories.some(c => c.id === category.id);
+    const now = new Date().toISOString();
+    const record: LocalPartCategory = {
+      id: category.id,
+      name: catName.trim(),
+      icon: catIcon || "📦",
+      attributes: fields.filter(f => f.label.trim()),
+      builtIn: isBuiltIn ? 1 : 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await localDb.customPartCategories.put(record);
+    const updated: MergedCategory = {
+      ...category,
+      name: record.name,
+      icon: record.icon,
+      attributes: record.attributes as PartAttribute[],
+    };
+    onSaved(updated);
+  };
 
   const inputClass =
-    "w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-blue-500";
+    "w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500";
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-      {/* Collapsed row */}
-      <button
-        onClick={onToggle}
-        className="w-full text-left p-3 flex gap-3 hover:bg-neutral-800/50 transition-colors"
-      >
-        {/* Vendor icon */}
-        <div className="flex-shrink-0 self-center">
-          {vendor && <VendorLogo slug={vendor.slug} size={28} />}
+    <>
+      <h2 className="text-lg font-semibold mb-4">⚙️ Manage Form — {category.name}</h2>
+
+      <div className="flex flex-col gap-4">
+        {/* Category name & icon */}
+        <div className="grid grid-cols-[1fr_80px] gap-2">
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">Category Name</label>
+            <input className={inputClass} value={catName} onChange={(e) => setCatName(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">Icon</label>
+            <input className={inputClass + " text-center"} value={catIcon} onChange={(e) => setCatIcon(e.target.value)} placeholder="📦" />
+          </div>
         </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-neutral-200 truncate">{part.name}</p>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            {vendor?.name && `${vendor.name} · `}
-            {part.categoryId}
-            {part.sku && ` · ${part.sku}`}
-            {part.sortOrder != null && (
-              <span className="text-neutral-600 ml-1">#{part.sortOrder}</span>
-            )}
-          </p>
-        </div>
+        {/* Fields */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-neutral-400">Form Fields</label>
+            <button onClick={addField} className="text-xs text-blue-400 hover:text-blue-300">+ Add Field</button>
+          </div>
 
-        {/* Expand chevron */}
-        <span className="text-neutral-600 self-center text-sm">
-          {isExpanded ? "▲" : "▼"}
-        </span>
-      </button>
+          {fields.length === 0 && (
+            <p className="text-xs text-neutral-600 text-center py-4">No fields yet — add your first field above</p>
+          )}
 
-      {/* Expanded detail */}
-      {isExpanded && (
-        <div className="border-t border-neutral-800 p-3 space-y-3">
-          {isMobile ? (
-            /* ── Mobile: Read-only view ────────────────── */
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-xs text-neutral-500">Manufacturer</p>
-                  <p className="text-sm text-neutral-200">{vendor?.name ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-500">Category</p>
-                  <p className="text-sm text-neutral-200">{part.categoryId || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-500">Sort Order</p>
-                  <p className="text-sm text-neutral-200">{part.sortOrder ?? "—"}</p>
-                </div>
-              </div>
-
-              {/* Setup Templates pills (mobile - tappable) */}
-              {setupTemplates.length > 0 && (
-                <div>
-                  <p className="text-xs text-neutral-500 mb-1.5">Setup Templates</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {setupTemplates.map((t) => {
-                      const active = (part.setupTemplateIds ?? []).includes(t.id);
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => handleToggleTemplate(t.id)}
-                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                            active
-                              ? "border-blue-500 bg-blue-900/30 text-blue-300"
-                              : "border-neutral-700 bg-neutral-800 text-neutral-500 hover:border-neutral-500"
-                          }`}
-                        >
-                          {active ? "✓ " : ""}{t.name}
-                        </button>
-                      );
-                    })}
+          <div className="flex flex-col gap-2">
+            {fields.map((field, i) => (
+              <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  {/* Reorder */}
+                  <div className="flex flex-col gap-0.5">
+                    <button onClick={() => moveField(i, -1)} className="text-[10px] text-neutral-500 hover:text-neutral-300 leading-none" disabled={i === 0}>▲</button>
+                    <button onClick={() => moveField(i, 1)} className="text-[10px] text-neutral-500 hover:text-neutral-300 leading-none" disabled={i === fields.length - 1}>▼</button>
                   </div>
-                </div>
-              )}
-
-              {part.sku && (
-                <div>
-                  <p className="text-xs text-neutral-500">SKU</p>
-                  <p className="text-sm font-mono text-neutral-200">{part.sku}</p>
-                </div>
-              )}
-
-              {part.notes && (
-                <div>
-                  <p className="text-xs text-neutral-500">Notes</p>
-                  <p className="text-sm text-neutral-300">{part.notes}</p>
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => onDetail(part)}
-                  className="flex-1 text-sm py-2 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
-                >
-                  View Details
-                </button>
-                <button
-                  onClick={() => onClone(part)}
-                  className="flex-1 text-sm py-2 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
-                >
-                  Clone
-                </button>
-                <button
-                  onClick={() => onEdit(part)}
-                  className="flex-1 text-sm py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
-                >
-                  Edit
-                </button>
-              </div>
-            </>
-          ) : (
-            /* ── Desktop: Inline edit (save on blur) ───── */
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-neutral-500 mb-1 block">Name</label>
+                  {/* Label */}
                   <input
-                    className={inputClass}
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onBlur={() => handleBlurSave("name", editName)}
+                    className="flex-1 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-100 placeholder-neutral-500"
+                    placeholder="Field label"
+                    value={field.label}
+                    onChange={(e) => updateField(i, { label: e.target.value, key: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "_") || field.key })}
                   />
-                </div>
-                <div>
-                  <label className="text-xs text-neutral-500 mb-1 block">SKU</label>
-                  <input
-                    className={inputClass}
-                    value={editSku}
-                    onChange={(e) => setEditSku(e.target.value)}
-                    onBlur={() => handleBlurSave("sku", editSku)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-neutral-500 mb-1 block">Manufacturer</label>
+                  {/* Type */}
                   <select
-                    className={inputClass}
-                    value={editVendorId}
-                    onChange={(e) => { setEditVendorId(e.target.value); handleSelectSave("vendorId", e.target.value); }}
+                    className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-100"
+                    value={field.type}
+                    onChange={(e) => updateField(i, { type: e.target.value as PartAttribute["type"] })}
                   >
-                    {vendors.map((v) => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
-                    ))}
+                    <option value="text">Text</option>
+                    <option value="number">Number</option>
+                    <option value="pick">Dropdown</option>
                   </select>
-                </div>
-                <div>
-                  <label className="text-xs text-neutral-500 mb-1 block">Category</label>
-                  <select
-                    className={inputClass}
-                    value={editCategoryId}
-                    onChange={(e) => { setEditCategoryId(e.target.value); handleSelectSave("categoryId", e.target.value); }}
+                  {/* Required */}
+                  <button
+                    onClick={() => updateField(i, { required: !field.required })}
+                    className={`text-[10px] px-1.5 py-1 rounded border ${field.required ? "bg-blue-600/20 border-blue-500 text-blue-400" : "border-neutral-700 text-neutral-500"}`}
+                    title="Required"
                   >
-                    {templateCategories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                    {/* Show current value even if not in template categories */}
-                    {!templateCategories.includes(editCategoryId) && (
-                      <option value={editCategoryId}>{editCategoryId}</option>
-                    )}
-                  </select>
+                    Req
+                  </button>
+                  {/* Delete */}
+                  <button onClick={() => removeField(i)} className="text-red-400 text-xs hover:text-red-300">✕</button>
                 </div>
-              </div>
 
-              <div>
-                <label className="text-xs text-neutral-500 mb-1 block">Notes</label>
-                <textarea
-                  className={inputClass + " min-h-[40px] resize-y"}
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  onBlur={() => handleBlurSave("notes", editNotes)}
-                />
+                {/* Type-specific config */}
+                {field.type === "number" && (
+                  <div className="mt-1">
+                    <input
+                      className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-100 placeholder-neutral-500 w-24"
+                      placeholder="Unit (mm, kv...)"
+                      value={field.unit ?? ""}
+                      onChange={(e) => updateField(i, { unit: e.target.value || undefined })}
+                    />
+                  </div>
+                )}
+                {field.type === "pick" && (
+                  <div className="mt-1">
+                    <input
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-100 placeholder-neutral-500"
+                      placeholder="Options (comma-separated)"
+                      value={(field.options ?? []).join(", ")}
+                      onChange={(e) => updateField(i, { options: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                    />
+                  </div>
+                )}
               </div>
+            ))}
+          </div>
+        </div>
 
-              <div className="w-24">
-                <label className="text-xs text-neutral-500 mb-1 block">Sort Order</label>
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={handleSave}
+            disabled={!catName.trim()}
+            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
+          >
+            Save Form
+          </button>
+          <button onClick={onCancel} className="px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Category Creator (Admin) ──────────────────────────────────
+
+function CategoryCreator({
+  cloneFrom,
+  onCreated,
+  onCancel,
+}: {
+  cloneFrom?: MergedCategory;
+  onCreated: (cat: MergedCategory) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(cloneFrom ? `${cloneFrom.name} (copy)` : "");
+  const [icon, setIcon] = useState(cloneFrom?.icon ?? "📦");
+  const [fields, setFields] = useState<PartAttribute[]>(
+    cloneFrom ? cloneFrom.attributes.map(a => ({ ...a })) : [],
+  );
+
+  const addField = () => {
+    setFields(prev => [...prev, { key: `field_${Date.now()}`, label: "", type: "text" }]);
+  };
+
+  const removeField = (index: number) => {
+    setFields(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateField = (index: number, patch: Partial<PartAttribute>) => {
+    setFields(prev => prev.map((f, i) => (i === index ? { ...f, ...patch } : f)));
+  };
+
+  const handleCreate = async () => {
+    if (!name.trim()) return;
+    const now = new Date().toISOString();
+    const id = `custom-${uuid()}`;
+    const record: LocalPartCategory = {
+      id,
+      name: name.trim(),
+      icon: icon || "📦",
+      attributes: fields.filter(f => f.label.trim()),
+      builtIn: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await localDb.customPartCategories.add(record);
+    const cat: MergedCategory = {
+      id: id as PartCategory["id"],
+      name: record.name,
+      icon: record.icon,
+      attributes: record.attributes as PartAttribute[],
+    };
+    onCreated(cat);
+  };
+
+  const inputClass =
+    "w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500";
+
+  return (
+    <>
+      <h2 className="text-lg font-semibold mb-4">
+        {cloneFrom ? `Clone Category — ${cloneFrom.name}` : "New Category"}
+      </h2>
+
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-[1fr_80px] gap-2">
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">Category Name *</label>
+            <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Wheels" />
+          </div>
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">Icon</label>
+            <input className={inputClass + " text-center"} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📦" />
+          </div>
+        </div>
+
+        {/* Fields */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-neutral-400">Form Fields</label>
+            <button onClick={addField} className="text-xs text-blue-400 hover:text-blue-300">+ Add Field</button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {fields.map((field, i) => (
+              <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex items-center gap-2">
                 <input
-                  type="number"
-                  className={inputClass}
-                  placeholder="—"
-                  value={editSortOrder}
-                  onChange={(e) => setEditSortOrder(e.target.value)}
-                  onBlur={handleSortOrderBlur}
+                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-100 placeholder-neutral-500"
+                  placeholder="Field label"
+                  value={field.label}
+                  onChange={(e) => updateField(i, { label: e.target.value, key: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "_") || field.key })}
                 />
-              </div>
-
-              {/* Setup Templates pill picker (desktop) */}
-              {setupTemplates.length > 0 && (
-                <div>
-                  <label className="text-xs text-neutral-500 mb-1.5 block">Setup Templates</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {setupTemplates.map((t) => {
-                      const active = (part.setupTemplateIds ?? []).includes(t.id);
-                      return (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => handleToggleTemplate(t.id)}
-                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                            active
-                              ? "border-blue-500 bg-blue-900/30 text-blue-300"
-                              : "border-neutral-700 bg-neutral-800 text-neutral-500 hover:border-neutral-500"
-                          }`}
-                        >
-                          {active ? "✓ " : ""}{t.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Link to full detail (photos/PDFs) */}
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => onDetail(part)}
-                  className="text-xs text-blue-400 hover:text-blue-300"
+                <select
+                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-100"
+                  value={field.type}
+                  onChange={(e) => updateField(i, { type: e.target.value as PartAttribute["type"] })}
                 >
-                  Photos & Documents →
-                </button>
-                <button
-                  onClick={() => onClone(part)}
-                  className="text-xs text-neutral-400 hover:text-neutral-300"
-                >
-                  Clone
-                </button>
+                  <option value="text">Text</option>
+                  <option value="number">Number</option>
+                  <option value="pick">Dropdown</option>
+                </select>
+                <button onClick={() => removeField(i)} className="text-red-400 text-xs hover:text-red-300">✕</button>
               </div>
-            </>
+            ))}
+          </div>
+          {fields.length === 0 && (
+            <p className="text-xs text-neutral-600 text-center py-4">No fields — add fields above or save empty</p>
           )}
         </div>
-      )}
-    </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={handleCreate}
+            disabled={!name.trim()}
+            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
+          >
+            {cloneFrom ? "Clone Category" : "Create Category"}
+          </button>
+          <button onClick={onCancel} className="px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
 // ── Add / Edit Part Form ──────────────────────────────────────
 
 function AddPartForm({
+  category,
+  presetVendor,
   editPart,
-  isClone,
   onSaved,
   onCancel,
 }: {
+  category: MergedCategory;
+  presetVendor?: Vendor;
   editPart?: LocalPart;
-  isClone?: boolean;
   onSaved: (p: LocalPart) => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState(
-    isClone && editPart ? `${editPart.name} (Copy)` : (editPart?.name ?? ""),
+  const allCategories = useAllCategories();
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(
+    editPart ? getVendorById(editPart.vendorId) ?? null : presetVendor ?? null,
   );
-  const [selectedVendorId, setSelectedVendorId] = useState(editPart?.vendorId ?? "");
-  const [selectedCategoryId, setSelectedCategoryId] = useState(editPart?.categoryId ?? "");
+  const [name, setName] = useState(editPart?.name ?? "");
   const [sku, setSku] = useState(editPart?.sku ?? "");
   const [notes, setNotes] = useState(editPart?.notes ?? "");
-  const [sortOrder, setSortOrder] = useState(editPart?.sortOrder?.toString() ?? "");
-  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(
-    new Set(editPart?.setupTemplateIds ?? []),
+  const [selectedChassis, setSelectedChassis] = useState<string[]>(
+    editPart?.compatibleChassisIds ?? [],
   );
   const [attrs, setAttrs] = useState<Record<string, string | number>>(
     editPart?.attributes ?? {},
   );
 
-  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
+  // Resolve the current category from allCategories for correct attrs
+  const resolvedCategory = allCategories.find(c => c.id === category.id) ?? category;
 
-  // Derive categories from templates
-  const templateCategories = useMemo(() => {
-    const catSet = new Set<string>();
-    for (const t of setupTemplates) {
-      for (const cap of t.capabilities) catSet.add(cap.category);
-    }
-    return [...catSet].sort();
-  }, [setupTemplates]);
+  const toggleChassis = (id: string) => {
+    setSelectedChassis((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
+
+  const setAttr = (key: string, value: string | number) => {
+    setAttrs((prev) => ({ ...prev, [key]: value }));
+  };
 
   const applyLookup = (r: PartLookupResult) => {
     if (r.name) setName(r.name);
-    if (r.vendorId) setSelectedVendorId(r.vendorId);
+    if (r.compatibleChassisIds?.length) setSelectedChassis(r.compatibleChassisIds);
     if (r.notes) setNotes(r.notes);
     if (r.attributes) setAttrs((prev) => ({ ...prev, ...r.attributes }));
   };
 
   const handleSave = async () => {
-    if (!name.trim() || !selectedVendorId || !selectedCategoryId) return;
+    if (!name.trim() || !selectedVendor) return;
 
     const now = new Date().toISOString();
-    const isEdit = editPart && !isClone;
     const part: LocalPart = {
-      id: isEdit ? editPart.id : uuid(),
+      id: editPart?.id ?? uuid(),
       userId: "local",
-      vendorId: selectedVendorId,
-      categoryId: selectedCategoryId,
+      vendorId: selectedVendor.id,
+      categoryId: category.id,
       name: name.trim(),
       sku: sku.trim() || undefined,
-      compatibleChassisIds: isEdit ? editPart.compatibleChassisIds : [],
+      compatibleChassisIds: selectedChassis,
       attributes: attrs,
       notes: notes.trim() || undefined,
-      sortOrder: sortOrder.trim() === "" ? undefined : Number(sortOrder.trim()),
-      setupTemplateIds: selectedTemplateIds.size > 0 ? [...selectedTemplateIds] : undefined,
-      createdAt: isEdit ? editPart.createdAt : now,
+      createdAt: editPart?.createdAt ?? now,
       updatedAt: now,
       _dirty: 1 as const,
     };
@@ -1026,41 +1112,26 @@ function AddPartForm({
   return (
     <>
       <h2 className="text-lg font-semibold mb-4">
-        {isClone ? "Clone Part" : editPart ? "Edit Part" : "Add Part"}
+        {editPart ? "Edit" : "Add"} {resolvedCategory.name.replace(/s$/, "")}
       </h2>
 
       <div className="flex flex-col gap-4">
-        {/* Manufacturer */}
+        {/* Vendor picker */}
         <div>
-          <label className="text-xs text-neutral-400 mb-1 block">Manufacturer *</label>
-          <select
-            className={inputClass}
-            value={selectedVendorId}
-            onChange={(e) => setSelectedVendorId(e.target.value)}
-          >
-            <option value="">Select manufacturer...</option>
+          <label className="text-xs text-neutral-400 mb-2 block">Vendor *</label>
+          <div className="grid grid-cols-3 gap-2">
             {vendors.map((v) => (
-              <option key={v.id} value={v.id}>{v.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Category */}
-        <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Category *</label>
-          <div className="flex flex-wrap gap-2">
-            {templateCategories.map((cat) => (
               <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategoryId(cat)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedCategoryId === cat
-                    ? "bg-blue-600 border-blue-500 text-white"
-                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                key={v.id}
+                onClick={() => setSelectedVendor(v)}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+                  selectedVendor?.id === v.id
+                    ? "bg-blue-600/20 border-blue-500"
+                    : "bg-neutral-900 border-neutral-800 hover:border-neutral-600"
                 }`}
               >
-                {cat}
+                <VendorLogo slug={v.slug} size={32} />
+                <span className="text-[10px] text-neutral-400">{v.name}</span>
               </button>
             ))}
           </div>
@@ -1071,7 +1142,7 @@ function AddPartForm({
           <label className="text-xs text-neutral-400 mb-1 block">Part Name *</label>
           <input
             className={inputClass}
-            placeholder="e.g. PN Racing 53T Spur Gear"
+            placeholder={`e.g. ${resolvedCategory.name.replace(/s$/, "")} ...`}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -1085,6 +1156,70 @@ function AddPartForm({
           inputClass={inputClass}
         />
 
+        {/* Compatible Chassis */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-2 block">Compatible Chassis</label>
+          <div className="flex flex-wrap gap-2">
+            {chassisPlatforms.map((cp) => (
+              <button
+                key={cp.id}
+                onClick={() => toggleChassis(cp.id)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  selectedChassis.includes(cp.id)
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                }`}
+              >
+                {cp.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Category-specific attributes */}
+        {resolvedCategory.attributes.length > 0 && (
+          <div>
+            <label className="text-xs text-neutral-400 mb-2 block">Specifications</label>
+            <div className="flex flex-col gap-3">
+              {resolvedCategory.attributes.map((attr) => (
+                <div key={attr.key}>
+                  <label className="text-xs text-neutral-500 mb-1 block">
+                    {attr.label}
+                    {attr.required && " *"}
+                  </label>
+                  {attr.type === "pick" && attr.options ? (
+                    <select
+                      className={inputClass}
+                      value={(attrs[attr.key] as string) ?? ""}
+                      onChange={(e) => setAttr(attr.key, e.target.value)}
+                    >
+                      <option value="">Select...</option>
+                      {attr.options.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  ) : attr.type === "number" ? (
+                    <input
+                      type="number"
+                      className={inputClass}
+                      placeholder={attr.unit ? `(${attr.unit})` : ""}
+                      value={attrs[attr.key] ?? ""}
+                      onChange={(e) => setAttr(attr.key, e.target.value ? Number(e.target.value) : "")}
+                    />
+                  ) : (
+                    <input
+                      className={inputClass}
+                      placeholder={attr.label}
+                      value={(attrs[attr.key] as string) ?? ""}
+                      onChange={(e) => setAttr(attr.key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Notes */}
         <div>
           <label className="text-xs text-neutral-400 mb-1 block">Notes</label>
@@ -1096,54 +1231,11 @@ function AddPartForm({
           />
         </div>
 
-        {/* Sort Order */}
-        <div className="w-32">
-          <label className="text-xs text-neutral-400 mb-1 block">Sort Order</label>
-          <input
-            type="number"
-            className={inputClass}
-            placeholder="— (bottom)"
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-          />
-        </div>
-
-        {/* Setup Templates */}
-        {setupTemplates.length > 0 && (
-          <div>
-            <label className="text-xs text-neutral-400 mb-2 block">Setup Templates</label>
-            <p className="text-[11px] text-neutral-500 mb-2">Select templates where this part is an option.</p>
-            <div className="flex flex-wrap gap-2">
-              {setupTemplates.map((t) => {
-                const active = selectedTemplateIds.has(t.id);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setSelectedTemplateIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
-                      return next;
-                    })}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                      active
-                        ? "bg-blue-600 border-blue-500 text-white"
-                        : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
-                    }`}
-                  >
-                    {active ? "✓ " : ""}📋 {t.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Actions */}
         <div className="flex gap-3">
           <button
             onClick={handleSave}
-            disabled={!name.trim() || !selectedVendorId || !selectedCategoryId}
+            disabled={!name.trim() || !selectedVendor}
             className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
           >
             {editPart ? "Save Changes" : "Add Part"}
@@ -1165,21 +1257,19 @@ function AddPartForm({
 function PartDetail({
   part,
   onEdit,
-  onDelete,
 }: {
   part: LocalPart;
   onEdit: () => void;
-  onDelete: () => Promise<void>;
 }) {
+  const allCategories = useAllCategories();
   const vendor = getVendorById(part.vendorId);
+  const category = allCategories.find(c => c.id === part.categoryId) ?? getCategoryById(part.categoryId);
   const [files, setFiles] = useState<{ id: string; name: string; mimeType: string; url: string }[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [viewingPdf, setViewingPdf] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
 
-  // Load files on mount / part change
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -1265,7 +1355,7 @@ function PartDetail({
           <div>
             <h2 className="text-lg font-semibold">{part.name}</h2>
             <p className="text-xs text-neutral-500">
-              {vendor?.name} · {part.categoryId}
+              {vendor?.name} · {category?.name}
             </p>
           </div>
         </div>
@@ -1285,16 +1375,39 @@ function PartDetail({
           </div>
         )}
 
-        {Object.keys(part.attributes).length > 0 && (
+        {part.compatibleChassisIds.length > 0 && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
+            <p className="text-xs text-neutral-500 mb-2">Compatible Chassis</p>
+            <div className="flex flex-wrap gap-1.5">
+              {part.compatibleChassisIds.map((id) => {
+                const cp = chassisPlatforms.find((c) => c.id === id);
+                return cp ? (
+                  <span
+                    key={id}
+                    className="text-xs px-2 py-1 bg-neutral-800 rounded-full text-neutral-300"
+                  >
+                    {cp.name}
+                  </span>
+                ) : null;
+              })}
+            </div>
+          </div>
+        )}
+
+        {category && Object.keys(part.attributes).length > 0 && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
             <p className="text-xs text-neutral-500 mb-2">Specifications</p>
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(part.attributes).map(([key, val]) => {
+              {category.attributes.map((attr) => {
+                const val = part.attributes[attr.key];
                 if (val === undefined || val === "") return null;
                 return (
-                  <div key={key}>
-                    <p className="text-xs text-neutral-500">{key}</p>
-                    <p className="text-sm">{val}</p>
+                  <div key={attr.key}>
+                    <p className="text-xs text-neutral-500">{attr.label}</p>
+                    <p className="text-sm">
+                      {val}
+                      {attr.unit ? ` ${attr.unit}` : ""}
+                    </p>
                   </div>
                 );
               })}
@@ -1309,7 +1422,7 @@ function PartDetail({
           </div>
         )}
 
-        {/* ── Photos ─────────────────────────────────── */}
+        {/* Photos */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-neutral-500">Photos</p>
@@ -1324,15 +1437,8 @@ function PartDetail({
             <div className="grid grid-cols-3 gap-2">
               {images.map((img) => (
                 <div key={img.id} className="relative group">
-                  <button
-                    onClick={() => setViewingImage(img.url)}
-                    className="w-full"
-                  >
-                    <img
-                      src={img.url}
-                      alt={img.name}
-                      className="w-full h-20 object-cover rounded-lg"
-                    />
+                  <button onClick={() => setViewingImage(img.url)} className="w-full">
+                    <img src={img.url} alt={img.name} className="w-full h-20 object-cover rounded-lg" />
                   </button>
                   <button
                     onClick={() => handleDeleteFile(img.id)}
@@ -1348,7 +1454,7 @@ function PartDetail({
           )}
         </div>
 
-        {/* ── Documents ──────────────────────────────── */}
+        {/* Documents */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-neutral-500">Documents</p>
@@ -1362,14 +1468,8 @@ function PartDetail({
           {pdfs.length > 0 ? (
             <div className="flex flex-col gap-2">
               {pdfs.map((pdf) => (
-                <div
-                  key={pdf.id}
-                  className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2 group"
-                >
-                  <button
-                    onClick={() => setViewingPdf(pdf.url)}
-                    className="flex items-center gap-2 text-left flex-1 min-w-0"
-                  >
+                <div key={pdf.id} className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2 group">
+                  <button onClick={() => setViewingPdf(pdf.url)} className="flex items-center gap-2 text-left flex-1 min-w-0">
                     <span className="text-lg">📄</span>
                     <span className="text-sm text-neutral-300 truncate">{pdf.name}</span>
                   </button>
@@ -1388,88 +1488,25 @@ function PartDetail({
         </div>
       </div>
 
-      {/* ── Delete Part ────────────────────────────── */}
-      <div className="border-t border-neutral-800 pt-4 mt-2">
-        {confirmDelete ? (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-neutral-400">Delete this part and all its files?</span>
-            <button
-              onClick={() => { setConfirmDelete(false); onDelete(); }}
-              className="text-sm px-4 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors"
-            >
-              Yes, Delete
-            </button>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="text-sm px-4 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="text-sm text-red-400 hover:text-red-300"
-          >
-            Delete Part
-          </button>
-        )}
-      </div>
-
       {/* Hidden file inputs */}
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleImageUpload}
-      />
-      <input
-        ref={pdfInputRef}
-        type="file"
-        accept="application/pdf"
-        className="hidden"
-        onChange={handlePdfUpload}
-      />
+      <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
 
-      {/* ── Fullscreen image viewer ────────────────── */}
+      {/* Fullscreen image viewer */}
       {viewingImage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setViewingImage(null)}
-        >
-          <img
-            src={viewingImage}
-            alt="Part photo"
-            className="max-w-full max-h-full object-contain rounded-lg"
-          />
-          <button
-            className="absolute top-4 right-4 text-white text-2xl"
-            onClick={() => setViewingImage(null)}
-          >
-            ✕
-          </button>
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setViewingImage(null)}>
+          <img src={viewingImage} alt="Part photo" className="max-w-full max-h-full object-contain rounded-lg" />
+          <button className="absolute top-4 right-4 text-white text-2xl" onClick={() => setViewingImage(null)}>✕</button>
         </div>
       )}
 
-      {/* ── Fullscreen PDF viewer ──────────────────── */}
+      {/* Fullscreen PDF viewer */}
       {viewingPdf && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex flex-col p-4"
-        >
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col p-4">
           <div className="flex justify-end mb-2">
-            <button
-              className="text-white text-2xl"
-              onClick={() => setViewingPdf(null)}
-            >
-              ✕
-            </button>
+            <button className="text-white text-2xl" onClick={() => setViewingPdf(null)}>✕</button>
           </div>
-          <iframe
-            src={viewingPdf}
-            title="PDF Document"
-            className="flex-1 rounded-lg bg-white"
-          />
+          <iframe src={viewingPdf} title="PDF Document" className="flex-1 rounded-lg bg-white" />
         </div>
       )}
     </>
@@ -1485,43 +1522,58 @@ function QuickAddPart({
   onSaved: (p: LocalPart) => void;
   onCancel: () => void;
 }) {
-  const [selectedVendorId, setSelectedVendorId] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const allCategories = useAllCategories();
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<MergedCategory | null>(null);
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [notes, setNotes] = useState("");
+  const [selectedChassis, setSelectedChassis] = useState<string[]>([]);
+  const [attrs, setAttrs] = useState<Record<string, string | number>>({});
 
-  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
+  const toggleChassis = (id: string) => {
+    setSelectedChassis((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
 
-  // Derive categories from templates
-  const templateCategories = useMemo(() => {
-    const catSet = new Set<string>();
-    for (const t of setupTemplates) {
-      for (const cap of t.capabilities) catSet.add(cap.category);
-    }
-    return [...catSet].sort();
-  }, [setupTemplates]);
+  const setAttr = (key: string, value: string | number) => {
+    setAttrs((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleCategoryChange = (cat: MergedCategory | null) => {
+    setSelectedCategory(cat);
+    setAttrs({});
+  };
 
   const applyLookup = (r: PartLookupResult) => {
     if (r.name) setName(r.name);
-    if (r.vendorId) setSelectedVendorId(r.vendorId);
-    if (r.categoryId) setSelectedCategoryId(r.categoryId);
+    if (r.vendorId) {
+      const v = vendors.find((v) => v.id === r.vendorId);
+      if (v) setSelectedVendor(v);
+    }
+    if (r.categoryId) {
+      const c = allCategories.find((c) => c.id === r.categoryId);
+      if (c) setSelectedCategory(c);
+    }
+    if (r.compatibleChassisIds?.length) setSelectedChassis(r.compatibleChassisIds);
     if (r.notes) setNotes(r.notes);
+    if (r.attributes) setAttrs((prev) => ({ ...prev, ...r.attributes }));
   };
 
   const handleSave = async () => {
-    if (!name.trim() || !selectedVendorId || !selectedCategoryId) return;
+    if (!name.trim() || !selectedVendor || !selectedCategory) return;
 
     const now = new Date().toISOString();
     const part: LocalPart = {
       id: uuid(),
       userId: "local",
-      vendorId: selectedVendorId,
-      categoryId: selectedCategoryId,
+      vendorId: selectedVendor.id,
+      categoryId: selectedCategory.id,
       name: name.trim(),
       sku: sku.trim() || undefined,
-      compatibleChassisIds: [],
-      attributes: {},
+      compatibleChassisIds: selectedChassis,
+      attributes: attrs,
       notes: notes.trim() || undefined,
       createdAt: now,
       updatedAt: now,
@@ -1540,37 +1592,42 @@ function QuickAddPart({
       <h2 className="text-lg font-semibold mb-4">Add Part</h2>
 
       <div className="flex flex-col gap-4">
-        {/* Manufacturer picker */}
+        {/* Vendor picker */}
         <div>
-          <label className="text-xs text-neutral-400 mb-2 block">Manufacturer *</label>
-          <select
-            className={inputClass}
-            value={selectedVendorId}
-            onChange={(e) => setSelectedVendorId(e.target.value)}
-          >
-            <option value="">Select manufacturer...</option>
+          <label className="text-xs text-neutral-400 mb-2 block">Vendor *</label>
+          <div className="grid grid-cols-3 gap-2">
             {vendors.map((v) => (
-              <option key={v.id} value={v.id}>{v.name}</option>
+              <button
+                key={v.id}
+                onClick={() => setSelectedVendor(v)}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+                  selectedVendor?.id === v.id
+                    ? "bg-blue-600/20 border-blue-500"
+                    : "bg-neutral-900 border-neutral-800 hover:border-neutral-600"
+                }`}
+              >
+                <VendorLogo slug={v.slug} size={32} />
+                <span className="text-[10px] text-neutral-400">{v.name}</span>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* Category picker */}
         <div>
           <label className="text-xs text-neutral-400 mb-2 block">Category *</label>
           <div className="flex flex-wrap gap-2">
-            {templateCategories.map((cat) => (
+            {allCategories.map((cat) => (
               <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategoryId(cat)}
+                key={cat.id}
+                onClick={() => handleCategoryChange(cat)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedCategoryId === cat
+                  selectedCategory?.id === cat.id
                     ? "bg-blue-600 border-blue-500 text-white"
                     : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
                 }`}
               >
-                {cat}
+                {cat.icon} {cat.name}
               </button>
             ))}
           </div>
@@ -1595,6 +1652,70 @@ function QuickAddPart({
           inputClass={inputClass}
         />
 
+        {/* Compatible Chassis */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-2 block">Compatible Chassis</label>
+          <div className="flex flex-wrap gap-2">
+            {chassisPlatforms.map((cp) => (
+              <button
+                key={cp.id}
+                onClick={() => toggleChassis(cp.id)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  selectedChassis.includes(cp.id)
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                }`}
+              >
+                {cp.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Category-specific attributes */}
+        {selectedCategory && selectedCategory.attributes.length > 0 && (
+          <div>
+            <label className="text-xs text-neutral-400 mb-2 block">Specifications</label>
+            <div className="flex flex-col gap-3">
+              {selectedCategory.attributes.map((attr) => (
+                <div key={attr.key}>
+                  <label className="text-xs text-neutral-500 mb-1 block">
+                    {attr.label}
+                    {attr.required && " *"}
+                  </label>
+                  {attr.type === "pick" && attr.options ? (
+                    <select
+                      className={inputClass}
+                      value={(attrs[attr.key] as string) ?? ""}
+                      onChange={(e) => setAttr(attr.key, e.target.value)}
+                    >
+                      <option value="">Select...</option>
+                      {attr.options.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  ) : attr.type === "number" ? (
+                    <input
+                      type="number"
+                      className={inputClass}
+                      placeholder={attr.unit ? `(${attr.unit})` : ""}
+                      value={attrs[attr.key] ?? ""}
+                      onChange={(e) => setAttr(attr.key, e.target.value ? Number(e.target.value) : "")}
+                    />
+                  ) : (
+                    <input
+                      className={inputClass}
+                      placeholder={attr.label}
+                      value={(attrs[attr.key] as string) ?? ""}
+                      onChange={(e) => setAttr(attr.key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Notes */}
         <div>
           <label className="text-xs text-neutral-400 mb-1 block">Notes</label>
@@ -1610,7 +1731,7 @@ function QuickAddPart({
         <div className="flex gap-3">
           <button
             onClick={handleSave}
-            disabled={!name.trim() || !selectedVendorId || !selectedCategoryId}
+            disabled={!name.trim() || !selectedVendor || !selectedCategory}
             className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-sm font-medium py-3 rounded-lg transition-colors"
           >
             Add Part
@@ -1638,8 +1759,6 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [filesFound, setFilesFound] = useState(0);
-
-  const setupTemplates = useLiveQuery(() => localDb.setupTemplates.toArray()) ?? [];
 
   const handleGenerate = async () => {
     if (!chassis.trim()) return;
@@ -1693,7 +1812,7 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
       categoryId: s.categoryId,
       name: s.name,
       sku: s.sku ?? "",
-      compatibleChassisIds: [],
+      compatibleChassisIds: s.compatibleChassisIds,
       attributes: s.attributes,
       notes: s.notes ?? "",
       createdAt: now,
@@ -1703,7 +1822,6 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
 
     await localDb.parts.bulkAdd(parts);
 
-    // Attempt to fetch images and PDFs in the background
     let filesAttached = 0;
     for (let i = 0; i < toSave.length; i++) {
       const suggested = toSave[i];
@@ -1757,7 +1875,7 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
   };
 
   const getVendorName = (id: string) => getVendorById(id)?.name ?? id;
-  const getCategoryName = (id: string) => id;
+  const getCategoryName = (id: string) => getCategoryById(id)?.name ?? id;
 
   return (
     <>
@@ -1766,18 +1884,15 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
         Pick a chassis and let AI suggest optional & upgrade parts
       </p>
 
-      {/* Chassis picker */}
       <div className="flex gap-2 mb-4">
         <select
           className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white"
           value={chassis}
           onChange={(e) => setChassis(e.target.value)}
         >
-          <option value="">Select template...</option>
-          {setupTemplates.map((t) => (
-            <option key={t.id} value={t.name}>
-              {t.name}
-            </option>
+          <option value="">Select chassis...</option>
+          {chassisPlatforms.map((c) => (
+            <option key={c.id} value={c.name}>{c.name}</option>
           ))}
         </select>
         <button
@@ -1789,31 +1904,25 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
         </button>
       </div>
 
-      {/* Loading */}
       {loading && (
         <div className="text-center py-12 text-neutral-400 text-sm">
           <div className="animate-pulse">Asking Gemini for parts...</div>
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <div className="bg-red-900/30 border border-red-700 text-red-300 text-sm px-4 py-3 rounded-lg mb-4">
           {error}
         </div>
       )}
 
-      {/* Results */}
       {results.length > 0 && savedCount === null && (
         <>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-neutral-300">
               {results.length} parts found — {selected.size} selected
             </span>
-            <button
-              onClick={toggleAll}
-              className="text-xs text-blue-400 hover:text-blue-300"
-            >
+            <button onClick={toggleAll} className="text-xs text-blue-400 hover:text-blue-300">
               {selected.size === results.length ? "Deselect All" : "Select All"}
             </button>
           </div>
@@ -1824,25 +1933,19 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
                 key={i}
                 onClick={() => toggle(i)}
                 className={`text-left bg-neutral-900 border rounded-lg px-3 py-2.5 transition-colors ${
-                  selected.has(i)
-                    ? "border-purple-500 bg-purple-900/20"
-                    : "border-neutral-800"
+                  selected.has(i) ? "border-purple-500 bg-purple-900/20" : "border-neutral-800"
                 }`}
               >
                 <div className="flex items-start gap-2">
                   <div
                     className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center text-xs ${
-                      selected.has(i)
-                        ? "bg-purple-600 border-purple-600 text-white"
-                        : "border-neutral-600"
+                      selected.has(i) ? "bg-purple-600 border-purple-600 text-white" : "border-neutral-600"
                     }`}
                   >
                     {selected.has(i) && "✓"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white truncate">
-                      {part.name}
-                    </div>
+                    <div className="text-sm font-medium text-white truncate">{part.name}</div>
                     <div className="text-xs text-neutral-400 mt-0.5">
                       {getVendorName(part.vendorId)} · {getCategoryName(part.categoryId)}
                       {part.sku && ` · ${part.sku}`}
@@ -1866,35 +1969,27 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
             >
               {saving ? "Saving & fetching files..." : `Add ${selected.size} Parts`}
             </button>
-            <button
-              onClick={onDone}
-              className="px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
-            >
+            <button onClick={onDone} className="px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
               Cancel
             </button>
           </div>
         </>
       )}
 
-      {/* Success */}
       {savedCount !== null && (
         <div className="text-center py-12">
           <div className="text-4xl mb-3">✅</div>
           <div className="text-lg font-semibold text-white mb-1">
             {savedCount} parts added!
           </div>
-          <p className="text-sm text-neutral-400 mb-1">
-            Browse your vendors to see them
-          </p>
+          <p className="text-sm text-neutral-400 mb-1">Browse categories to see them</p>
           {filesFound > 0 && (
             <p className="text-sm text-purple-400 mb-6">
               📎 {filesFound} image{filesFound !== 1 ? "s" : ""} / doc{filesFound !== 1 ? "s" : ""} attached
             </p>
           )}
           {filesFound === 0 && (
-            <p className="text-xs text-neutral-500 mb-6">
-              No downloadable images or docs found
-            </p>
+            <p className="text-xs text-neutral-500 mb-6">No downloadable images or docs found</p>
           )}
           <button
             onClick={onDone}

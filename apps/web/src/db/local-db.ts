@@ -211,6 +211,25 @@ export interface LocalPartFile {
   createdAt: string;
 }
 
+export interface LocalPartCategory {
+  id: string;
+  name: string;
+  icon: string;
+  attributes: { key: string; label: string; type: "text" | "number" | "pick"; options?: string[]; unit?: string; required?: boolean }[];
+  builtIn: 0 | 1;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LocalCategoryImage {
+  id: string;
+  categoryId: string;
+  blob: Blob;
+  name: string;
+  mimeType: string;
+  createdAt: string;
+}
+
 export interface LocalCustomCar {
   id: string;
   userId: string;
@@ -304,6 +323,8 @@ class SetupIQDatabase extends Dexie {
   carNotes!: Table<LocalCarNote, string>;
   hiddenGarageCars!: Table<HiddenGarageCar, string>;
   setupTemplates!: Table<LocalSetupTemplate, string>;
+  customPartCategories!: Table<LocalPartCategory, string>;
+  categoryImages!: Table<LocalCategoryImage, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -664,6 +685,12 @@ class SetupIQDatabase extends Dexie {
         if (!f.updatedAt) f.updatedAt = f.createdAt || new Date().toISOString();
         if (f._dirty === undefined) f._dirty = 1;
       });
+    });
+
+    // v23: add customPartCategories and categoryImages tables
+    this.version(23).stores({
+      customPartCategories: "id, name, builtIn",
+      categoryImages: "id, categoryId",
     });
   }
 }
