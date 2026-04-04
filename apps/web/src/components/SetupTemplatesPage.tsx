@@ -48,6 +48,7 @@ export function SetupTemplatesPage() {
               builtIn: false,
               createdAt: now,
               updatedAt: now,
+              _dirty: 1,
             };
             await localDb.setupTemplates.put(cloned);
             setView({ type: "edit", template: cloned });
@@ -492,12 +493,14 @@ function TemplateEditor({
     const now = new Date().toISOString();
     const saved: LocalSetupTemplate = {
       id: template?.id ?? uuid(),
+      userId: template?.userId ?? "local",
       name: name.trim(),
       compatibleChassisIds: selectedChassisIds,
       capabilities: ordered,
       builtIn: false,
       createdAt: template?.createdAt ?? now,
       updatedAt: now,
+      _dirty: 1,
     };
 
     await localDb.setupTemplates.put(saved);

@@ -210,6 +210,7 @@ export async function seedSetupTemplates(): Promise<void> {
 
     await localDb.setupTemplates.put({
       id: car.id,
+      userId: "local",
       name: `${car.manufacturer} ${car.name}`,
       compatibleChassisIds: carToChassisMap[car.id] ?? [],
       capabilities: car.capabilities.map((c) => ({
@@ -221,6 +222,7 @@ export async function seedSetupTemplates(): Promise<void> {
       builtIn: true,
       createdAt: now,
       updatedAt: now,
+      _dirty: 1,
     });
   }
 

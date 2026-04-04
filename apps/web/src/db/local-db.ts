@@ -263,6 +263,7 @@ export interface HiddenGarageCar {
 /** Setup sheet template — defines which capabilities appear on a setup form. */
 export interface LocalSetupTemplate {
   id: string;
+  userId: string;
   name: string;
   compatibleChassisIds: string[];
   capabilities: {
@@ -276,6 +277,7 @@ export interface LocalSetupTemplate {
   builtIn?: boolean;
   createdAt: string;
   updatedAt: string;
+  _dirty: 0 | 1;
 }
 
 class SetupIQDatabase extends Dexie {
@@ -626,6 +628,16 @@ class SetupIQDatabase extends Dexie {
           }
         }),
       ]);
+    });
+
+    // v20: add userId + _dirty to setupTemplates for sync
+    this.version(20).stores({
+      setupTemplates: "id, userId, name, builtIn, _dirty",
+    }).upgrade((tx) => {
+      return tx.table("setupTemplates").toCollection().modify((tmpl: any) => {
+        if (!tmpl.userId) tmpl.userId = "local";
+        if (tmpl._dirty === undefined) tmpl._dirty = 1;
+      });
     });
   }
 }

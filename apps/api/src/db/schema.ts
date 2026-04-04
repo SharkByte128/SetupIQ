@@ -192,6 +192,19 @@ export const customCars = pgTable("custom_cars", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Setup Templates ──────────────────────────────────────────
+
+export const setupTemplates = pgTable("setup_templates", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  compatibleChassisIds: jsonb("compatible_chassis_ids").$type<string[]>().default([]),
+  capabilities: jsonb("capabilities").notNull().$type<Record<string, unknown>[]>(),
+  builtIn: boolean("built_in").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Car Images ───────────────────────────────────────────────
 
 export const carImages = pgTable("car_images", {

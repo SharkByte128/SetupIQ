@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
-import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages } from "../db/schema.js";
+import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages, setupTemplates } from "../db/schema.js";
 import { eq, gt, and, inArray } from "drizzle-orm";
 
 type AuthUser = { id: string; email: string; displayName: string };
@@ -22,6 +22,7 @@ interface SyncPushBody {
   raceResults?: SyncRecord[];
   customCars?: SyncRecord[];
   carImages?: SyncRecord[];
+  setupTemplates?: SyncRecord[];
 }
 
 interface SyncPullQuery {
@@ -42,7 +43,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const since = request.query.since ? new Date(request.query.since) : new Date(0);
 
     try {
-      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages] = await Promise.all([
+      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages, userSetupTemplates] = await Promise.all([
         db.select().from(setupSnapshots).where(
           and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
         ),
@@ -68,6 +69,9 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         ),
         db.select().from(carImages).where(
           and(eq(carImages.userId, user.id), gt(carImages.updatedAt, since))
+        ),
+        db.select().from(setupTemplates).where(
+          and(eq(setupTemplates.userId, user.id), gt(setupTemplates.updatedAt, since))
         ),
       ]);
 
@@ -99,6 +103,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         raceResults: userRaceResults,
         customCars: userCustomCars,
         carImages: userCarImages,
+        setupTemplates: userSetupTemplates,
         serverTime: new Date().toISOString(),
       };
     } catch (err: unknown) {
@@ -462,6 +467,34 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.carImages = body.carImages.length;
+    }
+
+    // Upsert setup templates
+    if (body.setupTemplates?.length) {
+      for (const record of body.setupTemplates) {
+        await db
+          .insert(setupTemplates)
+          .values({
+            id: record.id,
+            userId: user.id,
+            name: (record.data.name as string) || "Untitled",
+            compatibleChassisIds: (record.data.compatibleChassisIds as string[]) || [],
+            capabilities: (record.data.capabilities as Record<string, unknown>[]) || [],
+            builtIn: Boolean(record.data.builtIn),
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: setupTemplates.id,
+            set: {
+              name: (record.data.name as string) || "Untitled",
+              compatibleChassisIds: (record.data.compatibleChassisIds as string[]) || [],
+              capabilities: (record.data.capabilities as Record<string, unknown>[]) || [],
+              builtIn: Boolean(record.data.builtIn),
+              updatedAt: new Date(),
+            },
+          });
+      }
+      results.setupTemplates = body.setupTemplates.length;
     }
 
     return { ok: true, upserted: results };

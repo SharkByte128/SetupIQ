@@ -136,6 +136,7 @@ async function hasDirtyRecords(): Promise<boolean> {
     localDb.raceResults.where("_dirty").equals(1).count(),
     localDb.customCars.where("_dirty").equals(1).count(),
     localDb.carImages.where("_dirty").equals(1).count(),
+    localDb.setupTemplates.where("_dirty").equals(1).count(),
   ]);
   return counts.some((c) => c > 0);
 }
@@ -154,13 +155,14 @@ export async function markAllDirty(): Promise<void> {
     localDb.raceResults.toCollection().modify({ _dirty: 1 }),
     localDb.customCars.toCollection().modify({ _dirty: 1 }),
     localDb.carImages.toCollection().modify({ _dirty: 1 }),
+    localDb.setupTemplates.toCollection().modify({ _dirty: 1 }),
   ]);
 }
 
 // ─── Push dirty records to server ───────────────────────────
 
 async function pushDirtyRecords(): Promise<void> {
-  const [dirtySetups, dirtyTracks, dirtySessions, dirtySegments, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages, dirtyComponents, dirtyMeasurements] = await Promise.all([
+  const [dirtySetups, dirtyTracks, dirtySessions, dirtySegments, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages, dirtyComponents, dirtyMeasurements, dirtySetupTemplates] = await Promise.all([
     localDb.setupSnapshots.where("_dirty").equals(1).toArray(),
     localDb.tracks.where("_dirty").equals(1).toArray(),
     localDb.runSessions.where("_dirty").equals(1).toArray(),
@@ -171,11 +173,12 @@ async function pushDirtyRecords(): Promise<void> {
     localDb.carImages.where("_dirty").equals(1).toArray(),
     localDb.components.where("_dirty").equals(1).toArray(),
     localDb.measurements.where("_dirty").equals(1).toArray(),
+    localDb.setupTemplates.where("_dirty").equals(1).toArray(),
   ]);
 
   const hasAny = dirtySetups.length || dirtyTracks.length || dirtySessions.length || dirtySegments.length ||
     dirtyParts.length || dirtyRaceResults.length || dirtyCustomCars.length || dirtyCarImages.length ||
-    dirtyComponents.length || dirtyMeasurements.length;
+    dirtyComponents.length || dirtyMeasurements.length || dirtySetupTemplates.length;
   if (!hasAny) return;
 
   const body: Record<string, { id: string; updatedAt: string; data: Record<string, unknown> }[]> = {};
@@ -295,6 +298,17 @@ async function pushDirtyRecords(): Promise<void> {
     );
   }
 
+  if (dirtySetupTemplates.length > 0) {
+    body.setupTemplates = dirtySetupTemplates.map((t) => ({
+      id: t.id,
+      updatedAt: t.updatedAt,
+      data: {
+        name: t.name, compatibleChassisIds: t.compatibleChassisIds,
+        capabilities: t.capabilities, builtIn: t.builtIn,
+      },
+    }));
+  }
+
   await syncFetch("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
 
   // Mark pushed records as clean
@@ -309,6 +323,7 @@ async function pushDirtyRecords(): Promise<void> {
     ...dirtyCarImages.map((img) => localDb.carImages.update(img.id, { _dirty: 0 })),
     ...dirtyComponents.map((c) => localDb.components.update(c.id, { _dirty: 0 })),
     ...dirtyMeasurements.map((m) => localDb.measurements.update(m.id, { _dirty: 0 })),
+    ...dirtySetupTemplates.map((t) => localDb.setupTemplates.update(t.id, { _dirty: 0 })),
   ]);
 }
 
@@ -325,6 +340,7 @@ interface PullResponse {
   raceResults: any[];
   customCars: any[];
   carImages: any[];
+  setupTemplates: any[];
   serverTime: string;
 }
 
@@ -337,7 +353,7 @@ async function pullFromServer(): Promise<void> {
   await localDb.transaction("rw",
     [localDb.setupSnapshots, localDb.tracks, localDb.components, localDb.runSessions,
      localDb.runSegments, localDb.measurements, localDb.parts, localDb.raceResults,
-     localDb.customCars, localDb.carImages, localDb.syncMeta],
+     localDb.customCars, localDb.carImages, localDb.setupTemplates, localDb.syncMeta],
     async () => {
       for (const setup of data.setupSnapshots) {
         const local = await localDb.setupSnapshots.get(setup.id);
@@ -545,6 +561,23 @@ async function pullFromServer(): Promise<void> {
         }
       }
 
+      for (const tmpl of (data.setupTemplates || [])) {
+        const local = await localDb.setupTemplates.get(tmpl.id);
+        if (!local || new Date(tmpl.updated_at || tmpl.updatedAt) > new Date(local.updatedAt)) {
+          await localDb.setupTemplates.put({
+            id: tmpl.id,
+            userId: tmpl.user_id || tmpl.userId,
+            name: tmpl.name,
+            compatibleChassisIds: tmpl.compatible_chassis_ids || tmpl.compatibleChassisIds || [],
+            capabilities: tmpl.capabilities || [],
+            builtIn: tmpl.built_in ?? tmpl.builtIn ?? false,
+            createdAt: tmpl.created_at || tmpl.createdAt,
+            updatedAt: tmpl.updated_at || tmpl.updatedAt,
+            _dirty: 0,
+          });
+        }
+      }
+
       await localDb.syncMeta.put({ key: "lastSyncTime", value: data.serverTime });
     }
   );
@@ -633,6 +666,7 @@ export async function wipeAndResync(): Promise<void> {
     localDb.parts.clear(),
     localDb.customCars.clear(),
     localDb.carImages.clear(),
+    localDb.setupTemplates.clear(),
   ]);
   // Reset sync cursor so pull fetches everything
   await localDb.syncMeta.delete("lastSyncTime");
