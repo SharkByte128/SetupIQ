@@ -20,6 +20,7 @@ import {
 import { lookupPartBySku, suggestPartsForChassis, type PartLookupResult, type SuggestedPart } from "../lib/gemini-parts.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
+import { RichNotesEditor, MarkdownDisplay } from "./RichNotesEditor.js";
 
 // ── Vendor Logo SVGs ──────────────────────────────────────────
 
@@ -1223,11 +1224,11 @@ function AddPartForm({
         {/* Notes */}
         <div>
           <label className="text-xs text-neutral-400 mb-1 block">Notes</label>
-          <textarea
-            className={inputClass + " min-h-[60px] resize-y"}
-            placeholder="Any additional notes..."
+          <RichNotesEditor
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={setNotes}
+            placeholder="Any additional notes..."
+            minHeight={80}
           />
         </div>
 
@@ -1417,8 +1418,8 @@ function PartDetail({
 
         {part.notes && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
-            <p className="text-xs text-neutral-500">Notes</p>
-            <p className="text-sm text-neutral-300">{part.notes}</p>
+            <p className="text-xs text-neutral-500 mb-1">Notes</p>
+            <MarkdownDisplay content={part.notes} />
           </div>
         )}
 
@@ -1719,11 +1720,11 @@ function QuickAddPart({
         {/* Notes */}
         <div>
           <label className="text-xs text-neutral-400 mb-1 block">Notes</label>
-          <textarea
-            className={inputClass + " min-h-[60px] resize-y"}
-            placeholder="Any additional notes..."
+          <RichNotesEditor
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={setNotes}
+            placeholder="Any additional notes..."
+            minHeight={80}
           />
         </div>
 

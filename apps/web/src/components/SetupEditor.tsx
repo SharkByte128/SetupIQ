@@ -3,6 +3,7 @@ import type { CarDefinition, SetupEntry, WheelTireSetup, SetupSnapshot } from "@
 import { validateSetup } from "@setupiq/shared";
 import { CapabilityField } from "./CapabilityField.js";
 import { WheelTireSelector } from "./WheelTireSelector.js";
+import { RichNotesEditor } from "./RichNotesEditor.js";
 
 interface Props {
   car: CarDefinition;
@@ -133,12 +134,11 @@ export function SetupEditor({ car, existing, onSave, onCancel }: Props) {
       {/* Notes */}
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-neutral-400">Notes</label>
-        <textarea
+        <RichNotesEditor
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
+          onChange={setNotes}
           placeholder="Optional notes about this setup…"
-          className="w-full rounded bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+          minHeight={100}
         />
       </div>
 

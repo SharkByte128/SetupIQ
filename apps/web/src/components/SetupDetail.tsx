@@ -6,6 +6,7 @@ import { exportSetupCsv, downloadCsv } from "../utils/export.js";
 import { WheelTireSelector } from "./WheelTireSelector.js";
 import { localDb, type LocalPart } from "../db/local-db.js";
 import { v4 as uuid } from "uuid";
+import { RichNotesEditor } from "./RichNotesEditor.js";
 
 interface Props {
   setup: SetupSnapshot;
@@ -32,7 +33,6 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
   const [expandedCap, setExpandedCap] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
-  const [editingNotes, setEditingNotes] = useState(false);
   const [nameVal, setNameVal] = useState(setup.name);
   const [notesVal, setNotesVal] = useState(setup.notes ?? "");
   const [managingSections, setManagingSections] = useState(false);
@@ -194,13 +194,13 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
     }
   };
 
-  const handleNotesBlur = () => {
-    setEditingNotes(false);
-    const trimmed = notesVal.trim() || undefined;
+  const handleNotesChange = useCallback((md: string) => {
+    setNotesVal(md);
+    const trimmed = md.trim() || undefined;
     if (trimmed !== (setup.notes ?? undefined)) {
       doAutoSave({ notes: trimmed });
     }
-  };
+  }, [setup.notes, doAutoSave]);
 
   return (
     <div className="space-y-4 pb-20">
@@ -658,25 +658,12 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
       {/* Notes */}
       <section>
         <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Notes</h3>
-        {editingNotes ? (
-          <textarea
-            autoFocus
-            value={notesVal}
-            onChange={(e) => setNotesVal(e.target.value)}
-            onBlur={handleNotesBlur}
-            rows={3}
-            className="w-full rounded bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        ) : (
-          <button
-            onClick={() => setEditingNotes(true)}
-            className="w-full text-left rounded-lg bg-neutral-900 border border-neutral-800 px-3 py-2 min-h-[40px] hover:bg-neutral-800/50 transition-colors"
-          >
-            <p className="text-sm text-neutral-300 whitespace-pre-line">
-              {notesVal || <span className="text-neutral-600">Tap to add notes…</span>}
-            </p>
-          </button>
-        )}
+        <RichNotesEditor
+          value={notesVal}
+          onChange={handleNotesChange}
+          placeholder="Tap to add notes…"
+          minHeight={60}
+        />
       </section>
 
       <p className="text-xs text-neutral-600">
