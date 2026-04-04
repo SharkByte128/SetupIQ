@@ -831,7 +831,7 @@ function CategoryFormEditor({
         {/* Description */}
         <div>
           <label className="text-xs text-neutral-400 mb-1 block">Description</label>
-          <RichNotesEditor value={description} onChange={setDescription} placeholder="Category description — paste images from clipboard" minHeight="120px" />
+          <RichNotesEditor value={description} onChange={setDescription} placeholder="Category description — paste images from clipboard" minHeight={120} />
         </div>
 
         {/* Fields */}
@@ -1006,7 +1006,7 @@ function CategoryCreator({
         {/* Description */}
         <div>
           <label className="text-xs text-neutral-400 mb-1 block">Description</label>
-          <RichNotesEditor value={description} onChange={setDescription} placeholder="Category description — paste images from clipboard" minHeight="120px" />
+          <RichNotesEditor value={description} onChange={setDescription} placeholder="Category description — paste images from clipboard" minHeight={120} />
         </div>
 
         {/* Fields */}
