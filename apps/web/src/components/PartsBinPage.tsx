@@ -162,12 +162,12 @@ function useAllCategories(): PartCategory[] {
     const overrideMap = new Map(customCats.filter(c => c.builtIn).map(c => [c.id, c]));
     const merged = partCategories.map((cat) => {
       const ov = overrideMap.get(cat.id);
-      if (ov) return { ...cat, name: ov.name, icon: ov.icon, attributes: ov.attributes as PartAttribute[] };
+      if (ov) return { ...cat, name: ov.name, icon: ov.icon, description: ov.description, attributes: ov.attributes as PartAttribute[] };
       return cat;
     });
     const custom = customCats
       .filter(c => !c.builtIn)
-      .map(c => ({ id: c.id as PartCategory["id"], name: c.name, icon: c.icon, attributes: c.attributes as PartAttribute[] }));
+      .map(c => ({ id: c.id as PartCategory["id"], name: c.name, icon: c.icon, description: c.description, attributes: c.attributes as PartAttribute[] }));
     return [...merged, ...custom];
   }, [customCats]);
 }
@@ -630,6 +630,13 @@ function CategoryPartsGrid({
         </div>
       </div>
 
+      {/* Category description */}
+      {category.description && (
+        <div className="mb-3">
+          <MarkdownDisplay content={category.description} />
+        </div>
+      )}
+
       {/* Admin action bar */}
       {adminMode && (
         <div className="flex gap-2 mb-3">
@@ -746,6 +753,7 @@ function CategoryFormEditor({
 }) {
   const [catName, setCatName] = useState(category.name);
   const [catIcon, setCatIcon] = useState(category.icon);
+  const [description, setDescription] = useState(category.description ?? "");
   const [fields, setFields] = useState<PartAttribute[]>(() =>
     category.attributes.map((a) => ({ ...a })),
   );
@@ -783,6 +791,7 @@ function CategoryFormEditor({
       id: category.id,
       name: catName.trim(),
       icon: catIcon || "📦",
+      description: description.trim() || undefined,
       attributes: fields.filter(f => f.label.trim()),
       builtIn: isBuiltIn ? 1 : 0,
       createdAt: now,
@@ -793,6 +802,7 @@ function CategoryFormEditor({
       ...category,
       name: record.name,
       icon: record.icon,
+      description: record.description,
       attributes: record.attributes as PartAttribute[],
     };
     onSaved(updated);
@@ -816,6 +826,12 @@ function CategoryFormEditor({
             <label className="text-xs text-neutral-400 mb-1 block">Icon</label>
             <input className={inputClass + " text-center"} value={catIcon} onChange={(e) => setCatIcon(e.target.value)} placeholder="📦" />
           </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-1 block">Description</label>
+          <RichNotesEditor value={description} onChange={setDescription} placeholder="Category description — paste images from clipboard" minHeight="120px" />
         </div>
 
         {/* Fields */}
@@ -924,6 +940,7 @@ function CategoryCreator({
 }) {
   const [name, setName] = useState(cloneFrom ? `${cloneFrom.name} (copy)` : "");
   const [icon, setIcon] = useState(cloneFrom?.icon ?? "📦");
+  const [description, setDescription] = useState(cloneFrom?.description ?? "");
   const [fields, setFields] = useState<PartAttribute[]>(
     cloneFrom ? cloneFrom.attributes.map(a => ({ ...a })) : [],
   );
@@ -948,6 +965,7 @@ function CategoryCreator({
       id,
       name: name.trim(),
       icon: icon || "📦",
+      description: description.trim() || undefined,
       attributes: fields.filter(f => f.label.trim()),
       builtIn: 0,
       createdAt: now,
@@ -958,6 +976,7 @@ function CategoryCreator({
       id: id as PartCategory["id"],
       name: record.name,
       icon: record.icon,
+      description: record.description,
       attributes: record.attributes as PartAttribute[],
     };
     onCreated(cat);
@@ -982,6 +1001,12 @@ function CategoryCreator({
             <label className="text-xs text-neutral-400 mb-1 block">Icon</label>
             <input className={inputClass + " text-center"} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📦" />
           </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-1 block">Description</label>
+          <RichNotesEditor value={description} onChange={setDescription} placeholder="Category description — paste images from clipboard" minHeight="120px" />
         </div>
 
         {/* Fields */}

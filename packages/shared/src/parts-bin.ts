@@ -87,6 +87,7 @@ export interface PartCategory {
   id: PartCategoryId;
   name: string;
   icon: string; // emoji for simple mobile display
+  description?: string; // markdown with optional embedded images
   attributes: PartAttribute[];
 }
 

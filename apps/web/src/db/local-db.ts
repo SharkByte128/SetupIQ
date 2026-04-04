@@ -215,6 +215,7 @@ export interface LocalPartCategory {
   id: string;
   name: string;
   icon: string;
+  description?: string;
   attributes: { key: string; label: string; type: "text" | "number" | "pick"; options?: string[]; unit?: string; required?: boolean }[];
   builtIn: 0 | 1;
   createdAt: string;
