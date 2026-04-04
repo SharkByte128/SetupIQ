@@ -411,20 +411,24 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             id: record.id,
             userId: user.id,
             name: (record.data.name as string) || "Untitled",
+            chassisId: (record.data.chassisId as string) || "chassis-other",
             manufacturer: (record.data.manufacturer as string) || "",
             scale: (record.data.scale as string) || "",
             driveType: (record.data.driveType as string) || "RWD",
             notes: record.data.notes as string | undefined,
+            setupTemplateId: (record.data.setupTemplateId as string) || null,
             updatedAt: new Date(),
           })
           .onConflictDoUpdate({
             target: customCars.id,
             set: {
               name: (record.data.name as string) || "Untitled",
+              chassisId: (record.data.chassisId as string) || "chassis-other",
               manufacturer: (record.data.manufacturer as string) || "",
               scale: (record.data.scale as string) || "",
               driveType: (record.data.driveType as string) || "RWD",
               notes: record.data.notes as string | undefined,
+              setupTemplateId: (record.data.setupTemplateId as string) || null,
               updatedAt: new Date(),
             },
           });

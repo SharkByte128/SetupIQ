@@ -182,10 +182,12 @@ export const customCars = pgTable("custom_cars", {
   id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
   name: text("name").notNull(),
+  chassisId: text("chassis_id").notNull().default("chassis-other"),
   manufacturer: text("manufacturer").notNull(),
   scale: text("scale").notNull(),
   driveType: varchar("drive_type", { length: 10 }).notNull(),
   notes: text("notes"),
+  setupTemplateId: text("setup_template_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
