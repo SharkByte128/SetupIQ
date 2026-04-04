@@ -591,7 +591,7 @@ function CategoryGrid({
 // ── Uncategorized Parts Table ─────────────────────────────────
 
 function UncategorizedPartsTable({ allCategories }: { allCategories: MergedCategory[] }) {
-  const categoryIds = useMemo(() => new Set(allCategories.map(c => c.id)), [allCategories]);
+  const categoryIds = useMemo(() => new Set<string>(allCategories.map(c => c.id)), [allCategories]);
   const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
   const uncategorized = useMemo(
     () => allParts.filter(p => !categoryIds.has(p.categoryId)),
@@ -1254,7 +1254,7 @@ function AddPartForm({
   onCancel: () => void;
 }) {
   const allCategories = useAllCategories();
-  const [selectedCategoryId, setSelectedCategoryId] = useState(category.id);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(category.id);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(
     editPart ? getVendorById(editPart.vendorId) ?? null : presetVendor ?? null,
   );
