@@ -135,14 +135,18 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
       await markAllDirty();
       await localDb.syncMeta.delete("lastSyncTime");
 
-      // Start sync
-      startAutoSync();
-      await performSync();
-
+      // Show connected immediately — sync continues in background
       setIsConnected(true);
       setSyncStatus("connected");
-      setSyncMessage("Connected and syncing!");
+      setSyncMessage("Connected! Syncing data in background…");
       setGeneratedToken("");
+
+      // Start sync in background (don't block the UI)
+      startAutoSync();
+      performSync().catch((err) => {
+        console.error("[settings] initial sync failed:", err);
+        setSyncMessage("Connected but initial sync had an error — it will retry automatically.");
+      });
     } catch (err) {
       setSyncStatus("error");
       setSyncMessage("Could not reach server");
