@@ -237,9 +237,12 @@ export interface LocalTrackFile {
 
 export interface LocalRacer {
   id: string;
+  userId: string;
   name: string;
   active: 0 | 1;
   createdAt: string;
+  updatedAt: string;
+  _dirty: 0 | 1;
 }
 
 /** Maps a car (predefined or custom) to the racer/timing name used at the track. */
@@ -637,6 +640,17 @@ class SetupIQDatabase extends Dexie {
       return tx.table("setupTemplates").toCollection().modify((tmpl: any) => {
         if (!tmpl.userId) tmpl.userId = "local";
         if (tmpl._dirty === undefined) tmpl._dirty = 1;
+      });
+    });
+
+    // v21: add userId + _dirty + updatedAt to racers for sync
+    this.version(21).stores({
+      racers: "id, userId, name, active, _dirty",
+    }).upgrade((tx) => {
+      return tx.table("racers").toCollection().modify((r: any) => {
+        if (!r.userId) r.userId = "local";
+        if (!r.updatedAt) r.updatedAt = r.createdAt || new Date().toISOString();
+        if (r._dirty === undefined) r._dirty = 1;
       });
     });
   }

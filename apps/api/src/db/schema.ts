@@ -192,6 +192,17 @@ export const customCars = pgTable("custom_cars", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Racers ───────────────────────────────────────────────────
+
+export const racers = pgTable("racers", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  active: boolean("active").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Setup Templates ──────────────────────────────────────────
 
 export const setupTemplates = pgTable("setup_templates", {

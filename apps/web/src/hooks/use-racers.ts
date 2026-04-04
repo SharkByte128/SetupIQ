@@ -8,16 +8,20 @@ export function useRacers() {
 
   const addRacer = useCallback(async (name: string) => {
     const isFirst = (await localDb.racers.count()) === 0;
+    const now = new Date().toISOString();
     await localDb.racers.put({
       id: crypto.randomUUID(),
+      userId: "local",
       name: name.trim(),
       active: isFirst ? 1 : 0,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      _dirty: 1,
     });
   }, []);
 
   const renameRacer = useCallback(async (id: string, name: string) => {
-    await localDb.racers.update(id, { name: name.trim() });
+    await localDb.racers.update(id, { name: name.trim(), updatedAt: new Date().toISOString(), _dirty: 1 });
   }, []);
 
   const deleteRacer = useCallback(async (id: string) => {
@@ -27,7 +31,7 @@ export function useRacers() {
     if (racer?.active === 1) {
       const remaining = await localDb.racers.toArray();
       if (remaining.length > 0) {
-        await localDb.racers.update(remaining[0].id, { active: 1 });
+        await localDb.racers.update(remaining[0].id, { active: 1, updatedAt: new Date().toISOString(), _dirty: 1 });
       }
     }
   }, []);
@@ -37,10 +41,10 @@ export function useRacers() {
       // Deactivate all
       const all = await localDb.racers.toArray();
       for (const r of all) {
-        if (r.active === 1) await localDb.racers.update(r.id, { active: 0 });
+        if (r.active === 1) await localDb.racers.update(r.id, { active: 0, updatedAt: new Date().toISOString(), _dirty: 1 });
       }
       // Activate selected
-      await localDb.racers.update(id, { active: 1 });
+      await localDb.racers.update(id, { active: 1, updatedAt: new Date().toISOString(), _dirty: 1 });
     });
   }, []);
 
