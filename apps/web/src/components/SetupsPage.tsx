@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { allCars } from "@setupiq/shared";
-import type { SetupSnapshot, SetupEntry, WheelTireSetup } from "@setupiq/shared";
+import type { CarDefinition, SetupSnapshot, SetupEntry, WheelTireSetup } from "@setupiq/shared";
 import { useSetups } from "../hooks/use-setups.js";
 import { useHideDemoData, isDemoRecord } from "../hooks/use-demo-filter.js";
+import { localDb } from "../db/local-db.js";
 import { SetupList } from "./SetupList.js";
 import { SetupEditor } from "./SetupEditor.js";
 import { SetupDetail } from "./SetupDetail.js";
@@ -23,8 +24,62 @@ interface SetupsPageProps {
 export function SetupsPage({ forcedCarId }: SetupsPageProps) {
   const [view, setView] = useState<View>({ kind: "list" });
   const [selectedCarId, setSelectedCarId] = useState(forcedCarId ?? defaultCar.id);
-  const car = allCars.find((c) => c.id === selectedCarId) ?? defaultCar;
+  const [resolvedCar, setResolvedCar] = useState<CarDefinition | null>(null);
   const hideDemoData = useHideDemoData();
+
+  // Resolve the car: check predefined cars first, then look up custom car + template
+  useEffect(() => {
+    const predefined = allCars.find((c) => c.id === selectedCarId);
+    if (predefined) {
+      setResolvedCar(predefined);
+      return;
+    }
+    // Look up custom car from local DB
+    let cancelled = false;
+    (async () => {
+      const customCar = await localDb.customCars.get(selectedCarId);
+      if (cancelled || !customCar) {
+        if (!cancelled) setResolvedCar(defaultCar);
+        return;
+      }
+      let capabilities: CarDefinition["capabilities"] = [];
+      let defaultSetup: Record<string, string | number | boolean> | undefined;
+      if (customCar.setupTemplateId) {
+        const template = await localDb.setupTemplates.get(customCar.setupTemplateId);
+        if (!cancelled && template) {
+          capabilities = template.capabilities.map((c) => ({
+            id: c.id,
+            name: c.name,
+            category: c.category,
+            valueType: c.valueType as CarDefinition["capabilities"][0]["valueType"],
+            options: c.options,
+            defaultValue: c.defaultValue,
+          }));
+          const ds: Record<string, string | number | boolean> = {};
+          for (const c of template.capabilities) {
+            if (c.defaultValue !== undefined) ds[c.id] = c.defaultValue;
+          }
+          if (Object.keys(ds).length > 0) defaultSetup = ds;
+        }
+      }
+      if (!cancelled) {
+        setResolvedCar({
+          id: customCar.id,
+          slug: customCar.id,
+          name: customCar.name,
+          manufacturer: customCar.manufacturer,
+          scale: customCar.scale,
+          driveType: customCar.driveType,
+          capabilities,
+          compatibilityRules: [],
+          defaultSetup,
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCarId]);
+
+  const car = resolvedCar ?? defaultCar;
 
   const { setups, loading, createSetup, updateSetup, cloneSetup, deleteSetup } = useSetups(car.id, hideDemoData);
 
