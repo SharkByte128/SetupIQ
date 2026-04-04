@@ -181,6 +181,8 @@ interface RichNotesEditorProps {
   value: string;
   /** Called with updated markdown string */
   onChange: (md: string) => void;
+  /** Called when the editor loses focus */
+  onBlur?: () => void;
   /** Placeholder text when empty */
   placeholder?: string;
   /** Minimum height in pixels */
@@ -190,11 +192,14 @@ interface RichNotesEditorProps {
 export function RichNotesEditor({
   value,
   onChange,
-  placeholder = "Add notes…",
+  onBlur,
+  placeholder = "Add notes\u2026",
   minHeight = 120,
 }: RichNotesEditorProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onBlurRef = useRef(onBlur);
+  onBlurRef.current = onBlur;
 
   const editor = useEditor({
     extensions: [
@@ -265,6 +270,9 @@ export function RichNotesEditor({
       const html = e.getHTML();
       const md = htmlToMd(html);
       onChangeRef.current(md);
+    },
+    onBlur() {
+      onBlurRef.current?.();
     },
   });
 

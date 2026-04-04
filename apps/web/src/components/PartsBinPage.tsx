@@ -583,7 +583,188 @@ function CategoryGrid({
         className="hidden"
         onChange={handleImageUpload}
       />
+
+      {/* Uncategorized parts at the bottom */}
+      <UncategorizedPartsTable allCategories={allCategories} />
     </>
+  );
+}
+
+// ── Uncategorized Parts Table ─────────────────────────────────
+
+function UncategorizedPartsTable({ allCategories }: { allCategories: MergedCategory[] }) {
+  const categoryIds = useMemo(() => new Set(allCategories.map(c => c.id)), [allCategories]);
+  const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
+  const uncategorized = useMemo(
+    () => allParts.filter(p => !categoryIds.has(p.categoryId)),
+    [allParts, categoryIds],
+  );
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (uncategorized.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold text-neutral-300 mb-2">
+        Uncategorized ({uncategorized.length})
+      </h3>
+      <div className="border border-neutral-800 rounded-lg overflow-hidden divide-y divide-neutral-800">
+        {uncategorized.map(part => (
+          <UncategorizedPartRow
+            key={part.id}
+            part={part}
+            expanded={expandedId === part.id}
+            onToggle={() => setExpandedId(prev => prev === part.id ? null : part.id)}
+            allCategories={allCategories}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UncategorizedPartRow({
+  part,
+  expanded,
+  onToggle,
+  allCategories,
+}: {
+  part: LocalPart;
+  expanded: boolean;
+  onToggle: () => void;
+  allCategories: MergedCategory[];
+}) {
+  const [name, setName] = useState(part.name);
+  const [sku, setSku] = useState(part.sku ?? "");
+  const [categoryId, setCategoryId] = useState(part.categoryId);
+  const [vendorId, setVendorId] = useState(part.vendorId);
+  const [notes, setNotes] = useState(part.notes ?? "");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Reset form when a different part is expanded
+  useEffect(() => {
+    setName(part.name);
+    setSku(part.sku ?? "");
+    setCategoryId(part.categoryId);
+    setVendorId(part.vendorId);
+    setNotes(part.notes ?? "");
+    setConfirmDelete(false);
+  }, [part.id, part.name, part.sku, part.categoryId, part.vendorId, part.notes]);
+
+  const save = useCallback(async (overrides?: Partial<LocalPart>) => {
+    const updates: Partial<LocalPart> = {
+      name: name.trim() || part.name,
+      sku: sku.trim() || undefined,
+      categoryId,
+      vendorId,
+      notes: notes.trim() || undefined,
+      updatedAt: new Date().toISOString(),
+      _dirty: 1,
+      ...overrides,
+    };
+    await localDb.parts.update(part.id, updates);
+  }, [part.id, part.name, name, sku, categoryId, vendorId, notes]);
+
+  const handleDelete = async () => {
+    await localDb.parts.delete(part.id);
+    // Also delete attached files
+    const files = await localDb.partFiles.where("partId").equals(part.id).toArray();
+    if (files.length) await localDb.partFiles.bulkDelete(files.map(f => f.id));
+  };
+
+  const vendor = getVendorById(part.vendorId);
+  const inputClass =
+    "w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500";
+
+  return (
+    <div className="bg-neutral-900">
+      {/* Summary row */}
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-neutral-800/50 transition-colors"
+      >
+        <span className="text-xs text-neutral-500 flex-shrink-0">{expanded ? "▾" : "▸"}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{part.name}</p>
+          <p className="text-[10px] text-neutral-500 truncate">
+            {vendor?.name ?? "Unknown vendor"}
+            {part.sku ? ` · ${part.sku}` : ""}
+            {part.categoryId ? ` · cat: ${part.categoryId}` : ""}
+          </p>
+        </div>
+      </button>
+
+      {/* Expanded edit form */}
+      {expanded && (
+        <div className="px-3 pb-3 pt-1 flex flex-col gap-3 border-t border-neutral-800">
+          {/* Name */}
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">Name</label>
+            <input className={inputClass} value={name} onChange={e => setName(e.target.value)} onBlur={() => save()} />
+          </div>
+
+          {/* SKU */}
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">SKU</label>
+            <input className={inputClass} value={sku} onChange={e => setSku(e.target.value)} onBlur={() => save()} placeholder="Part number" />
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">Category</label>
+            <select
+              className={inputClass}
+              value={categoryId}
+              onChange={e => { setCategoryId(e.target.value); save({ categoryId: e.target.value }); }}
+            >
+              <option value={part.categoryId}>— {part.categoryId || "None"} (current) —</option>
+              {allCategories.map(c => (
+                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Vendor */}
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">Vendor</label>
+            <select
+              className={inputClass}
+              value={vendorId}
+              onChange={e => { setVendorId(e.target.value); save({ vendorId: e.target.value }); }}
+            >
+              <option value="">— None —</option>
+              {vendors.map(v => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">Notes</label>
+            <RichNotesEditor value={notes} onChange={setNotes} onBlur={() => save()} placeholder="Notes — paste images from clipboard" minHeight={80} />
+          </div>
+
+          {/* Delete */}
+          <div className="pt-1">
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+              >
+                🗑 Delete Part
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-400">Delete permanently?</span>
+                <button onClick={handleDelete} className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded transition-colors">Yes, delete</button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs text-neutral-400 hover:text-neutral-200 transition-colors">Cancel</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
