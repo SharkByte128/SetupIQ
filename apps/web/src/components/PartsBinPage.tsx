@@ -327,7 +327,6 @@ export function PartsBinPage() {
             setView({ type: "add", category: view.category, vendor: v, editPart: p });
           }}
           onClonePart={(p) => {
-            const v = getVendorById(p.vendorId);
             const clone = { ...p, id: uuid(), name: `${p.name} (copy)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), _dirty: 1 as const };
             localDb.parts.put(clone);
           }}

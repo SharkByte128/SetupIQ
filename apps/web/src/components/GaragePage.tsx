@@ -220,7 +220,7 @@ export function GaragePage() {
           <span className="text-lg">🗃️</span>
           <div className="text-left">
             <p className="font-medium text-sm">Parts Bin</p>
-            <p className="text-xs text-neutral-500">Browse & manage parts by vendor</p>
+            <p className="text-xs text-neutral-500">Browse & manage parts by category</p>
           </div>
         </div>
         <span className="text-neutral-500 text-sm">→</span>
