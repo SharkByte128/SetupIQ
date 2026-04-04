@@ -539,16 +539,14 @@ function CategoryGrid({
                   <p className="text-[11px] text-neutral-500">{counts[cat.id] || 0} parts</p>
                 </div>
               </button>
-              {/* Admin: upload thumbnail */}
-              {adminMode && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setUploadTargetCatId(cat.id); fileInputRef.current?.click(); }}
-                  className="absolute top-1 right-1 bg-black/70 text-amber-400 rounded-full w-7 h-7 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Change thumbnail"
-                >
-                  📷
-                </button>
-              )}
+              {/* Upload thumbnail — always visible */}
+              <button
+                onClick={(e) => { e.stopPropagation(); setUploadTargetCatId(cat.id); fileInputRef.current?.click(); }}
+                className="absolute top-1 right-1 bg-black/70 text-white rounded-full w-7 h-7 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Change thumbnail"
+              >
+                📷
+              </button>
               {/* Admin: clone category */}
               {adminMode && (
                 <button
@@ -1256,6 +1254,7 @@ function AddPartForm({
   onCancel: () => void;
 }) {
   const allCategories = useAllCategories();
+  const [selectedCategoryId, setSelectedCategoryId] = useState(category.id);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(
     editPart ? getVendorById(editPart.vendorId) ?? null : presetVendor ?? null,
   );
@@ -1270,7 +1269,7 @@ function AddPartForm({
   );
 
   // Resolve the current category from allCategories for correct attrs
-  const resolvedCategory = allCategories.find(c => c.id === category.id) ?? category;
+  const resolvedCategory = allCategories.find(c => c.id === selectedCategoryId) ?? category;
 
   const toggleChassis = (id: string) => {
     setSelectedChassis((prev) =>
@@ -1297,7 +1296,7 @@ function AddPartForm({
       id: editPart?.id ?? uuid(),
       userId: "local",
       vendorId: selectedVendor.id,
-      categoryId: category.id,
+      categoryId: selectedCategoryId,
       name: name.trim(),
       sku: sku.trim() || undefined,
       compatibleChassisIds: selectedChassis,
@@ -1341,6 +1340,42 @@ function AddPartForm({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Category */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-1 block">Category</label>
+          <select
+            className={inputClass}
+            value={selectedCategoryId}
+            onChange={async (e) => {
+              const val = e.target.value;
+              if (val === "__new__") {
+                const catName = prompt("New category name:");
+                if (!catName?.trim()) return;
+                const now = new Date().toISOString();
+                const id = `custom-${uuid()}`;
+                const record: LocalPartCategory = {
+                  id,
+                  name: catName.trim(),
+                  icon: "📦",
+                  attributes: [],
+                  builtIn: 0,
+                  createdAt: now,
+                  updatedAt: now,
+                };
+                await localDb.customPartCategories.add(record);
+                setSelectedCategoryId(id);
+              } else {
+                setSelectedCategoryId(val);
+              }
+            }}
+          >
+            {allCategories.map(c => (
+              <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+            ))}
+            <option value="__new__">+ New Category…</option>
+          </select>
         </div>
 
         {/* Name */}
