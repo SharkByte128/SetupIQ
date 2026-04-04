@@ -3,6 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useTracks } from "../hooks/use-tracks.js";
 import { useHideDemoData, isDemoRecord } from "../hooks/use-demo-filter.js";
 import { localDb, type LocalTrackFile } from "../db/local-db.js";
+import { resizeImage } from "../lib/resize-image.js";
 import type { SurfaceType } from "@setupiq/shared";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
@@ -62,13 +63,16 @@ export function TracksPage() {
             const created = await createTrack(data);
             // If there's a pending layout photo, save it after creation
             if (data._pendingPhoto) {
+              const now = new Date().toISOString();
               await localDb.trackFiles.put({
                 id: crypto.randomUUID(),
                 trackId: created.id,
                 blob: data._pendingPhoto,
                 name: data._pendingPhotoName ?? "layout.jpg",
                 mimeType: data._pendingPhoto.type,
-                createdAt: new Date().toISOString(),
+                createdAt: now,
+                updatedAt: now,
+                _dirty: 1,
               });
             }
           }
@@ -92,9 +96,9 @@ export function TracksPage() {
   }
 
   return (
-    <div className="px-4 py-4 space-y-3">
+    <div className="px-4 py-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-neutral-200">Tracks</h2>
+        <h2 className="text-xl font-semibold text-neutral-200">Tracks</h2>
         <button
           onClick={() => setView({ kind: "edit" })}
           className="rounded-md bg-blue-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-blue-500"
@@ -113,13 +117,24 @@ export function TracksPage() {
         </p>
       )}
 
-      {tracks.map((track) => (
-        <TrackCard
-          key={track.id}
-          track={track}
-          onClick={() => setView({ kind: "edit", trackId: track.id })}
-        />
-      ))}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        {tracks.map((track) => (
+          <TrackCard
+            key={track.id}
+            track={track}
+            onClick={() => setView({ kind: "edit", trackId: track.id })}
+          />
+        ))}
+
+        {/* Add Track card */}
+        <button
+          onClick={() => setView({ kind: "edit" })}
+          className="bg-neutral-900 border border-dashed border-neutral-700 rounded-lg overflow-hidden flex flex-col items-center justify-center aspect-auto min-h-[160px] hover:border-neutral-500 transition-colors group"
+        >
+          <span className="text-3xl text-neutral-600 group-hover:text-neutral-400 transition-colors">+</span>
+          <span className="text-sm text-neutral-500 group-hover:text-neutral-300 mt-1 transition-colors">Add Track</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -140,29 +155,37 @@ function TrackCard({ track, onClick }: { track: { id: string; name: string; surf
     setPhotoUrl(null);
   }, [layoutPhoto]);
 
+  const surfaceLabel = surfaceTypes.find((s) => s.value === track.surfaceType)?.label ?? track.surfaceType;
+
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden hover:border-neutral-700 transition-colors"
-    >
-      {photoUrl && (
-        <img src={photoUrl} alt="Track layout" className="w-full h-32 object-cover" />
-      )}
-      <div className="p-3">
-        <p className="text-sm font-medium text-neutral-200">{track.name}</p>
-        <p className="text-xs text-neutral-500 mt-0.5">
-          {surfaceTypes.find((s) => s.value === track.surfaceType)?.label ??
-            track.surfaceType}
-          {track.location && ` • ${track.location}`}
-          {track.dimensions && ` • ${track.dimensions}`}
-        </p>
-        {track.notes && (
-          <p className="text-xs text-neutral-600 mt-1 truncate">
-            {track.notes}
-          </p>
+    <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden flex flex-col">
+      {/* Thumbnail */}
+      <button
+        onClick={onClick}
+        className="relative aspect-[4/3] bg-neutral-800 flex items-center justify-center overflow-hidden group"
+      >
+        {photoUrl ? (
+          <img
+            src={photoUrl}
+            alt={track.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+          />
+        ) : (
+          <div className="text-neutral-600 text-3xl">🏁</div>
         )}
+      </button>
+
+      {/* Info */}
+      <div className="p-3 flex flex-col gap-1">
+        <button onClick={onClick} className="text-left">
+          <p className="font-medium text-sm leading-tight truncate">{track.name}</p>
+          <p className="text-xs text-neutral-500 truncate">
+            {surfaceLabel}
+            {track.location && ` · ${track.location}`}
+          </p>
+        </button>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -209,19 +232,27 @@ function LayoutPhotoSection({
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
+    // Resize to thumbnail (max 400px) to save space
+    const resized = await resizeImage(file, 400);
     if (trackId) {
-      // Save directly to DB for existing tracks
+      // Remove old image for this track if it exists
+      const existing = await localDb.trackFiles.where("trackId").equals(trackId).first();
+      if (existing) await localDb.trackFiles.delete(existing.id);
+
+      const now = new Date().toISOString();
       await localDb.trackFiles.put({
         id: crypto.randomUUID(),
         trackId,
-        blob: file,
+        blob: resized,
         name: file.name,
-        mimeType: file.type,
-        createdAt: new Date().toISOString(),
+        mimeType: resized.type || file.type,
+        createdAt: now,
+        updatedAt: now,
+        _dirty: 1,
       });
     } else {
       // New track — hold as pending
-      onPendingPhoto?.(file, file.name);
+      onPendingPhoto?.(resized, file.name);
     }
     e.target.value = "";
   };

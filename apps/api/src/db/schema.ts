@@ -216,6 +216,19 @@ export const setupTemplates = pgTable("setup_templates", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Track Images ─────────────────────────────────────────────
+
+export const trackImages = pgTable("track_images", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  trackId: text("track_id").notNull(),
+  imageBase64: text("image_base64").notNull(),
+  name: text("name"),
+  mimeType: text("mime_type"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Car Images ───────────────────────────────────────────────
 
 export const carImages = pgTable("car_images", {

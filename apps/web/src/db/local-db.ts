@@ -233,6 +233,8 @@ export interface LocalTrackFile {
   name: string;
   mimeType: string;
   createdAt: string;
+  updatedAt: string;
+  _dirty: 0 | 1;
 }
 
 export interface LocalRacer {
@@ -651,6 +653,16 @@ class SetupIQDatabase extends Dexie {
         if (!r.userId) r.userId = "local";
         if (!r.updatedAt) r.updatedAt = r.createdAt || new Date().toISOString();
         if (r._dirty === undefined) r._dirty = 1;
+      });
+    });
+
+    // v22: add _dirty + updatedAt to trackFiles for sync
+    this.version(22).stores({
+      trackFiles: "id, trackId, _dirty",
+    }).upgrade((tx) => {
+      return tx.table("trackFiles").toCollection().modify((f: any) => {
+        if (!f.updatedAt) f.updatedAt = f.createdAt || new Date().toISOString();
+        if (f._dirty === undefined) f._dirty = 1;
       });
     });
   }
