@@ -7,11 +7,12 @@ import { CarDetailPage } from "./CarDetailPage.js";
 import { PartsBinPage } from "./PartsBinPage.js";
 import { CatalogPage } from "./CatalogPage.js";
 import { SetupTemplatesPage } from "./SetupTemplatesPage.js";
+import { ScalesPage } from "./ScalesPage.js";
 import { AddCarPage } from "./AddCarPage.js";
 import { resizeImage } from "../lib/resize-image.js";
 import { v4 as uuid } from "uuid";
 
-type GarageView = "cars" | "setups" | "parts" | "catalog" | "templates" | "addCar" | "editCar";
+type GarageView = "cars" | "setups" | "parts" | "catalog" | "templates" | "scales" | "addCar" | "editCar";
 
 /** Unified shape for displaying both predefined and custom cars. */
 type GarageCar =
@@ -148,6 +149,23 @@ export function GaragePage() {
     );
   }
 
+  // Scales view
+  if (garageView === "scales") {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-4 pt-3 pb-2">
+          <button
+            onClick={() => setGarageView("cars")}
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            ← Back to Garage
+          </button>
+        </div>
+        <ScalesPage />
+      </div>
+    );
+  }
+
   // Catalog view
   if (garageView === "catalog") {
     return <CatalogPage onBack={() => setGarageView("cars")} />;
@@ -218,6 +236,21 @@ export function GaragePage() {
           <div className="text-left">
             <p className="font-medium text-sm">Parts Catalog</p>
             <p className="text-xs text-neutral-500">Search catalog & add parts to your bin</p>
+          </div>
+        </div>
+        <span className="text-neutral-500 text-sm">→</span>
+      </button>
+
+      {/* Scales button */}
+      <button
+        onClick={() => setGarageView("scales")}
+        className="w-full mb-4 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between hover:border-neutral-600 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-lg">⚖️</span>
+          <div className="text-left">
+            <p className="font-medium text-sm">Scales</p>
+            <p className="text-xs text-neutral-500">Corner weights & BLE scale connection</p>
           </div>
         </div>
         <span className="text-neutral-500 text-sm">→</span>
