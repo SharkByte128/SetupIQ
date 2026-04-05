@@ -33,8 +33,8 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
-      <header className="border-b border-neutral-800 px-4 py-3 flex items-center justify-between">
+    <div className="h-dvh bg-neutral-950 text-neutral-100 flex flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-neutral-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => { setTab("garage"); setShowSettings(false); }} className="text-lg font-semibold tracking-tight hover:text-blue-400 transition-colors">SetupIQ</button>
           <SyncIndicator />
@@ -54,7 +54,7 @@ function App() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto scrollbar-hide">
         {showSettings ? (
           <SettingsPage onClose={() => setShowSettings(false)} />
         ) : (
@@ -68,7 +68,7 @@ function App() {
         )}
       </main>
 
-      <nav className="border-t border-neutral-800 px-2 py-2 flex justify-around text-xs">
+      <nav className="shrink-0 border-t border-neutral-800 px-2 py-2 flex justify-around text-xs">
         {(["garage", "runs", "tracks", "timing", "resources"] as const).map((t) => (
           <button
             key={t}
