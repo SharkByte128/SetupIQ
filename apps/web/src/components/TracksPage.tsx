@@ -117,7 +117,7 @@ export function TracksPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {tracks.map((track) => (
           <TrackCard
             key={track.id}
@@ -129,10 +129,10 @@ export function TracksPage() {
         {/* Add Track card */}
         <button
           onClick={() => setView({ kind: "edit" })}
-          className="bg-neutral-900 border border-dashed border-neutral-700 rounded-lg overflow-hidden flex flex-col items-center justify-center aspect-auto min-h-[160px] hover:border-neutral-500 transition-colors group"
+          className="bg-neutral-900 border border-dashed border-neutral-700 rounded-lg overflow-hidden flex flex-col items-center justify-center aspect-auto min-h-[120px] hover:border-neutral-500 transition-colors group"
         >
-          <span className="text-3xl text-neutral-600 group-hover:text-neutral-400 transition-colors">+</span>
-          <span className="text-sm text-neutral-500 group-hover:text-neutral-300 mt-1 transition-colors">Add Track</span>
+          <span className="text-2xl text-neutral-600 group-hover:text-neutral-400 transition-colors">+</span>
+          <span className="text-xs text-neutral-500 group-hover:text-neutral-300 mt-1 transition-colors">Add Track</span>
         </button>
       </div>
     </div>
@@ -171,15 +171,15 @@ function TrackCard({ track, onClick }: { track: { id: string; name: string; surf
             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
           />
         ) : (
-          <div className="text-neutral-600 text-3xl">🏁</div>
+          <div className="text-neutral-600 text-2xl">🏁</div>
         )}
       </button>
 
       {/* Info */}
-      <div className="p-3 flex flex-col gap-1">
+      <div className="px-1.5 py-1.5 flex flex-col gap-0.5">
         <button onClick={onClick} className="text-left">
-          <p className="font-medium text-sm leading-tight truncate">{track.name}</p>
-          <p className="text-xs text-neutral-500 truncate">
+          <p className="font-medium text-xs leading-tight truncate">{track.name}</p>
+          <p className="text-[10px] text-neutral-500 truncate">
             {surfaceLabel}
             {track.location && ` · ${track.location}`}
           </p>

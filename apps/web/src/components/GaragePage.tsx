@@ -256,7 +256,7 @@ export function GaragePage() {
         <span className="text-neutral-500 text-sm">→</span>
       </button>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {garageCars.map((gc) => {
           const carId = gc.car.id;
           const carName = gc.car.name;
@@ -286,18 +286,18 @@ export function GaragePage() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 ) : (
-                  <div className="text-neutral-600 text-3xl">🏎️</div>
+                  <div className="text-neutral-600 text-2xl">🏎️</div>
                 )}
               </button>
 
               {/* Info + actions */}
-              <div className="p-3 flex flex-col gap-2">
+              <div className="px-1.5 py-1.5 flex flex-col gap-1">
                 <button
                   onClick={() => setSelectedCarId(carId)}
                   className="text-left"
                 >
-                  <p className="font-medium text-sm leading-tight">{carName}</p>
-                  <p className="text-xs text-neutral-500">{subtitle}</p>
+                  <p className="font-medium text-xs leading-tight truncate">{carName}</p>
+                  <p className="text-[10px] text-neutral-500 truncate">{subtitle}</p>
                 </button>
 
                 <div className="flex items-center gap-2">
