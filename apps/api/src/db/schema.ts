@@ -346,3 +346,30 @@ export const userPartsBin = pgTable("user_parts_bin", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── Custom Part Categories (synced per user) ─────────────────
+
+export const customPartCategories = pgTable("custom_part_categories", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  icon: text("icon").notNull().default("📦"),
+  description: text("description"),
+  attributes: jsonb("attributes").notNull().$type<Record<string, unknown>[]>().default([]),
+  builtIn: boolean("built_in").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Category Images (synced per user) ────────────────────────
+
+export const categoryImages = pgTable("category_images", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  categoryId: text("category_id").notNull(),
+  imageBase64: text("image_base64").notNull(),
+  name: text("name"),
+  mimeType: text("mime_type"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -340,6 +340,7 @@ export function PartsBinPage() {
           editPart={view.editPart}
           onSaved={(p) => setView({ type: "detail", part: p })}
           onCancel={goBack}
+          onDeleted={() => setView({ type: "parts", category: view.category })}
         />
       )}
       {view.type === "detail" && (
@@ -357,6 +358,7 @@ export function PartsBinPage() {
           category={view.category}
           onSaved={(updated) => setView({ type: "parts", category: updated })}
           onCancel={goBack}
+          onDeleted={() => setView({ type: "categories" })}
         />
       )}
       {view.type === "newCategory" && (
@@ -453,6 +455,8 @@ function CategoryGrid({
       name: file.name,
       mimeType: "image/webp",
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      _dirty: 1,
     };
     await localDb.categoryImages.add(record);
     e.target.value = "";
@@ -925,11 +929,14 @@ function CategoryFormEditor({
   category,
   onSaved,
   onCancel,
+  onDeleted,
 }: {
   category: MergedCategory;
   onSaved: (updated: MergedCategory) => void;
   onCancel: () => void;
+  onDeleted: () => void;
 }) {
+  const [confirmDeleteCat, setConfirmDeleteCat] = useState(false);
   const [catName, setCatName] = useState(category.name);
   const [catIcon, setCatIcon] = useState(category.icon);
   const [description, setDescription] = useState(category.description ?? "");
@@ -975,6 +982,7 @@ function CategoryFormEditor({
       builtIn: isBuiltIn ? 1 : 0,
       createdAt: now,
       updatedAt: now,
+      _dirty: 1,
     };
     await localDb.customPartCategories.put(record);
     const updated: MergedCategory = {
@@ -1101,6 +1109,48 @@ function CategoryFormEditor({
             Cancel
           </button>
         </div>
+
+        {/* Delete Category */}
+        <div className="border-t border-neutral-800 pt-4 mt-2">
+          {!confirmDeleteCat ? (
+            <button
+              onClick={() => setConfirmDeleteCat(true)}
+              className="text-xs text-red-400 hover:text-red-300 transition-colors"
+            >
+              🗑 Delete Category
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-400">Delete this category and all its parts?</span>
+              <button
+                onClick={async () => {
+                  // Delete all parts in this category
+                  const catParts = await localDb.parts.where("categoryId").equals(category.id).toArray();
+                  for (const p of catParts) {
+                    const files = await localDb.partFiles.where("partId").equals(p.id).toArray();
+                    if (files.length) await localDb.partFiles.bulkDelete(files.map(f => f.id));
+                  }
+                  if (catParts.length) await localDb.parts.bulkDelete(catParts.map(p => p.id));
+                  // Delete category image
+                  const imgs = await localDb.categoryImages.where("categoryId").equals(category.id).toArray();
+                  if (imgs.length) await localDb.categoryImages.bulkDelete(imgs.map(i => i.id));
+                  // Delete the category
+                  await localDb.customPartCategories.delete(category.id);
+                  onDeleted();
+                }}
+                className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded transition-colors"
+              >
+                Yes, delete
+              </button>
+              <button
+                onClick={() => setConfirmDeleteCat(false)}
+                className="text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
@@ -1149,6 +1199,7 @@ function CategoryCreator({
       builtIn: 0,
       createdAt: now,
       updatedAt: now,
+      _dirty: 1,
     };
     await localDb.customPartCategories.add(record);
     const cat: MergedCategory = {
@@ -1246,13 +1297,16 @@ function AddPartForm({
   editPart,
   onSaved,
   onCancel,
+  onDeleted,
 }: {
   category: MergedCategory;
   presetVendor?: Vendor;
   editPart?: LocalPart;
   onSaved: (p: LocalPart) => void;
   onCancel: () => void;
+  onDeleted: () => void;
 }) {
+  const [confirmDeletePart, setConfirmDeletePart] = useState(false);
   const allCategories = useAllCategories();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(category.id);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(
@@ -1363,6 +1417,7 @@ function AddPartForm({
                   builtIn: 0,
                   createdAt: now,
                   updatedAt: now,
+                  _dirty: 1,
                 };
                 await localDb.customPartCategories.add(record);
                 setSelectedCategoryId(id);
@@ -1488,6 +1543,41 @@ function AddPartForm({
             Cancel
           </button>
         </div>
+
+        {/* Delete Part (edit mode only) */}
+        {editPart && (
+          <div className="border-t border-neutral-800 pt-4 mt-2">
+            {!confirmDeletePart ? (
+              <button
+                onClick={() => setConfirmDeletePart(true)}
+                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+              >
+                🗑 Delete Part
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-400">Delete this part permanently?</span>
+                <button
+                  onClick={async () => {
+                    const files = await localDb.partFiles.where("partId").equals(editPart.id).toArray();
+                    if (files.length) await localDb.partFiles.bulkDelete(files.map(f => f.id));
+                    await localDb.parts.delete(editPart.id);
+                    onDeleted();
+                  }}
+                  className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded transition-colors"
+                >
+                  Yes, delete
+                </button>
+                <button
+                  onClick={() => setConfirmDeletePart(false)}
+                  className="text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

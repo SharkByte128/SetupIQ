@@ -220,6 +220,7 @@ export interface LocalPartCategory {
   builtIn: 0 | 1;
   createdAt: string;
   updatedAt: string;
+  _dirty: 0 | 1;
 }
 
 export interface LocalCategoryImage {
@@ -229,6 +230,8 @@ export interface LocalCategoryImage {
   name: string;
   mimeType: string;
   createdAt: string;
+  updatedAt: string;
+  _dirty: 0 | 1;
 }
 
 export interface LocalCustomCar {
@@ -692,6 +695,22 @@ class SetupIQDatabase extends Dexie {
     this.version(23).stores({
       customPartCategories: "id, name, builtIn",
       categoryImages: "id, categoryId",
+    });
+
+    this.version(24).stores({
+      customPartCategories: "id, name, builtIn, _dirty",
+      categoryImages: "id, categoryId, _dirty",
+    }).upgrade(async (tx) => {
+      // Backfill _dirty and updatedAt on records created before sync support
+      const now = new Date().toISOString();
+      await tx.table("customPartCategories").toCollection().modify((rec: Record<string, unknown>) => {
+        if (rec._dirty === undefined) rec._dirty = 1;
+        if (!rec.updatedAt) rec.updatedAt = rec.createdAt || now;
+      });
+      await tx.table("categoryImages").toCollection().modify((rec: Record<string, unknown>) => {
+        if (rec._dirty === undefined) rec._dirty = 1;
+        if (!rec.updatedAt) rec.updatedAt = rec.createdAt || now;
+      });
     });
   }
 }

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
-import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages, trackImages, setupTemplates, racers } from "../db/schema.js";
+import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages, trackImages, setupTemplates, racers, customPartCategories, categoryImages } from "../db/schema.js";
 import { eq, gt, and, inArray } from "drizzle-orm";
 
 type AuthUser = { id: string; email: string; displayName: string };
@@ -25,6 +25,8 @@ interface SyncPushBody {
   trackImages?: SyncRecord[];
   setupTemplates?: SyncRecord[];
   racers?: SyncRecord[];
+  partCategories?: SyncRecord[];
+  categoryImages?: SyncRecord[];
 }
 
 interface SyncPullQuery {
@@ -45,7 +47,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const since = request.query.since ? new Date(request.query.since) : new Date(0);
 
     try {
-      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages, userTrackImages, userSetupTemplates, userRacers] = await Promise.all([
+      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages, userTrackImages, userSetupTemplates, userRacers, userPartCategories, userCategoryImages] = await Promise.all([
         db.select().from(setupSnapshots).where(
           and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
         ),
@@ -81,6 +83,12 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         db.select().from(racers).where(
           and(eq(racers.userId, user.id), gt(racers.updatedAt, since))
         ),
+        db.select().from(customPartCategories).where(
+          and(eq(customPartCategories.userId, user.id), gt(customPartCategories.updatedAt, since))
+        ),
+        db.select().from(categoryImages).where(
+          and(eq(categoryImages.userId, user.id), gt(categoryImages.updatedAt, since))
+        ),
       ]);
 
       // Segments & measurements scoped to user's sessions/setups
@@ -114,6 +122,8 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         trackImages: userTrackImages,
         setupTemplates: userSetupTemplates,
         racers: userRacers,
+        partCategories: userPartCategories,
+        categoryImages: userCategoryImages,
         serverTime: new Date().toISOString(),
       };
     } catch (err: unknown) {
@@ -557,6 +567,64 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.racers = body.racers.length;
+    }
+
+    // Upsert part categories
+    if (body.partCategories?.length) {
+      for (const record of body.partCategories) {
+        await db
+          .insert(customPartCategories)
+          .values({
+            id: record.id,
+            userId: user.id,
+            name: (record.data.name as string) || "Untitled",
+            icon: (record.data.icon as string) || "📦",
+            description: record.data.description as string | undefined,
+            attributes: (record.data.attributes as Record<string, unknown>[]) || [],
+            builtIn: Boolean(record.data.builtIn),
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: customPartCategories.id,
+            set: {
+              name: (record.data.name as string) || "Untitled",
+              icon: (record.data.icon as string) || "📦",
+              description: record.data.description as string | undefined,
+              attributes: (record.data.attributes as Record<string, unknown>[]) || [],
+              builtIn: Boolean(record.data.builtIn),
+              updatedAt: new Date(),
+            },
+          });
+      }
+      results.partCategories = body.partCategories.length;
+    }
+
+    // Upsert category images
+    if (body.categoryImages?.length) {
+      for (const record of body.categoryImages) {
+        await db
+          .insert(categoryImages)
+          .values({
+            id: record.id,
+            userId: user.id,
+            categoryId: (record.data.categoryId as string) || "",
+            imageBase64: (record.data.imageBase64 as string) || "",
+            name: record.data.name as string | undefined,
+            mimeType: record.data.mimeType as string | undefined,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: categoryImages.id,
+            set: {
+              categoryId: (record.data.categoryId as string) || "",
+              imageBase64: (record.data.imageBase64 as string) || "",
+              name: record.data.name as string | undefined,
+              mimeType: record.data.mimeType as string | undefined,
+              updatedAt: new Date(),
+            },
+          });
+      }
+      results.categoryImages = body.categoryImages.length;
     }
 
     return { ok: true, upserted: results };

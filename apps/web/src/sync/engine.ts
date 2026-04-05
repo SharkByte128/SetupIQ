@@ -139,6 +139,8 @@ async function hasDirtyRecords(): Promise<boolean> {
     localDb.trackFiles.where("_dirty").equals(1).count(),
     localDb.setupTemplates.where("_dirty").equals(1).count(),
     localDb.racers.where("_dirty").equals(1).count(),
+    localDb.customPartCategories.where("_dirty").equals(1).count(),
+    localDb.categoryImages.where("_dirty").equals(1).count(),
   ]);
   return counts.some((c) => c > 0);
 }
@@ -160,13 +162,15 @@ export async function markAllDirty(): Promise<void> {
     localDb.trackFiles.toCollection().modify({ _dirty: 1 }),
     localDb.setupTemplates.toCollection().modify({ _dirty: 1 }),
     localDb.racers.toCollection().modify({ _dirty: 1 }),
+    localDb.customPartCategories.toCollection().modify({ _dirty: 1 }),
+    localDb.categoryImages.toCollection().modify({ _dirty: 1 }),
   ]);
 }
 
 // ─── Push dirty records to server ───────────────────────────
 
 async function pushDirtyRecords(): Promise<void> {
-  const [dirtySetups, dirtyTracks, dirtySessions, dirtySegments, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages, dirtyTrackImages, dirtyComponents, dirtyMeasurements, dirtySetupTemplates, dirtyRacers] = await Promise.all([
+  const [dirtySetups, dirtyTracks, dirtySessions, dirtySegments, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages, dirtyTrackImages, dirtyComponents, dirtyMeasurements, dirtySetupTemplates, dirtyRacers, dirtyPartCategories, dirtyCategoryImages] = await Promise.all([
     localDb.setupSnapshots.where("_dirty").equals(1).toArray(),
     localDb.tracks.where("_dirty").equals(1).toArray(),
     localDb.runSessions.where("_dirty").equals(1).toArray(),
@@ -180,11 +184,14 @@ async function pushDirtyRecords(): Promise<void> {
     localDb.measurements.where("_dirty").equals(1).toArray(),
     localDb.setupTemplates.where("_dirty").equals(1).toArray(),
     localDb.racers.where("_dirty").equals(1).toArray(),
+    localDb.customPartCategories.where("_dirty").equals(1).toArray(),
+    localDb.categoryImages.where("_dirty").equals(1).toArray(),
   ]);
 
   const hasAny = dirtySetups.length || dirtyTracks.length || dirtySessions.length || dirtySegments.length ||
     dirtyParts.length || dirtyRaceResults.length || dirtyCustomCars.length || dirtyCarImages.length ||
-    dirtyTrackImages.length || dirtyComponents.length || dirtyMeasurements.length || dirtySetupTemplates.length || dirtyRacers.length;
+    dirtyTrackImages.length || dirtyComponents.length || dirtyMeasurements.length || dirtySetupTemplates.length || dirtyRacers.length ||
+    dirtyPartCategories.length || dirtyCategoryImages.length;
   if (!hasAny) return;
 
   const body: Record<string, { id: string; updatedAt: string; data: Record<string, unknown> }[]> = {};
@@ -336,6 +343,30 @@ async function pushDirtyRecords(): Promise<void> {
     }));
   }
 
+  if (dirtyPartCategories.length > 0) {
+    body.partCategories = dirtyPartCategories.map((c) => ({
+      id: c.id,
+      updatedAt: c.updatedAt,
+      data: {
+        name: c.name, icon: c.icon, description: c.description,
+        attributes: c.attributes, builtIn: c.builtIn,
+      },
+    }));
+  }
+
+  if (dirtyCategoryImages.length > 0) {
+    body.categoryImages = await Promise.all(
+      dirtyCategoryImages.map(async (img) => {
+        const base64 = await blobToBase64(img.blob);
+        return {
+          id: img.id,
+          updatedAt: img.updatedAt,
+          data: { categoryId: img.categoryId, imageBase64: base64, name: img.name, mimeType: img.mimeType || img.blob.type },
+        };
+      }),
+    );
+  }
+
   await syncFetch("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
 
   // Mark pushed records as clean
@@ -353,6 +384,8 @@ async function pushDirtyRecords(): Promise<void> {
     ...dirtyMeasurements.map((m) => localDb.measurements.update(m.id, { _dirty: 0 })),
     ...dirtySetupTemplates.map((t) => localDb.setupTemplates.update(t.id, { _dirty: 0 })),
     ...dirtyRacers.map((r) => localDb.racers.update(r.id, { _dirty: 0 })),
+    ...dirtyPartCategories.map((c) => localDb.customPartCategories.update(c.id, { _dirty: 0 })),
+    ...dirtyCategoryImages.map((img) => localDb.categoryImages.update(img.id, { _dirty: 0 })),
   ]);
 }
 
@@ -372,6 +405,8 @@ interface PullResponse {
   trackImages: any[];
   setupTemplates: any[];
   racers: any[];
+  partCategories: any[];
+  categoryImages: any[];
   serverTime: string;
 }
 
@@ -384,7 +419,8 @@ async function pullFromServer(): Promise<void> {
   await localDb.transaction("rw",
     [localDb.setupSnapshots, localDb.tracks, localDb.components, localDb.runSessions,
      localDb.runSegments, localDb.measurements, localDb.parts, localDb.raceResults,
-     localDb.customCars, localDb.carImages, localDb.trackFiles, localDb.setupTemplates, localDb.racers, localDb.syncMeta],
+     localDb.customCars, localDb.carImages, localDb.trackFiles, localDb.setupTemplates, localDb.racers,
+     localDb.customPartCategories, localDb.categoryImages, localDb.syncMeta],
     async () => {
       for (const setup of data.setupSnapshots) {
         const local = await localDb.setupSnapshots.get(setup.id);
@@ -637,6 +673,41 @@ async function pullFromServer(): Promise<void> {
             active: racer.active ?? false,
             createdAt: racer.created_at || racer.createdAt,
             updatedAt: racer.updated_at || racer.updatedAt,
+            _dirty: 0,
+          });
+        }
+      }
+
+      for (const cat of (data.partCategories || [])) {
+        const local = await localDb.customPartCategories.get(cat.id);
+        if (!local || new Date(cat.updated_at || cat.updatedAt) > new Date(local.updatedAt)) {
+          await localDb.customPartCategories.put({
+            id: cat.id,
+            name: cat.name,
+            icon: cat.icon || "📦",
+            description: cat.description,
+            attributes: cat.attributes || [],
+            builtIn: (cat.built_in ?? cat.builtIn) ? 1 : 0,
+            createdAt: cat.created_at || cat.createdAt,
+            updatedAt: cat.updated_at || cat.updatedAt,
+            _dirty: 0,
+          });
+        }
+      }
+
+      for (const img of (data.categoryImages || [])) {
+        const local = await localDb.categoryImages.get(img.id);
+        if (!local || new Date(img.updated_at || img.updatedAt) > new Date(local.updatedAt)) {
+          const mimeType = img.mime_type || img.mimeType || "image/jpeg";
+          const blob = base64ToBlob(img.image_base64 || img.imageBase64, mimeType);
+          await localDb.categoryImages.put({
+            id: img.id,
+            categoryId: img.category_id || img.categoryId,
+            blob,
+            name: img.name || "",
+            mimeType,
+            createdAt: img.created_at || img.createdAt,
+            updatedAt: img.updated_at || img.updatedAt,
             _dirty: 0,
           });
         }
