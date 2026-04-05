@@ -383,26 +383,31 @@ async function pushDirtyRecords(): Promise<void> {
     );
   }
 
-  const pushRes = await syncFetch<{ ok: boolean; upserted: Record<string, number> }>("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
+  const pushRes = await syncFetch<{ ok: boolean; upserted: Record<string, number>; errors?: Record<string, string> }>("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
 
-  // Mark pushed records as clean (only mark categories clean if server confirmed)
+  if (pushRes.errors && Object.keys(pushRes.errors).length > 0) {
+    console.warn("[sync] partial push failures:", pushRes.errors);
+  }
+
+  // Mark pushed records as clean — only for record types the server confirmed
+  const u = pushRes.upserted;
   await Promise.all([
-    ...dirtySetups.map((s) => localDb.setupSnapshots.update(s.id, { _dirty: 0 })),
-    ...dirtyTracks.map((t) => localDb.tracks.update(t.id, { _dirty: 0 })),
-    ...dirtySessions.map((r) => localDb.runSessions.update(r.id, { _dirty: 0 })),
-    ...dirtySegments.map((seg) => localDb.runSegments.update(seg.id, { _dirty: 0 })),
-    ...dirtyParts.map((p) => localDb.parts.update(p.id, { _dirty: 0 })),
-    ...dirtyRaceResults.map((r) => localDb.raceResults.update(r.id, { _dirty: 0 })),
-    ...dirtyCustomCars.map((c) => localDb.customCars.update(c.id, { _dirty: 0 })),
-    ...dirtyCarImages.map((img) => localDb.carImages.update(img.id, { _dirty: 0 })),
-    ...dirtyTrackImages.map((img) => localDb.trackFiles.update(img.id, { _dirty: 0 })),
-    ...dirtyComponents.map((c) => localDb.components.update(c.id, { _dirty: 0 })),
-    ...dirtyMeasurements.map((m) => localDb.measurements.update(m.id, { _dirty: 0 })),
-    ...dirtySetupTemplates.map((t) => localDb.setupTemplates.update(t.id, { _dirty: 0 })),
-    ...dirtyRacers.map((r) => localDb.racers.update(r.id, { _dirty: 0 })),
-    ...(pushRes.upserted.partCategories ? dirtyPartCategories.map((c) => localDb.customPartCategories.update(c.id, { _dirty: 0 })) : []),
-    ...(pushRes.upserted.categoryImages ? dirtyCategoryImages.map((img) => localDb.categoryImages.update(img.id, { _dirty: 0 })) : []),
-    ...(pushRes.upserted.partFiles ? dirtyPartFiles.map((f) => localDb.partFiles.update(f.id, { _dirty: 0 })) : []),
+    ...(u.setupSnapshots ? dirtySetups.map((s) => localDb.setupSnapshots.update(s.id, { _dirty: 0 })) : []),
+    ...(u.tracks ? dirtyTracks.map((t) => localDb.tracks.update(t.id, { _dirty: 0 })) : []),
+    ...(u.runSessions ? dirtySessions.map((r) => localDb.runSessions.update(r.id, { _dirty: 0 })) : []),
+    ...(u.runSegments ? dirtySegments.map((seg) => localDb.runSegments.update(seg.id, { _dirty: 0 })) : []),
+    ...(u.parts ? dirtyParts.map((p) => localDb.parts.update(p.id, { _dirty: 0 })) : []),
+    ...(u.raceResults ? dirtyRaceResults.map((r) => localDb.raceResults.update(r.id, { _dirty: 0 })) : []),
+    ...(u.customCars ? dirtyCustomCars.map((c) => localDb.customCars.update(c.id, { _dirty: 0 })) : []),
+    ...(u.carImages ? dirtyCarImages.map((img) => localDb.carImages.update(img.id, { _dirty: 0 })) : []),
+    ...(u.trackImages ? dirtyTrackImages.map((img) => localDb.trackFiles.update(img.id, { _dirty: 0 })) : []),
+    ...(u.components ? dirtyComponents.map((c) => localDb.components.update(c.id, { _dirty: 0 })) : []),
+    ...(u.measurements ? dirtyMeasurements.map((m) => localDb.measurements.update(m.id, { _dirty: 0 })) : []),
+    ...(u.setupTemplates ? dirtySetupTemplates.map((t) => localDb.setupTemplates.update(t.id, { _dirty: 0 })) : []),
+    ...(u.racers ? dirtyRacers.map((r) => localDb.racers.update(r.id, { _dirty: 0 })) : []),
+    ...(u.partCategories ? dirtyPartCategories.map((c) => localDb.customPartCategories.update(c.id, { _dirty: 0 })) : []),
+    ...(u.categoryImages ? dirtyCategoryImages.map((img) => localDb.categoryImages.update(img.id, { _dirty: 0 })) : []),
+    ...(u.partFiles ? dirtyPartFiles.map((f) => localDb.partFiles.update(f.id, { _dirty: 0 })) : []),
   ]);
 }
 

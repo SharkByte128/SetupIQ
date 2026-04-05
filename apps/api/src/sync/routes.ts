@@ -150,9 +150,11 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user as AuthUser;
     const body = request.body;
     const results: Record<string, number> = {};
+    const errors: Record<string, string> = {};
 
     // Upsert setup snapshots
     if (body.setupSnapshots?.length) {
+      try {
       for (const record of body.setupSnapshots) {
         await db
           .insert(setupSnapshots)
@@ -178,10 +180,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.setupSnapshots = body.setupSnapshots.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] setupSnapshots upsert failed");
+        errors.setupSnapshots = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert tracks
     if (body.tracks?.length) {
+      try {
       for (const record of body.tracks) {
         await db
           .insert(tracks)
@@ -224,10 +231,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.tracks = body.tracks.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] tracks upsert failed");
+        errors.tracks = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert run sessions
     if (body.runSessions?.length) {
+      try {
       for (const record of body.runSessions) {
         await db
           .insert(runSessions)
@@ -249,10 +261,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.runSessions = body.runSessions.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] runSessions upsert failed");
+        errors.runSessions = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert run segments
     if (body.runSegments?.length) {
+      try {
       for (const record of body.runSegments) {
         await db
           .insert(runSegments)
@@ -278,10 +295,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.runSegments = body.runSegments.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] runSegments upsert failed");
+        errors.runSegments = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert components
     if (body.components?.length) {
+      try {
       for (const record of body.components) {
         await db
           .insert(components)
@@ -318,10 +340,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.components = body.components.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] components upsert failed");
+        errors.components = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert measurements
     if (body.measurements?.length) {
+      try {
       for (const record of body.measurements) {
         await db
           .insert(measurements)
@@ -349,10 +376,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.measurements = body.measurements.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] measurements upsert failed");
+        errors.measurements = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert parts
     if (body.parts?.length) {
+      try {
       for (const record of body.parts) {
         await db
           .insert(parts)
@@ -383,10 +415,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.parts = body.parts.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] parts upsert failed");
+        errors.parts = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert race results
     if (body.raceResults?.length) {
+      try {
       for (const record of body.raceResults) {
         await db
           .insert(raceResults)
@@ -430,10 +467,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.raceResults = body.raceResults.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] raceResults upsert failed");
+        errors.raceResults = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert custom cars
     if (body.customCars?.length) {
+      try {
       for (const record of body.customCars) {
         await db
           .insert(customCars)
@@ -464,10 +506,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.customCars = body.customCars.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] customCars upsert failed");
+        errors.customCars = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert car images
     if (body.carImages?.length) {
+      try {
       for (const record of body.carImages) {
         await db
           .insert(carImages)
@@ -492,10 +539,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.carImages = body.carImages.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] carImages upsert failed");
+        errors.carImages = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert track images
     if (body.trackImages?.length) {
+      try {
       for (const record of body.trackImages) {
         await db
           .insert(trackImages)
@@ -520,10 +572,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.trackImages = body.trackImages.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] trackImages upsert failed");
+        errors.trackImages = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert setup templates
     if (body.setupTemplates?.length) {
+      try {
       for (const record of body.setupTemplates) {
         await db
           .insert(setupTemplates)
@@ -548,10 +605,15 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.setupTemplates = body.setupTemplates.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] setupTemplates upsert failed");
+        errors.setupTemplates = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert racers
     if (body.racers?.length) {
+      try {
       for (const record of body.racers) {
         await db
           .insert(racers)
@@ -572,6 +634,10 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.racers = body.racers.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] racers upsert failed");
+        errors.racers = err instanceof Error ? err.message : String(err);
+      }
     }
 
     // Upsert part categories
@@ -604,7 +670,8 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       }
       results.partCategories = body.partCategories.length;
       } catch (err) {
-        request.log.warn({ err }, "[sync/push] partCategories upsert failed (table may not exist yet)");
+        request.log.warn({ err }, "[sync/push] partCategories upsert failed");
+        errors.partCategories = err instanceof Error ? err.message : String(err);
       }
     }
 
@@ -636,7 +703,8 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       }
       results.categoryImages = body.categoryImages.length;
       } catch (err) {
-        request.log.warn({ err }, "[sync/push] categoryImages upsert failed (table may not exist yet)");
+        request.log.warn({ err }, "[sync/push] categoryImages upsert failed");
+        errors.categoryImages = err instanceof Error ? err.message : String(err);
       }
     }
 
@@ -668,10 +736,11 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       }
       results.partFiles = body.partFiles.length;
       } catch (err) {
-        request.log.warn({ err }, "[sync/push] partFiles upsert failed (table may not exist yet)");
+        request.log.warn({ err }, "[sync/push] partFiles upsert failed");
+        errors.partFiles = err instanceof Error ? err.message : String(err);
       }
     }
 
-    return { ok: true, upserted: results };
+    return { ok: true, upserted: results, ...(Object.keys(errors).length > 0 ? { errors } : {}) };
   });
 }
