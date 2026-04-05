@@ -50,7 +50,7 @@ export interface LocalRunSegment {
     consistency: number;
     notes?: string;
   };
-  lapTimes?: { lapNumber: number; timeMs: number; isOutlier?: boolean }[];
+  lapTimes?: { lapNumber: number; timeMs: number; isOutlier?: boolean; hidden?: boolean; setupSnapshotId?: string }[];
   setupChanges?: { capabilityId: string; value: string | number | boolean }[];
   startedAt: string;
   endedAt?: string;
@@ -276,6 +276,8 @@ export interface LocalRacer {
 export interface CarTimingName {
   carId: string;
   timingName: string;
+  minLapMs?: number;
+  maxLapMs?: number;
 }
 
 /** User-authored notes for any car (predefined or custom). */

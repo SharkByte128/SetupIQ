@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
-import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult } from "../db/local-db.js";
+import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -443,8 +443,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
 type RunsView =
   | { kind: "list" }
   | { kind: "addRace" }
-  | { kind: "race-detail"; raceId: string }
-  | { kind: "session-detail"; sessionId: string };
+  | { kind: "race-detail"; raceId: string };
 
 function computeLapStats(laps: { timeMs: number }[]) {
   if (laps.length === 0) return null;
@@ -511,6 +510,7 @@ function CarRunsTab({ carId }: { carId: string }) {
   const [view, setView] = useState<RunsView>({ kind: "list" });
   const [showHidden] = useShowHiddenRuns();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
 
   const raceResults = useLiveQuery(
     () => localDb.raceResults.where("carId").equals(carId).reverse().sortBy("date")
@@ -527,6 +527,12 @@ function CarRunsTab({ carId }: { carId: string }) {
     }
     return results;
   }, [carId]);
+
+  // Load setup snapshots for this car to resolve names
+  const snapshots = useLiveQuery(
+    () => localDb.setupSnapshots.where("carId").equals(carId).toArray(),
+    [carId],
+  );
 
   const loading = raceResults === undefined || sessions === undefined;
 
@@ -548,20 +554,15 @@ function CarRunsTab({ carId }: { carId: string }) {
     return <RaceRunDetail race={race} onBack={() => setView({ kind: "list" })} />;
   }
 
-  if (view.kind === "session-detail") {
-    const session = sessions.find((s) => s.id === view.sessionId);
-    if (!session) return <p className="px-4 py-6 text-sm text-neutral-500">Session not found.</p>;
-    return <SessionRunDetail session={session} onBack={() => setView({ kind: "list" })} />;
-  }
-
   const hasRaces = raceResults.length > 0;
   const hasSessions = sessions.length > 0;
+  const snapshotMap = new Map((snapshots ?? []).map((s) => [s.id, s]));
 
   return (
     <div className="px-4 py-4 space-y-4">
       {/* Header with + Add Run */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-neutral-400 uppercase">Runs</h3>
+        <h3 className="text-xs font-semibold text-neutral-400 uppercase">Run Results</h3>
         <div className="relative">
           <button
             onClick={() => setAddMenuOpen((o) => !o)}
@@ -588,6 +589,8 @@ function CarRunsTab({ carId }: { carId: string }) {
       {!hasRaces && !hasSessions && (
         <p className="text-center text-neutral-500 text-sm py-8">No runs or race results for this car yet.</p>
       )}
+
+      {/* Race results */}
       {hasRaces && (
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-neutral-400 uppercase">Race Results</h3>
@@ -618,45 +621,288 @@ function CarRunsTab({ carId }: { carId: string }) {
         </div>
       )}
 
+      {/* Sessions — expandable cards */}
       {hasSessions && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Practice Sessions</h3>
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Sessions</h3>
           {sessions.map((s) => {
-            const segCount = s.segments.length;
-            const totalLaps = s.segments.reduce(
-              (sum, seg) => sum + (seg.lapTimes?.length ?? 0),
-              0,
-            );
-            const allLapTimes = s.segments.flatMap((seg) => seg.lapTimes ?? []);
-            const bestLap = allLapTimes.length > 0
-              ? Math.min(...allLapTimes.map((l) => l.timeMs))
-              : null;
+            const allLaps = s.segments.flatMap((seg) => (seg.lapTimes ?? []).filter((l) => !l.hidden));
+            const sessionStats = computeLapStats(allLaps);
+            const isExpanded = expandedSessionId === s.id;
 
             return (
-              <button
-                key={s.id}
-                onClick={() => setView({ kind: "session-detail", sessionId: s.id })}
-                className="w-full text-left rounded-lg bg-neutral-900 border border-neutral-800 p-3 hover:border-neutral-700 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-neutral-200">
-                    {new Date(s.startedAt).toLocaleDateString()}
-                  </span>
-                  <span className="text-xs text-neutral-500">
-                    {s.endedAt ? "Completed" : "In Progress"}
-                  </span>
-                </div>
-                <div className="mt-1 flex gap-4 text-xs text-neutral-400">
-                  <span>{segCount} segment{segCount !== 1 ? "s" : ""}</span>
-                  <span>{totalLaps} laps</span>
-                  {bestLap && <span>Best: {fmt(bestLap)}</span>}
-                </div>
-                {s.notes && <p className="text-xs text-neutral-600 mt-1">{s.notes}</p>}
-              </button>
+              <div key={s.id} className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden">
+                {/* Session card header */}
+                <button
+                  onClick={() => setExpandedSessionId(isExpanded ? null : s.id)}
+                  className="w-full text-left p-3 hover:bg-neutral-800/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-neutral-200">
+                      {new Date(s.startedAt).toLocaleDateString()}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-neutral-500">
+                        {s.endedAt ? "Completed" : "In Progress"}
+                      </span>
+                      <span className="text-neutral-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
+                    </div>
+                  </div>
+                  {sessionStats && (
+                    <div className="mt-1.5 grid grid-cols-4 gap-2">
+                      <MiniStat label="Fast Lap" value={fmt(sessionStats.best)} highlight />
+                      <MiniStat label="Avg Lap" value={fmt(sessionStats.avg)} />
+                      <MiniStat label="Consistency" value={`${sessionStats.consistency.toFixed(1)}%`} />
+                      <MiniStat label="Track Time" value={fmtTotal(sessionStats.total)} />
+                    </div>
+                  )}
+                  {!sessionStats && (
+                    <p className="mt-1 text-xs text-neutral-500">No lap data</p>
+                  )}
+                </button>
+
+                {/* Expanded: setup rows */}
+                {isExpanded && (
+                  <SessionSetupBreakdown
+                    session={s}
+                    snapshotMap={snapshotMap}
+                    carId={carId}
+                  />
+                )}
+              </div>
             );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="text-center">
+      <p className={`text-xs font-semibold ${highlight ? "text-green-400" : "text-neutral-200"}`}>{value}</p>
+      <p className="text-[9px] text-neutral-500 uppercase">{label}</p>
+    </div>
+  );
+}
+
+// ─── Session → Setup Breakdown (expandable within session card) ──
+
+interface SetupGroup {
+  setupSnapshotId: string;
+  setupName: string;
+  laps: { lap: { lapNumber: number; timeMs: number; isOutlier?: boolean; hidden?: boolean; setupSnapshotId?: string }; segmentId: string; indexInSegment: number }[];
+}
+
+function groupLapsBySetup(
+  session: LocalRunSession & { segments: LocalRunSegment[] },
+  snapshotMap: Map<string, LocalSetupSnapshot>,
+): SetupGroup[] {
+  const groupMap = new Map<string, SetupGroup>();
+
+  for (const seg of session.segments) {
+    const segLaps = seg.lapTimes ?? [];
+    for (let i = 0; i < segLaps.length; i++) {
+      const lap = segLaps[i];
+      const effectiveSetupId = lap.setupSnapshotId ?? seg.setupSnapshotId;
+      let group = groupMap.get(effectiveSetupId);
+      if (!group) {
+        const snap = snapshotMap.get(effectiveSetupId);
+        group = { setupSnapshotId: effectiveSetupId, setupName: snap?.name ?? "Unknown Setup", laps: [] };
+        groupMap.set(effectiveSetupId, group);
+      }
+      group.laps.push({ lap, segmentId: seg.id, indexInSegment: i });
+    }
+  }
+
+  return Array.from(groupMap.values());
+}
+
+function SessionSetupBreakdown({
+  session,
+  snapshotMap,
+  carId,
+}: {
+  session: LocalRunSession & { segments: LocalRunSegment[] };
+  snapshotMap: Map<string, LocalSetupSnapshot>;
+  carId: string;
+}) {
+  const [expandedSetupId, setExpandedSetupId] = useState<string | null>(null);
+  const setupGroups = useMemo(() => groupLapsBySetup(session, snapshotMap), [session, snapshotMap]);
+
+  return (
+    <div className="border-t border-neutral-800">
+      {setupGroups.length === 0 && (
+        <p className="px-3 py-3 text-xs text-neutral-500">No lap data in this session.</p>
+      )}
+      {setupGroups.map((group) => {
+        const visibleLaps = group.laps.filter((l) => !l.lap.hidden);
+        const stats = computeLapStats(visibleLaps.map((l) => l.lap));
+        const isExpanded = expandedSetupId === group.setupSnapshotId;
+
+        return (
+          <div key={group.setupSnapshotId}>
+            {/* Setup row */}
+            <button
+              onClick={() => setExpandedSetupId(isExpanded ? null : group.setupSnapshotId)}
+              className="w-full text-left px-3 py-2.5 hover:bg-neutral-800/50 transition-colors border-t border-neutral-800/50 first:border-t-0"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-blue-300 truncate max-w-[45%]">{group.setupName}</span>
+                <span className="text-neutral-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
+              </div>
+              {stats && (
+                <div className="mt-1 grid grid-cols-5 gap-1.5">
+                  <MiniStat label="Laps" value={String(stats.count)} />
+                  <MiniStat label="Best" value={fmt(stats.best)} highlight />
+                  <MiniStat label="Avg" value={fmt(stats.avg)} />
+                  <MiniStat label="Consistency" value={`${stats.consistency.toFixed(1)}%`} />
+                  <MiniStat label="Std Dev" value={fmt(stats.stdDev)} />
+                </div>
+              )}
+            </button>
+
+            {/* Expanded: individual laps */}
+            {isExpanded && (
+              <SetupLapsList
+                group={group}
+                snapshotMap={snapshotMap}
+                carId={carId}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Laps list within a setup group ───────────────────────────
+
+function SetupLapsList({
+  group,
+  snapshotMap,
+  carId,
+}: {
+  group: SetupGroup;
+  snapshotMap: Map<string, LocalSetupSnapshot>;
+  carId: string;
+}) {
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const bestMs = Math.min(...group.laps.filter((l) => !l.lap.hidden).map((l) => l.lap.timeMs));
+
+  return (
+    <div className="px-3 pb-2 space-y-0.5">
+      {group.laps.map((entry, idx) => {
+        const { lap } = entry;
+        const isBest = lap.timeMs === bestMs && !lap.hidden;
+        const isEditing = editingIdx === idx;
+
+        return (
+          <div key={`${entry.segmentId}-${entry.indexInSegment}`}>
+            <button
+              onClick={() => setEditingIdx(isEditing ? null : idx)}
+              className={`w-full flex items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
+                lap.hidden
+                  ? "bg-neutral-900/30 text-neutral-600 line-through"
+                  : isBest
+                    ? "bg-green-950/40 border border-green-800/50 text-green-300"
+                    : "bg-neutral-900/50 text-neutral-300 hover:bg-neutral-800/50"
+              }`}
+            >
+              <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
+              <span className="font-mono">{fmt(lap.timeMs)}</span>
+              <span className="text-neutral-600 text-[10px]">{isEditing ? "▲" : "✎"}</span>
+            </button>
+
+            {isEditing && (
+              <LapEditForm
+                entry={entry}
+                snapshotMap={snapshotMap}
+                carId={carId}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Lap Edit Form (autosave on blur) ─────────────────────────
+
+function LapEditForm({
+  entry,
+  snapshotMap,
+  carId,
+}: {
+  entry: { lap: { lapNumber: number; timeMs: number; isOutlier?: boolean; hidden?: boolean; setupSnapshotId?: string }; segmentId: string; indexInSegment: number };
+  snapshotMap: Map<string, LocalSetupSnapshot>;
+  carId: string;
+}) {
+  const [hidden, setHidden] = useState(!!entry.lap.hidden);
+  const [setupId, setSetupId] = useState(entry.lap.setupSnapshotId ?? "");
+
+  // All snapshots for this car (for the dropdown)
+  const allSnapshots = useLiveQuery(
+    () => localDb.setupSnapshots.where("carId").equals(carId).reverse().sortBy("updatedAt"),
+    [carId],
+  );
+
+  const save = useCallback(async (newHidden: boolean, newSetupId: string) => {
+    const seg = await localDb.runSegments.get(entry.segmentId);
+    if (!seg || !seg.lapTimes) return;
+    const updated = [...seg.lapTimes];
+    if (entry.indexInSegment < updated.length) {
+      updated[entry.indexInSegment] = {
+        ...updated[entry.indexInSegment],
+        hidden: newHidden || undefined,
+        setupSnapshotId: newSetupId || undefined,
+      };
+      await localDb.runSegments.update(entry.segmentId, { lapTimes: updated, _dirty: 1 as const });
+    }
+  }, [entry.segmentId, entry.indexInSegment]);
+
+  const handleHiddenChange = (checked: boolean) => {
+    setHidden(checked);
+    save(checked, setupId);
+  };
+
+  const handleSetupChange = (id: string) => {
+    setSetupId(id);
+    save(hidden, id);
+  };
+
+  return (
+    <div className="ml-3 mr-1 my-1 p-2 rounded bg-neutral-800 border border-neutral-700 space-y-2">
+      {/* Setup selector */}
+      <div>
+        <label className="text-[10px] text-neutral-500 block mb-0.5">Car Setup</label>
+        <select
+          value={setupId}
+          onChange={(e) => handleSetupChange(e.target.value)}
+          onBlur={() => save(hidden, setupId)}
+          className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+        >
+          <option value="">— segment default —</option>
+          {(allSnapshots ?? []).map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+      {/* Hide toggle */}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <div
+          role="switch"
+          aria-checked={hidden}
+          onClick={() => handleHiddenChange(!hidden)}
+          className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${hidden ? "bg-red-600" : "bg-neutral-700"}`}
+        >
+          <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${hidden ? "translate-x-4" : "translate-x-0"}`} />
+        </div>
+        <span className="text-xs text-neutral-400">Hide / exclude from KPIs</span>
+      </label>
     </div>
   );
 }
@@ -668,6 +914,8 @@ function TimingToCarMatch({ carId }: { carId: string }) {
   const [selectedTrackId, setSelectedTrackId] = useState(() => localStorage.getItem("nlt_last_track_id") ?? "");
   const [raceNumber, setRaceNumber] = useState("");
   const [saved, setSaved] = useState(false);
+  const [minLapSec, setMinLapSec] = useState("");
+  const [maxLapSec, setMaxLapSec] = useState("");
 
   // Race listing
   interface NltRaceSummary { id: number; name: string; status: string; mode: string; startedAt: string | null; }
@@ -686,6 +934,8 @@ function TimingToCarMatch({ carId }: { carId: string }) {
 
   useEffect(() => {
     setSelectedTimingName(timingNameRecord?.timingName ?? "");
+    if (timingNameRecord?.minLapMs != null) setMinLapSec(String(timingNameRecord.minLapMs / 1000));
+    if (timingNameRecord?.maxLapMs != null) setMaxLapSec(String(timingNameRecord.maxLapMs / 1000));
   }, [timingNameRecord]);
 
   const car = getCarById(carId);
@@ -695,6 +945,10 @@ function TimingToCarMatch({ carId }: { carId: string }) {
   const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
   const feedUrl = selectedTrack?.timingFeedUrl;
   const nltCommunityId = selectedTrack?.nltCommunityId;
+
+  // Is the selected race still active/live?
+  const selectedRace = races.find((r) => String(r.id) === raceNumber);
+  const isRaceLive = selectedRace?.status === "active";
 
   // Fetch race list when track changes
   useEffect(() => {
@@ -747,7 +1001,9 @@ function TimingToCarMatch({ carId }: { carId: string }) {
 
   const handleSave = async () => {
     if (!selectedTimingName) return;
-    await localDb.carTimingNames.put({ carId, timingName: selectedTimingName });
+    const minMs = minLapSec ? parseFloat(minLapSec) * 1000 : undefined;
+    const maxMs = maxLapSec ? parseFloat(maxLapSec) * 1000 : undefined;
+    await localDb.carTimingNames.put({ carId, timingName: selectedTimingName, minLapMs: minMs, maxLapMs: maxMs });
     if (selectedTrackId) localStorage.setItem("nlt_last_track_id", selectedTrackId);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -756,7 +1012,11 @@ function TimingToCarMatch({ carId }: { carId: string }) {
   const handleClear = async () => {
     await localDb.carTimingNames.delete(carId);
     setSelectedTimingName("");
+    setMinLapSec("");
+    setMaxLapSec("");
   };
+
+  const buttonLabel = saved ? "Saved ✓" : isRaceLive ? "Sync" : "Import";
 
   return (
     <div className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden">
@@ -804,6 +1064,35 @@ function TimingToCarMatch({ carId }: { carId: string }) {
               ))}
             </select>
           )}
+          {/* Min/Max lap filter */}
+          {selectedTrackId && (
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-[10px] text-neutral-500 block mb-0.5">Min Lap (sec)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={minLapSec}
+                  onChange={(e) => setMinLapSec(e.target.value)}
+                  placeholder="e.g. 5.0"
+                  className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 placeholder:text-neutral-600"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-[10px] text-neutral-500 block mb-0.5">Max Lap (sec)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={maxLapSec}
+                  onChange={(e) => setMaxLapSec(e.target.value)}
+                  placeholder="e.g. 15.0"
+                  className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 placeholder:text-neutral-600"
+                />
+              </div>
+            </div>
+          )}
           {/* Racer name selector */}
           {raceNumber && (
             <div className="flex gap-2">
@@ -823,7 +1112,7 @@ function TimingToCarMatch({ carId }: { carId: string }) {
                 disabled={!selectedTimingName || saved}
                 className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${saved ? "bg-green-700 text-white" : "bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"}`}
               >
-                {saved ? "Saved ✓" : "Save"}
+                {buttonLabel}
               </button>
             </div>
           )}
@@ -1033,109 +1322,4 @@ function RaceRunDetail({
   );
 }
 
-// ─── Session Detail View ──────────────────────────────────────
 
-function SessionRunDetail({
-  session,
-  onBack,
-}: {
-  session: LocalRunSession & { segments: LocalRunSegment[] };
-  onBack: () => void;
-}) {
-  const allLaps = useMemo(
-    () => session.segments.flatMap((seg) => seg.lapTimes ?? []),
-    [session.segments],
-  );
-  const overallStats = useMemo(() => computeLapStats(allLaps), [allLaps]);
-
-  return (
-    <div className="px-4 py-4 space-y-4">
-      <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">← Back to Runs</button>
-
-      {/* Header */}
-      <div>
-        <h2 className="text-base font-semibold text-neutral-200">
-          Practice — {new Date(session.startedAt).toLocaleDateString()}
-        </h2>
-        <div className="flex gap-3 text-xs text-neutral-400 mt-1">
-          <span>{new Date(session.startedAt).toLocaleTimeString()}</span>
-          {session.endedAt && <span>→ {new Date(session.endedAt).toLocaleTimeString()}</span>}
-          <span>{session.endedAt ? "Completed" : "In Progress"}</span>
-        </div>
-      </div>
-
-      {/* Overall analytics */}
-      {overallStats && (
-        <>
-          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Overall</h3>
-          <div className="grid grid-cols-3 gap-2">
-            <StatBox label="Total Laps" value={String(overallStats.count)} />
-            <StatBox label="Total Time" value={fmtTotal(overallStats.total)} />
-            <StatBox label="Fast Lap" value={fmt(overallStats.best)} highlight />
-            <StatBox label="Avg Lap" value={fmt(overallStats.avg)} />
-            <StatBox label="Median" value={fmt(overallStats.median)} />
-            <StatBox label="Worst Lap" value={fmt(overallStats.worst)} />
-            <StatBox label="Std Dev" value={fmt(overallStats.stdDev)} />
-            <StatBox label="Consistency" value={`${overallStats.consistency.toFixed(1)}%`} />
-          </div>
-        </>
-      )}
-
-      {/* Per-segment breakdown */}
-      {session.segments.map((seg) => {
-        const segLaps = seg.lapTimes ?? [];
-        const segStats = computeLapStats(segLaps);
-
-        return (
-          <div key={seg.id} className="space-y-2 border-t border-neutral-800 pt-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-neutral-400 uppercase">
-                Segment {seg.segmentNumber}
-              </h3>
-              {segStats && (
-                <span className="text-[10px] text-neutral-500">
-                  {segStats.count} laps · Best {fmt(segStats.best)} · Avg {fmt(segStats.avg)}
-                </span>
-              )}
-            </div>
-
-            {/* Segment feedback */}
-            {seg.feedback && (
-              <div className="flex flex-wrap gap-1.5">
-                {seg.feedback.handling.map((h) => (
-                  <span key={h} className="rounded bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-400">
-                    {h}
-                  </span>
-                ))}
-                <span className="rounded bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-400">
-                  Consistency: {seg.feedback.consistency}/5
-                </span>
-                {seg.feedback.notes && (
-                  <p className="text-xs text-neutral-500 w-full mt-1">{seg.feedback.notes}</p>
-                )}
-              </div>
-            )}
-
-            {/* Setup changes */}
-            {seg.setupChanges && seg.setupChanges.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {seg.setupChanges.map((c) => (
-                  <span key={c.capabilityId} className="rounded bg-blue-900/40 px-2 py-0.5 text-[10px] text-blue-300">
-                    {c.capabilityId}: {String(c.value)}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Lap times */}
-            {segLaps.length > 0 && (
-              <LapTable laps={segLaps} bestMs={segStats?.best ?? 0} />
-            )}
-          </div>
-        );
-      })}
-
-      {session.notes && <p className="text-xs text-neutral-400 mt-2">{session.notes}</p>}
-    </div>
-  );
-}

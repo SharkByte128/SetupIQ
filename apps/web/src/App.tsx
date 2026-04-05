@@ -9,7 +9,7 @@ import { TracksPage } from "./components/TracksPage.js";
 import { ResourcesPage } from "./components/ResourcesPage.js";
 import { InstallPrompt } from "./components/InstallPrompt.js";
 
-type Tab = "garage" | "runs" | "timing" | "tracks" | "resources";
+type Tab = "garage" | "sessions" | "timing" | "tracks" | "resources";
 
 const iconProps = { width: 18, height: 18, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
@@ -17,7 +17,7 @@ function TabIcon({ name }: { name: Tab }) {
   switch (name) {
     case "garage":
       return (<svg {...iconProps} viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12H3z" /><rect x="9" y="13" width="6" height="8" rx="1" /></svg>);
-    case "runs":
+    case "sessions":
       return (<svg {...iconProps} viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>);
     case "tracks":
       return (<svg {...iconProps} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /></svg>);
@@ -60,7 +60,7 @@ function App() {
         ) : (
           <>
             {tab === "garage" && <GaragePage />}
-            {tab === "runs" && <RunsPage />}
+            {tab === "sessions" && <RunsPage />}
             {tab === "timing" && <TimingPage />}
             {tab === "tracks" && <TracksPage />}
             {tab === "resources" && <ResourcesPage />}
@@ -69,7 +69,7 @@ function App() {
       </main>
 
       <nav className="shrink-0 border-t border-neutral-800 px-2 py-2 flex justify-around text-xs">
-        {(["garage", "runs", "tracks", "timing", "resources"] as const).map((t) => (
+        {(["garage", "sessions", "tracks", "timing", "resources"] as const).map((t) => (
           <button
             key={t}
             onClick={() => { setTab(t); setShowSettings(false); }}
