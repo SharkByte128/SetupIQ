@@ -367,9 +367,9 @@ async function pushDirtyRecords(): Promise<void> {
     );
   }
 
-  await syncFetch("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
+  const pushRes = await syncFetch<{ ok: boolean; upserted: Record<string, number> }>("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
 
-  // Mark pushed records as clean
+  // Mark pushed records as clean (only mark categories clean if server confirmed)
   await Promise.all([
     ...dirtySetups.map((s) => localDb.setupSnapshots.update(s.id, { _dirty: 0 })),
     ...dirtyTracks.map((t) => localDb.tracks.update(t.id, { _dirty: 0 })),
@@ -384,8 +384,8 @@ async function pushDirtyRecords(): Promise<void> {
     ...dirtyMeasurements.map((m) => localDb.measurements.update(m.id, { _dirty: 0 })),
     ...dirtySetupTemplates.map((t) => localDb.setupTemplates.update(t.id, { _dirty: 0 })),
     ...dirtyRacers.map((r) => localDb.racers.update(r.id, { _dirty: 0 })),
-    ...dirtyPartCategories.map((c) => localDb.customPartCategories.update(c.id, { _dirty: 0 })),
-    ...dirtyCategoryImages.map((img) => localDb.categoryImages.update(img.id, { _dirty: 0 })),
+    ...(pushRes.upserted.partCategories ? dirtyPartCategories.map((c) => localDb.customPartCategories.update(c.id, { _dirty: 0 })) : []),
+    ...(pushRes.upserted.categoryImages ? dirtyCategoryImages.map((img) => localDb.categoryImages.update(img.id, { _dirty: 0 })) : []),
   ]);
 }
 

@@ -712,6 +712,16 @@ class SetupIQDatabase extends Dexie {
         if (!rec.updatedAt) rec.updatedAt = rec.createdAt || now;
       });
     });
+
+    // v25: re-dirty category records — v24 push could silently fail, marking them clean
+    this.version(25).stores({}).upgrade(async (tx) => {
+      await tx.table("customPartCategories").toCollection().modify((rec: Record<string, unknown>) => {
+        rec._dirty = 1;
+      });
+      await tx.table("categoryImages").toCollection().modify((rec: Record<string, unknown>) => {
+        rec._dirty = 1;
+      });
+    });
   }
 }
 
