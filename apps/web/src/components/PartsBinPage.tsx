@@ -851,7 +851,7 @@ function CategoryPartsGrid({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 mb-4">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 mb-4">
           {parts.map((part) => {
             const thumbUrl = thumbnails.get(part.id);
             const vendor = getVendorById(part.vendorId);
@@ -868,14 +868,14 @@ function CategoryPartsGrid({
                     {thumbUrl ? (
                       <img src={thumbUrl} alt={part.name} className="w-full h-full object-cover" />
                     ) : vendor ? (
-                      <VendorLogo slug={vendor.slug} size={48} />
+                      <VendorLogo slug={vendor.slug} size={36} />
                     ) : (
-                      <span className="text-4xl text-neutral-600">{category.icon}</span>
+                      <span className="text-2xl text-neutral-600">{category.icon}</span>
                     )}
                   </div>
                   {/* Info */}
-                  <div className="px-2 py-2">
-                    <p className="text-xs font-medium truncate">{part.name}</p>
+                  <div className="px-1.5 py-1.5">
+                    <p className="text-[11px] font-medium truncate">{part.name}</p>
                     <p className="text-[10px] text-neutral-500 truncate">
                       {vendor?.name}
                       {firstAttr ? ` · ${firstAttr}` : ""}
