@@ -834,7 +834,7 @@ function SetupLapsList({
 
 function LapEditForm({
   entry,
-  snapshotMap,
+  snapshotMap: _snapshotMap,
   carId,
 }: {
   entry: { lap: { lapNumber: number; timeMs: number; isOutlier?: boolean; hidden?: boolean; setupSnapshotId?: string }; segmentId: string; indexInSegment: number };
