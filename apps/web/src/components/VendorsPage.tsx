@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { vendors, type Vendor } from "@setupiq/shared";
+import { vendors } from "@setupiq/shared";
 import { localDb, type LocalCustomVendor } from "../db/local-db.js";
 import { useCustomVendors } from "../hooks/use-vendors.js";
 import { v4 as uuid } from "uuid";
