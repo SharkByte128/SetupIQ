@@ -7,7 +7,7 @@ import { RacersManager } from "./RacersManager.js";
 import { loadSyncConfig, markAllDirty, performSync, startAutoSync, clearSyncConfig, stopAutoSync, wipeAndResync } from "../sync/engine.js";
 import { VendorsPage } from "./VendorsPage.js";
 
-export function SettingsPage({ onClose }: { onClose: () => void }) {
+export function SettingsPage({ onClose: _onClose }: { onClose: () => void }) {
   const [geminiKey, setGeminiKey] = useState("");
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
