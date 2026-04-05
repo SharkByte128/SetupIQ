@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
-  vendors,
   partCategories,
   chassisPlatforms,
   getCategoryById,
-  getVendorById,
   type Vendor,
   type PartCategory,
   type PartAttribute,
@@ -16,15 +14,32 @@ import {
   type LocalPartFile,
   type LocalPartCategory,
   type LocalCategoryImage,
+  type LocalCustomVendor,
 } from "../db/local-db.js";
 import { lookupPartBySku, suggestPartsForChassis, type PartLookupResult, type SuggestedPart } from "../lib/gemini-parts.js";
 import { resizeImage } from "../lib/resize-image.js";
+import { useAllVendors } from "../hooks/use-vendors.js";
 import { v4 as uuid } from "uuid";
 import { RichNotesEditor, MarkdownDisplay } from "./RichNotesEditor.js";
 
 // ── Vendor Logo SVGs ──────────────────────────────────────────
 
-function VendorLogo({ slug, size = 48 }: { slug: string; size?: number }) {
+// Built-in vendor visual config for slugs without custom SVGs
+const builtInVendorVisuals: Record<string, { abbr: string; color: string }> = {
+  "gl-racing": { abbr: "GL", color: "#2d5a27" },
+  "mpower": { abbr: "MP", color: "#4a1a6b" },
+  "hobby-plus": { abbr: "H+", color: "#1a4a4a" },
+  "yeah-racing": { abbr: "YR", color: "#8b6914" },
+  "3racing": { abbr: "3R", color: "#1a3a5c" },
+  "futaba": { abbr: "FU", color: "#1a1a8b" },
+  "ko-propo": { abbr: "KO", color: "#2c1a1a" },
+  "spektrum": { abbr: "SP", color: "#ff6600" },
+  "hobbywing": { abbr: "HW", color: "#005b33" },
+  "other": { abbr: "?", color: "#333" },
+};
+
+function VendorLogo({ slug, size = 48, abbreviation, color }: { slug: string; size?: number; abbreviation?: string; color?: string }) {
+  const customVendors: LocalCustomVendor[] = useLiveQuery(() => localDb.customVendors.toArray()) ?? [];
   const s = { width: size, height: size };
   switch (slug) {
     case "kyosho":
@@ -78,13 +93,19 @@ function VendorLogo({ slug, size = 48 }: { slug: string; size?: number }) {
           <text x="24" y="40" textAnchor="middle" fill="#ffffff" fontSize="5.5" fontFamily="Arial, sans-serif">REFLEX</text>
         </svg>
       );
-    default:
+    default: {
+      const vis = builtInVendorVisuals[slug];
+      const cv = customVendors.find(v => v.slug === slug);
+      const abbr = abbreviation ?? vis?.abbr ?? cv?.abbreviation ?? slug.slice(0, 2).toUpperCase();
+      const bg = color ?? vis?.color ?? cv?.color ?? "#333";
+      const fs = abbr.length > 2 ? 10 : abbr.length > 1 ? 14 : 16;
       return (
         <svg {...s} viewBox="0 0 48 48">
-          <rect width="48" height="48" rx="8" fill="#333" />
-          <text x="24" y="30" textAnchor="middle" fill="#999" fontSize="12">?</text>
+          <rect width="48" height="48" rx="8" fill={bg} />
+          <text x="24" y="30" textAnchor="middle" fill="white" fontSize={fs} fontWeight="bold" fontFamily="Arial, sans-serif">{abbr}</text>
         </svg>
       );
+    }
   }
 }
 
@@ -258,6 +279,7 @@ type View =
 export function PartsBinPage() {
   const [view, setView] = useState<View>({ type: "categories" });
   const [adminMode, setAdminMode] = useState(() => localStorage.getItem("partsBinAdmin") === "1");
+  const allVendors = useAllVendors();
 
   const toggleAdmin = useCallback((v: boolean) => {
     setAdminMode(v);
@@ -323,7 +345,7 @@ export function PartsBinPage() {
           onAdd={(vendor) => setView({ type: "add", category: view.category, vendor })}
           onDetail={(p) => setView({ type: "detail", part: p })}
           onEdit={(p) => {
-            const v = getVendorById(p.vendorId);
+            const v = allVendors.find(v => v.id === p.vendorId);
             setView({ type: "add", category: view.category, vendor: v, editPart: p });
           }}
           onClonePart={(p) => {
@@ -347,7 +369,7 @@ export function PartsBinPage() {
         <PartDetail
           part={view.part}
           onEdit={() => {
-            const v = getVendorById(view.part.vendorId);
+            const v = allVendors.find(v => v.id === view.part.vendorId);
             const c = getCategoryById(view.part.categoryId);
             if (c) setView({ type: "add", category: c, vendor: v, editPart: view.part });
           }}
@@ -674,7 +696,8 @@ function UncategorizedPartRow({
     if (files.length) await localDb.partFiles.bulkDelete(files.map(f => f.id));
   };
 
-  const vendor = getVendorById(part.vendorId);
+  const allVendors = useAllVendors();
+  const vendor = allVendors.find(v => v.id === part.vendorId);
   const inputClass =
     "w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500";
 
@@ -735,7 +758,7 @@ function UncategorizedPartRow({
               onChange={e => { setVendorId(e.target.value); save({ vendorId: e.target.value }); }}
             >
               <option value="">— None —</option>
-              {vendors.map(v => (
+              {allVendors.map(v => (
                 <option key={v.id} value={v.id}>{v.name}</option>
               ))}
             </select>
@@ -796,6 +819,7 @@ function CategoryPartsGrid({
     [category.id],
   ) ?? [];
   const thumbnails = usePartThumbnails(parts.map(p => p.id));
+  const allVendors = useAllVendors();
 
   return (
     <>
@@ -854,7 +878,7 @@ function CategoryPartsGrid({
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 mb-4">
           {parts.map((part) => {
             const thumbUrl = thumbnails.get(part.id);
-            const vendor = getVendorById(part.vendorId);
+            const vendor = allVendors.find(v => v.id === part.vendorId);
             const attrs = category.attributes;
             const firstAttr = attrs.length > 0 ? part.attributes[attrs[0].key] : undefined;
             return (
@@ -1308,9 +1332,10 @@ function AddPartForm({
 }) {
   const [confirmDeletePart, setConfirmDeletePart] = useState(false);
   const allCategories = useAllCategories();
+  const allVendors = useAllVendors();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(category.id);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(
-    editPart ? getVendorById(editPart.vendorId) ?? null : presetVendor ?? null,
+    presetVendor ?? null,
   );
   const [name, setName] = useState(editPart?.name ?? "");
   const [sku, setSku] = useState(editPart?.sku ?? "");
@@ -1379,7 +1404,7 @@ function AddPartForm({
         <div>
           <label className="text-xs text-neutral-400 mb-2 block">Vendor *</label>
           <div className="grid grid-cols-3 gap-2">
-            {vendors.map((v) => (
+            {allVendors.map((v) => (
               <button
                 key={v.id}
                 onClick={() => setSelectedVendor(v)}
@@ -1593,7 +1618,8 @@ function PartDetail({
   onEdit: () => void;
 }) {
   const allCategories = useAllCategories();
-  const vendor = getVendorById(part.vendorId);
+  const allVendors = useAllVendors();
+  const vendor = allVendors.find(v => v.id === part.vendorId);
   const category = allCategories.find(c => c.id === part.categoryId) ?? getCategoryById(part.categoryId);
   const [files, setFiles] = useState<{ id: string; name: string; mimeType: string; url: string }[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -1858,6 +1884,7 @@ function QuickAddPart({
   onCancel: () => void;
 }) {
   const allCategories = useAllCategories();
+  const allVendors = useAllVendors();
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<MergedCategory | null>(null);
   const [name, setName] = useState("");
@@ -1884,7 +1911,7 @@ function QuickAddPart({
   const applyLookup = (r: PartLookupResult) => {
     if (r.name) setName(r.name);
     if (r.vendorId) {
-      const v = vendors.find((v) => v.id === r.vendorId);
+      const v = allVendors.find((v) => v.id === r.vendorId);
       if (v) setSelectedVendor(v);
     }
     if (r.categoryId) {
@@ -1931,7 +1958,7 @@ function QuickAddPart({
         <div>
           <label className="text-xs text-neutral-400 mb-2 block">Vendor *</label>
           <div className="grid grid-cols-3 gap-2">
-            {vendors.map((v) => (
+            {allVendors.map((v) => (
               <button
                 key={v.id}
                 onClick={() => setSelectedVendor(v)}
@@ -2213,7 +2240,8 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
     setFilesFound(filesAttached);
   };
 
-  const getVendorName = (id: string) => getVendorById(id)?.name ?? id;
+  const allVendors = useAllVendors();
+  const getVendorName = (id: string) => allVendors.find(v => v.id === id)?.name ?? id;
   const getCategoryName = (id: string) => getCategoryById(id)?.name ?? id;
 
   return (

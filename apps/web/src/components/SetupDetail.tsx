@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { SetupSnapshot, CarDefinition, SetupEntry, SetupSection, Capability, WheelTireSetup } from "@setupiq/shared";
-import { allTires, allWheels, getAllowedValues, partCategories, getVendorById } from "@setupiq/shared";
+import { allTires, allWheels, getAllowedValues, partCategories } from "@setupiq/shared";
 import { exportSetupCsv, downloadCsv } from "../utils/export.js";
 import { WheelTireSelector } from "./WheelTireSelector.js";
 import { localDb, type LocalPart } from "../db/local-db.js";
 import { v4 as uuid } from "uuid";
 import { RichNotesEditor } from "./RichNotesEditor.js";
+import { useAllVendors } from "../hooks/use-vendors.js";
 
 interface Props {
   setup: SetupSnapshot;
@@ -28,6 +29,7 @@ const predefinedChassisMap: Record<string, string> = {
 };
 
 export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, onClone, onDelete, onBack, onAutoSave }: Props) {
+  const allVendors = useAllVendors();
   const [compareId, setCompareId] = useState<string | null>(null);
   const [adminMode, setAdminMode] = useState(false);
   const [expandedCap, setExpandedCap] = useState<string | null>(null);
@@ -482,7 +484,7 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
                     <p className="text-xs text-neutral-500 mb-1 font-medium">Parts Inventory</p>
                     <div className={sec.columns > 1 ? `grid ${colClass} gap-2` : "space-y-1"}>
                       {sectionParts.map((part) => {
-                        const vendor = getVendorById(part.vendorId);
+                        const vendor = allVendors.find(v => v.id === part.vendorId);
                         const partCat = partCategories.find((c) => c.id === part.categoryId);
                         return (
                           <div key={part.id} className="rounded bg-neutral-900 border border-neutral-800 px-3 py-2 flex items-center justify-between">

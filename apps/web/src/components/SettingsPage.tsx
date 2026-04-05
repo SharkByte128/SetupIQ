@@ -5,6 +5,7 @@ import { localDb } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { RacersManager } from "./RacersManager.js";
 import { loadSyncConfig, markAllDirty, performSync, startAutoSync, clearSyncConfig, stopAutoSync, wipeAndResync } from "../sync/engine.js";
+import { VendorsPage } from "./VendorsPage.js";
 
 export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [geminiKey, setGeminiKey] = useState("");
@@ -12,6 +13,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [showKey, setShowKey] = useState(false);
   const [hideDemoData, setHideDemoData] = useState(false);
   const [showHidden, setShowHidden] = useShowHiddenRuns();
+  const [showVendors, setShowVendors] = useState(false);
 
   // Hidden garage cars (for restore UI)
   const hiddenGarageCars = useLiveQuery(() => localDb.hiddenGarageCars.toArray()) ?? [];
@@ -171,6 +173,10 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const inputClass =
     "w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500 font-mono";
 
+  if (showVendors) {
+    return <VendorsPage onClose={() => setShowVendors(false)} />;
+  }
+
   return (
     <div className="px-4 py-4 space-y-4">
       <div className="flex items-center justify-between mb-6">
@@ -186,6 +192,25 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
       {/* Racers Section */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
         <RacersManager />
+      </div>
+
+      {/* Vendors Section */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+        <button
+          onClick={() => setShowVendors(true)}
+          className="flex items-center justify-between w-full"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🏭</span>
+            <div className="text-left">
+              <h3 className="font-medium text-sm">Vendors &amp; Manufacturers</h3>
+              <p className="text-xs text-neutral-500">
+                Manage part vendors and add custom manufacturers
+              </p>
+            </div>
+          </div>
+          <span className="text-neutral-500 text-sm">→</span>
+        </button>
       </div>
 
       {/* Demo Data Toggle */}

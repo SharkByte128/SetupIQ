@@ -285,6 +285,18 @@ export interface LocalCarNote {
   updatedAt: string;
 }
 
+/** User-created vendor/manufacturer. */
+export interface LocalCustomVendor {
+  id: string;
+  name: string;
+  slug: string;
+  abbreviation: string;   // 1-3 chars shown in logo
+  color: string;           // hex background color
+  createdAt: string;
+  updatedAt: string;
+  _dirty: 0 | 1;
+}
+
 /** Predefined car hidden from the user's garage. */
 export interface HiddenGarageCar {
   carId: string;
@@ -331,6 +343,7 @@ class SetupIQDatabase extends Dexie {
   setupTemplates!: Table<LocalSetupTemplate, string>;
   customPartCategories!: Table<LocalPartCategory, string>;
   categoryImages!: Table<LocalCategoryImage, string>;
+  customVendors!: Table<LocalCustomVendor, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -734,6 +747,11 @@ class SetupIQDatabase extends Dexie {
         if (!rec.updatedAt) rec.updatedAt = rec.createdAt || now;
         if (rec._dirty === undefined) rec._dirty = 1;
       });
+    });
+
+    // v27: add customVendors table
+    this.version(27).stores({
+      customVendors: "id, slug, _dirty",
     });
   }
 }
