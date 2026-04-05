@@ -36,8 +36,6 @@ const builtInVendorVisuals: Record<string, { abbr: string; color: string }> = {
   "other": { abbr: "?", color: "#333" },
 };
 
-const builtInSvgSlugs = new Set(["kyosho", "pn-racing", "nexx-racing", "silver-horse", "atomic-rc", "reflex-racing"]);
-
 function MiniVendorLogo({ slug, size = 40, abbreviation, color }: { slug: string; size?: number; abbreviation?: string; color?: string }) {
   const s = { width: size, height: size };
 
