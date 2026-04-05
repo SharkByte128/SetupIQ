@@ -177,8 +177,27 @@ function SkuLookupField({
 // ── Merged categories hook ────────────────────────────────────
 
 /** Merge built-in partCategories with user's custom overrides & additions */
-function useAllCategories(): PartCategory[] {
+function getHiddenCategoryIds(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem("hiddenPartCategories") || "[]"));
+  } catch { return new Set(); }
+}
+
+function setHiddenCategoryIds(ids: Set<string>) {
+  localStorage.setItem("hiddenPartCategories", JSON.stringify([...ids]));
+}
+
+function useAllCategories(includeHidden = false): PartCategory[] {
   const customCats = useLiveQuery(() => localDb.customPartCategories.toArray()) ?? [];
+  const [hiddenIds, setHiddenIds] = useState(() => getHiddenCategoryIds());
+
+  // Listen for changes from other calls to toggleHideCategory
+  useEffect(() => {
+    const handler = () => setHiddenIds(getHiddenCategoryIds());
+    window.addEventListener("hidden-categories-changed", handler);
+    return () => window.removeEventListener("hidden-categories-changed", handler);
+  }, []);
+
   return useMemo(() => {
     const overrideMap = new Map(customCats.filter(c => c.builtIn).map(c => [c.id, c]));
     const merged = partCategories.map((cat) => {
@@ -189,8 +208,18 @@ function useAllCategories(): PartCategory[] {
     const custom = customCats
       .filter(c => !c.builtIn)
       .map(c => ({ id: c.id as PartCategory["id"], name: c.name, icon: c.icon, description: c.description, attributes: c.attributes as PartAttribute[] }));
-    return [...merged, ...custom];
-  }, [customCats]);
+    const all = [...merged, ...custom];
+    if (includeHidden) return all;
+    return all.filter(c => !hiddenIds.has(c.id));
+  }, [customCats, hiddenIds, includeHidden]);
+}
+
+function toggleHideCategory(id: string) {
+  const ids = getHiddenCategoryIds();
+  if (ids.has(id)) ids.delete(id);
+  else ids.add(id);
+  setHiddenCategoryIds(ids);
+  window.dispatchEvent(new Event("hidden-categories-changed"));
 }
 
 // ── Category image hook ───────────────────────────────────────
@@ -420,8 +449,11 @@ function CategoryGrid({
   onSuggest: () => void;
   onNewCategory: (cloneFrom?: MergedCategory) => void;
 }) {
-  const allCategories = useAllCategories();
+  const [showHiddenCats, setShowHiddenCats] = useState(false);
+  const allCategories = useAllCategories(adminMode && showHiddenCats);
+  const hiddenIds = useMemo(() => getHiddenCategoryIds(), [allCategories]); // re-derive when categories change
   const categoryImages = useCategoryImages();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [chassisFilter, setChassisFilter] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
@@ -512,6 +544,18 @@ function CategoryGrid({
         >
           + Add Part
         </button>
+        {adminMode && (
+          <button
+            onClick={() => setShowHiddenCats(v => !v)}
+            className={`text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap border ${
+              showHiddenCats
+                ? "bg-amber-600/20 border-amber-500 text-amber-400"
+                : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500"
+            }`}
+          >
+            {showHiddenCats ? "Hide Hidden" : "Show Hidden"}
+          </button>
+        )}
       </div>
 
       {/* Setup template / chassis filter pills */}
@@ -583,6 +627,39 @@ function CategoryGrid({
                   📋
                 </button>
               )}
+              {/* Admin: remove / hide category */}
+              {adminMode && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const isBuiltIn = partCategories.some(c => c.id === cat.id);
+                    if (isBuiltIn) {
+                      // Toggle hide for built-in categories
+                      toggleHideCategory(cat.id);
+                    } else {
+                      // Custom category — confirm delete
+                      setConfirmDeleteId(cat.id);
+                    }
+                  }}
+                  className={`absolute bottom-8 right-1 bg-black/70 rounded-full w-7 h-7 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${
+                    hiddenIds.has(cat.id) ? "text-green-400" : "text-red-400"
+                  }`}
+                  title={partCategories.some(c => c.id === cat.id)
+                    ? (hiddenIds.has(cat.id) ? "Unhide category" : "Hide category")
+                    : "Delete category"
+                  }
+                >
+                  {partCategories.some(c => c.id === cat.id)
+                    ? (hiddenIds.has(cat.id) ? "👁" : "🙈")
+                    : "🗑"}
+                </button>
+              )}
+              {/* Admin: dim hidden categories */}
+              {adminMode && hiddenIds.has(cat.id) && (
+                <div className="absolute inset-0 bg-black/50 rounded-lg pointer-events-none flex items-center justify-center">
+                  <span className="text-xs text-neutral-400 font-medium">Hidden</span>
+                </div>
+              )}
             </div>
           );
         })}
@@ -598,6 +675,48 @@ function CategoryGrid({
           </button>
         )}
       </div>
+
+      {/* Confirm delete dialog for custom categories */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setConfirmDeleteId(null)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-red-400 mb-2">Delete Category</h3>
+            <p className="text-xs text-neutral-300 mb-4">
+              This will permanently delete the category and all its parts. This cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="text-xs px-3 py-2 rounded-lg text-neutral-400 hover:text-neutral-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const catId = confirmDeleteId;
+                  setConfirmDeleteId(null);
+                  try {
+                    const catParts = await localDb.parts.where("categoryId").equals(catId).toArray();
+                    for (const p of catParts) {
+                      const files = await localDb.partFiles.where("partId").equals(p.id).toArray();
+                      if (files.length) await localDb.partFiles.bulkDelete(files.map(f => f.id));
+                    }
+                    if (catParts.length) await localDb.parts.bulkDelete(catParts.map(p => p.id));
+                    const imgs = await localDb.categoryImages.where("categoryId").equals(catId).toArray();
+                    if (imgs.length) await localDb.categoryImages.bulkDelete(imgs.map(i => i.id));
+                    await localDb.customPartCategories.delete(catId);
+                  } catch (err) {
+                    console.error("Failed to delete category:", err);
+                  }
+                }}
+                className="text-xs bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hidden file input for category thumbnail */}
       <input
