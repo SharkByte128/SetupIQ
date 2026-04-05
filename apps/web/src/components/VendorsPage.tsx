@@ -1,8 +1,24 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
 import { vendors } from "@setupiq/shared";
 import { localDb, type LocalCustomVendor } from "../db/local-db.js";
 import { useCustomVendors } from "../hooks/use-vendors.js";
 import { v4 as uuid } from "uuid";
+
+class VendorErrorBoundary extends Component<{ children: ReactNode; onClose: () => void }, { error: string | null }> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(err: Error) { return { error: err.message }; }
+  componentDidCatch(err: Error, info: ErrorInfo) { console.error("VendorsPage error:", err, info); }
+  render() {
+    if (this.state.error) return (
+      <div className="px-4 py-8 text-center">
+        <p className="text-red-400 mb-2">Something went wrong loading vendors.</p>
+        <p className="text-xs text-neutral-500 mb-4">{this.state.error}</p>
+        <button onClick={this.props.onClose} className="text-sm text-blue-400">← Back to Settings</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 
 // Preset color palette
 const colorOptions = [
@@ -65,6 +81,14 @@ type ViewState =
   | { type: "edit"; vendor: LocalCustomVendor };
 
 export function VendorsPage({ onClose }: { onClose: () => void }) {
+  return (
+    <VendorErrorBoundary onClose={onClose}>
+      <VendorsPageInner onClose={onClose} />
+    </VendorErrorBoundary>
+  );
+}
+
+function VendorsPageInner({ onClose }: { onClose: () => void }) {
   const [view, setView] = useState<ViewState>({ type: "list" });
   const customVendors = useCustomVendors();
 
@@ -251,8 +275,10 @@ function VendorForm({
       <div className="flex flex-col gap-4">
         {/* Name */}
         <div>
-          <label className="text-xs text-neutral-400 mb-1 block">Vendor Name *</label>
+          <label htmlFor="vendor-name" className="text-xs text-neutral-400 mb-1 block">Vendor Name *</label>
           <input
+            id="vendor-name"
+            name="vendor-name"
             type="text"
             className={inputClass}
             placeholder="e.g. Tamiya"
@@ -264,10 +290,12 @@ function VendorForm({
 
         {/* Abbreviation */}
         <div>
-          <label className="text-xs text-neutral-400 mb-1 block">
+          <label htmlFor="vendor-abbr" className="text-xs text-neutral-400 mb-1 block">
             Abbreviation (1-3 chars for logo)
           </label>
           <input
+            id="vendor-abbr"
+            name="vendor-abbr"
             type="text"
             className={inputClass}
             placeholder={autoAbbr}
@@ -296,8 +324,10 @@ function VendorForm({
             ))}
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <label className="text-[10px] text-neutral-500">Custom:</label>
+            <label htmlFor="vendor-color" className="text-[10px] text-neutral-500">Custom:</label>
             <input
+              id="vendor-color"
+              name="vendor-color"
               type="color"
               value={color}
               onChange={(e) => setColor(e.target.value)}

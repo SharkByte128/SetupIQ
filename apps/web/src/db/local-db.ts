@@ -753,6 +753,11 @@ class SetupIQDatabase extends Dexie {
     this.version(27).stores({
       customVendors: "id, slug, _dirty",
     });
+
+    // v28: index name on customVendors for orderBy("name")
+    this.version(28).stores({
+      customVendors: "id, name, slug, _dirty",
+    });
   }
 }
 
