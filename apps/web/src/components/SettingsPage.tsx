@@ -343,9 +343,8 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="px-4 py-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <h2 className="text-xl font-semibold">Settings</h2>
-        <button onClick={onClose} className="text-sm text-blue-400 hover:text-blue-300">Done</button>
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">

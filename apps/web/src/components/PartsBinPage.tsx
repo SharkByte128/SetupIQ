@@ -556,7 +556,7 @@ function CategoryGrid({
                   {thumbUrl ? (
                     <img src={thumbUrl} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-2xl">{cat.icon}</span>
+                    <span className="text-2xl text-neutral-600">📦</span>
                   )}
                 </div>
                 {/* Label */}
@@ -820,13 +820,17 @@ function CategoryPartsGrid({
   ) ?? [];
   const thumbnails = usePartThumbnails(parts.map(p => p.id));
   const allVendors = useAllVendors();
+  const categoryImages = useCategoryImages();
+  const catThumb = categoryImages.get(category.id);
 
   return (
     <>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-xl">{category.icon}</span>
+          {catThumb && (
+            <img src={catThumb} alt="" className="w-7 h-7 rounded object-cover" />
+          )}
           <div>
             <h2 className="text-lg font-semibold">{category.name}</h2>
             <p className="text-xs text-neutral-500">{parts.length} parts</p>
@@ -865,7 +869,11 @@ function CategoryPartsGrid({
       {/* Parts thumbnail grid */}
       {parts.length === 0 ? (
         <div className="text-center py-12 text-neutral-500">
-          <p className="text-lg mb-1">{category.icon}</p>
+          {catThumb ? (
+            <img src={catThumb} alt="" className="w-10 h-10 rounded object-cover mx-auto mb-1" />
+          ) : (
+            <p className="text-lg mb-1">📦</p>
+          )}
           <p className="text-sm">No {category.name.toLowerCase()} yet</p>
           <button
             onClick={() => onAdd()}
@@ -893,8 +901,10 @@ function CategoryPartsGrid({
                       <img src={thumbUrl} alt={part.name} className="w-full h-full object-cover" />
                     ) : vendor ? (
                       <VendorLogo slug={vendor.slug} size={36} />
+                    ) : catThumb ? (
+                      <img src={catThumb} alt="" className="w-full h-full object-cover opacity-40" />
                     ) : (
-                      <span className="text-2xl text-neutral-600">{category.icon}</span>
+                      <span className="text-2xl text-neutral-600">📦</span>
                     )}
                   </div>
                   {/* Info */}
@@ -960,9 +970,10 @@ function CategoryFormEditor({
   onCancel: () => void;
   onDeleted: () => void;
 }) {
+  const isBuiltIn = partCategories.some(c => c.id === category.id);
   const [confirmDeleteCat, setConfirmDeleteCat] = useState(false);
   const [catName, setCatName] = useState(category.name);
-  const [catIcon, setCatIcon] = useState(category.icon);
+  const [catIcon] = useState(category.icon);
   const [description, setDescription] = useState(category.description ?? "");
   const [fields, setFields] = useState<PartAttribute[]>(() =>
     category.attributes.map((a) => ({ ...a })),
@@ -995,7 +1006,6 @@ function CategoryFormEditor({
 
   const handleSave = async () => {
     if (!catName.trim()) return;
-    const isBuiltIn = partCategories.some(c => c.id === category.id);
     const now = new Date().toISOString();
     const record: LocalPartCategory = {
       id: category.id,
@@ -1027,16 +1037,10 @@ function CategoryFormEditor({
       <h2 className="text-lg font-semibold mb-4">⚙️ Manage Form — {category.name}</h2>
 
       <div className="flex flex-col gap-4">
-        {/* Category name & icon */}
-        <div className="grid grid-cols-[1fr_80px] gap-2">
-          <div>
-            <label className="text-xs text-neutral-400 mb-1 block">Category Name</label>
-            <input className={inputClass} value={catName} onChange={(e) => setCatName(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-neutral-400 mb-1 block">Icon</label>
-            <input className={inputClass + " text-center"} value={catIcon} onChange={(e) => setCatIcon(e.target.value)} placeholder="📦" />
-          </div>
+        {/* Category name */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-1 block">Category Name</label>
+          <input className={inputClass} value={catName} onChange={(e) => setCatName(e.target.value)} />
         </div>
 
         {/* Description */}
@@ -1135,6 +1139,7 @@ function CategoryFormEditor({
         </div>
 
         {/* Delete Category */}
+        {!isBuiltIn && (
         <div className="border-t border-neutral-800 pt-4 mt-2">
           {!confirmDeleteCat ? (
             <button
@@ -1148,19 +1153,24 @@ function CategoryFormEditor({
               <span className="text-xs text-red-400">Delete this category and all its parts?</span>
               <button
                 onClick={async () => {
-                  // Delete all parts in this category
-                  const catParts = await localDb.parts.where("categoryId").equals(category.id).toArray();
-                  for (const p of catParts) {
-                    const files = await localDb.partFiles.where("partId").equals(p.id).toArray();
-                    if (files.length) await localDb.partFiles.bulkDelete(files.map(f => f.id));
+                  try {
+                    // Delete all parts in this category
+                    const catParts = await localDb.parts.where("categoryId").equals(category.id).toArray();
+                    for (const p of catParts) {
+                      const files = await localDb.partFiles.where("partId").equals(p.id).toArray();
+                      if (files.length) await localDb.partFiles.bulkDelete(files.map(f => f.id));
+                    }
+                    if (catParts.length) await localDb.parts.bulkDelete(catParts.map(p => p.id));
+                    // Delete category image
+                    const imgs = await localDb.categoryImages.where("categoryId").equals(category.id).toArray();
+                    if (imgs.length) await localDb.categoryImages.bulkDelete(imgs.map(i => i.id));
+                    // Delete the category
+                    await localDb.customPartCategories.delete(category.id);
+                    onDeleted();
+                  } catch (err) {
+                    console.error("Failed to delete category:", err);
+                    setConfirmDeleteCat(false);
                   }
-                  if (catParts.length) await localDb.parts.bulkDelete(catParts.map(p => p.id));
-                  // Delete category image
-                  const imgs = await localDb.categoryImages.where("categoryId").equals(category.id).toArray();
-                  if (imgs.length) await localDb.categoryImages.bulkDelete(imgs.map(i => i.id));
-                  // Delete the category
-                  await localDb.customPartCategories.delete(category.id);
-                  onDeleted();
                 }}
                 className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded transition-colors"
               >
@@ -1175,6 +1185,7 @@ function CategoryFormEditor({
             </div>
           )}
         </div>
+        )}
       </div>
     </>
   );
@@ -1755,7 +1766,10 @@ function PartDetail({
           </div>
         )}
 
-        {category && Object.keys(part.attributes).length > 0 && (
+        {category && Object.keys(part.attributes).length > 0 && (() => {
+          const definedKeys = new Set(category.attributes.map(a => a.key));
+          const extraAttrs = Object.entries(part.attributes).filter(([k, v]) => !definedKeys.has(k) && v !== undefined && v !== "");
+          return (
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
             <p className="text-xs text-neutral-500 mb-2">Specifications</p>
             <div className="grid grid-cols-2 gap-2">
@@ -1772,9 +1786,16 @@ function PartDetail({
                   </div>
                 );
               })}
+              {extraAttrs.map(([key, val]) => (
+                <div key={key}>
+                  <p className="text-xs text-neutral-500">{key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</p>
+                  <p className="text-sm">{val}</p>
+                </div>
+              ))}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {part.notes && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">

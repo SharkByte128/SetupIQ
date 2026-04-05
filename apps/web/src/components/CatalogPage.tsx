@@ -15,6 +15,7 @@ import { localDb } from "../db/local-db.js";
 import { allCars, vendors } from "@setupiq/shared";
 import { v4 as uuid } from "uuid";
 import { useAuth } from "../hooks/use-auth.js";
+import { resizeImage } from "../lib/resize-image.js";
 
 // ─── Vendor Name → ID Matcher ─────────────────────────────────
 
@@ -24,6 +25,127 @@ function matchVendorId(name: string | undefined | null): string | undefined {
   return vendors.find(
     (v) => v.name.toLowerCase() === lower || v.slug === lower || v.id === lower,
   )?.id;
+}
+
+// ─── Download image URL → LocalPartFile ───────────────────────
+
+async function downloadImageToPartFile(imageUrl: string, partId: string): Promise<void> {
+  try {
+    const resp = await fetch(imageUrl, { mode: "cors" });
+    if (!resp.ok) return;
+    const blob = await resp.blob();
+    if (!blob.type.startsWith("image/")) return;
+    const resized = await resizeImage(
+      new File([blob], "image.webp", { type: blob.type }),
+      800,
+    );
+    const now = new Date().toISOString();
+    await localDb.partFiles.add({
+      id: uuid(),
+      partId,
+      blob: resized,
+      name: "catalog-image.webp",
+      mimeType: "image/webp",
+      createdAt: now,
+      updatedAt: now,
+      _dirty: 1,
+    });
+  } catch {
+    /* CORS / network — skip silently */
+  }
+}
+
+// ─── Create local Dexie part from a CatalogPart ──────────────
+
+async function addCatalogPartLocally(part: CatalogPart): Promise<string> {
+  const now = new Date().toISOString();
+  const partId = uuid();
+
+  // Build notes from description (strip HTML tags for plain-text notes)
+  const descriptionText = part.description
+    ? new DOMParser().parseFromString(part.description, "text/html").body.textContent?.trim() ?? ""
+    : "";
+  const notesLines: string[] = [];
+  if (part.baseSku) notesLines.push(`SKU: ${part.baseSku}`);
+  if (descriptionText) notesLines.push(descriptionText);
+
+  const localPart = {
+    id: partId,
+    userId: "local",
+    vendorId: matchVendorId(part.brand) ?? "vendor-other",
+    categoryId: part.category || "other",
+    name: part.name,
+    sku: part.baseSku || undefined,
+    compatibleChassisIds: [] as string[],
+    attributes: { ...part.attributes } as Record<string, string | number>,
+    notes: notesLines.join("\n") || undefined,
+    catalogPartId: part.id,
+    createdAt: now,
+    updatedAt: now,
+    _dirty: 1 as const,
+  };
+  await localDb.parts.put(localPart);
+
+  // Download primary image
+  if (part.primaryImageUrl) {
+    await downloadImageToPartFile(part.primaryImageUrl, partId);
+  }
+
+  return partId;
+}
+
+// ─── Create local Dexie part from a CatalogPartDetail (richer) ─
+
+async function addCatalogDetailLocally(part: CatalogPartDetail): Promise<string> {
+  const now = new Date().toISOString();
+  const partId = uuid();
+
+  const descriptionText = part.description
+    ? new DOMParser().parseFromString(part.description, "text/html").body.textContent?.trim() ?? ""
+    : "";
+  const notesLines: string[] = [];
+  if (part.baseSku) notesLines.push(`SKU: ${part.baseSku}`);
+  if (descriptionText) notesLines.push(descriptionText);
+  if (part.instructionsPdfUrl) notesLines.push(`Instructions: ${part.instructionsPdfUrl}`);
+
+  // Include offer info
+  const firstOffer = part.offers?.[0];
+  const attrs = { ...part.attributes } as Record<string, string | number>;
+  if (firstOffer?.price) attrs.price = firstOffer.price;
+
+  // Compatible chassis from catalog compatibility entries
+  const compatChassis = part.compatibility
+    ?.map((c) => c.carPlatformId)
+    .filter(Boolean) ?? [];
+
+  const localPart = {
+    id: partId,
+    userId: "local",
+    vendorId: matchVendorId(part.brand) ?? "vendor-other",
+    categoryId: part.category || "other",
+    name: part.name,
+    sku: part.baseSku || undefined,
+    compatibleChassisIds: compatChassis,
+    attributes: attrs,
+    notes: notesLines.join("\n") || undefined,
+    catalogPartId: part.id,
+    createdAt: now,
+    updatedAt: now,
+    _dirty: 1 as const,
+  };
+  await localDb.parts.put(localPart);
+
+  // Download images — prefer DB images, fallback to primaryImageUrl
+  if (part.images?.length > 0) {
+    for (const img of part.images) {
+      const url = apiUrl(`/api/catalog/parts/${part.id}/images/${img.id}`);
+      await downloadImageToPartFile(url, partId);
+    }
+  } else if (part.primaryImageUrl) {
+    await downloadImageToPartFile(part.primaryImageUrl, partId);
+  }
+
+  return partId;
 }
 
 // ─── HTML Sanitizer (admin-authored content) ──────────────────
@@ -302,7 +424,8 @@ function CatalogPartCard({ part, onSelect }: { part: CatalogPart; onSelect: () =
     e.stopPropagation();
     setAdding(true);
     try {
-      await addToPartsBin(part.id);
+      await addToPartsBin(part.id).catch(() => {});
+      await addCatalogPartLocally(part);
       setAdded(true);
       setTimeout(() => setAdded(false), 2000);
     } catch {
@@ -377,9 +500,11 @@ function CatalogDetail({ partId }: { partId: string }) {
   }, [partId]);
 
   const handleAdd = async () => {
+    if (!part) return;
     setAdding(true);
     try {
-      await addToPartsBin(partId);
+      await addToPartsBin(partId).catch(() => {});
+      await addCatalogDetailLocally(part);
       setAdded(true);
       setTimeout(() => setAdded(false), 3000);
     } catch {
@@ -599,6 +724,12 @@ function VendorSearchView() {
     };
 
     await localDb.parts.add(part);
+
+    // Download product image
+    if (item.imageUrl) {
+      await downloadImageToPartFile(item.imageUrl, part.id);
+    }
+
     setAddedSkus((prev) => new Set(prev).add(item.vendorSku));
   };
 
