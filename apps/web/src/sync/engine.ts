@@ -141,6 +141,7 @@ async function hasDirtyRecords(): Promise<boolean> {
     localDb.racers.where("_dirty").equals(1).count(),
     localDb.customPartCategories.where("_dirty").equals(1).count(),
     localDb.categoryImages.where("_dirty").equals(1).count(),
+    localDb.partFiles.where("_dirty").equals(1).count(),
   ]);
   return counts.some((c) => c > 0);
 }
@@ -164,13 +165,14 @@ export async function markAllDirty(): Promise<void> {
     localDb.racers.toCollection().modify({ _dirty: 1 }),
     localDb.customPartCategories.toCollection().modify({ _dirty: 1 }),
     localDb.categoryImages.toCollection().modify({ _dirty: 1 }),
+    localDb.partFiles.toCollection().modify({ _dirty: 1 }),
   ]);
 }
 
 // ─── Push dirty records to server ───────────────────────────
 
 async function pushDirtyRecords(): Promise<void> {
-  const [dirtySetups, dirtyTracks, dirtySessions, dirtySegments, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages, dirtyTrackImages, dirtyComponents, dirtyMeasurements, dirtySetupTemplates, dirtyRacers, dirtyPartCategories, dirtyCategoryImages] = await Promise.all([
+  const [dirtySetups, dirtyTracks, dirtySessions, dirtySegments, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages, dirtyTrackImages, dirtyComponents, dirtyMeasurements, dirtySetupTemplates, dirtyRacers, dirtyPartCategories, dirtyCategoryImages, dirtyPartFiles] = await Promise.all([
     localDb.setupSnapshots.where("_dirty").equals(1).toArray(),
     localDb.tracks.where("_dirty").equals(1).toArray(),
     localDb.runSessions.where("_dirty").equals(1).toArray(),
@@ -186,12 +188,13 @@ async function pushDirtyRecords(): Promise<void> {
     localDb.racers.where("_dirty").equals(1).toArray(),
     localDb.customPartCategories.where("_dirty").equals(1).toArray(),
     localDb.categoryImages.where("_dirty").equals(1).toArray(),
+    localDb.partFiles.where("_dirty").equals(1).toArray(),
   ]);
 
   const hasAny = dirtySetups.length || dirtyTracks.length || dirtySessions.length || dirtySegments.length ||
     dirtyParts.length || dirtyRaceResults.length || dirtyCustomCars.length || dirtyCarImages.length ||
     dirtyTrackImages.length || dirtyComponents.length || dirtyMeasurements.length || dirtySetupTemplates.length || dirtyRacers.length ||
-    dirtyPartCategories.length || dirtyCategoryImages.length;
+    dirtyPartCategories.length || dirtyCategoryImages.length || dirtyPartFiles.length;
   if (!hasAny) return;
 
   const body: Record<string, { id: string; updatedAt: string; data: Record<string, unknown> }[]> = {};
@@ -367,6 +370,19 @@ async function pushDirtyRecords(): Promise<void> {
     );
   }
 
+  if (dirtyPartFiles.length > 0) {
+    body.partFiles = await Promise.all(
+      dirtyPartFiles.map(async (f) => {
+        const base64 = await blobToBase64(f.blob);
+        return {
+          id: f.id,
+          updatedAt: f.updatedAt,
+          data: { partId: f.partId, fileBase64: base64, name: f.name, mimeType: f.mimeType || f.blob.type },
+        };
+      }),
+    );
+  }
+
   const pushRes = await syncFetch<{ ok: boolean; upserted: Record<string, number> }>("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
 
   // Mark pushed records as clean (only mark categories clean if server confirmed)
@@ -386,6 +402,7 @@ async function pushDirtyRecords(): Promise<void> {
     ...dirtyRacers.map((r) => localDb.racers.update(r.id, { _dirty: 0 })),
     ...(pushRes.upserted.partCategories ? dirtyPartCategories.map((c) => localDb.customPartCategories.update(c.id, { _dirty: 0 })) : []),
     ...(pushRes.upserted.categoryImages ? dirtyCategoryImages.map((img) => localDb.categoryImages.update(img.id, { _dirty: 0 })) : []),
+    ...(pushRes.upserted.partFiles ? dirtyPartFiles.map((f) => localDb.partFiles.update(f.id, { _dirty: 0 })) : []),
   ]);
 }
 
@@ -407,6 +424,7 @@ interface PullResponse {
   racers: any[];
   partCategories: any[];
   categoryImages: any[];
+  partFiles: any[];
   serverTime: string;
 }
 
@@ -420,7 +438,7 @@ async function pullFromServer(): Promise<void> {
     [localDb.setupSnapshots, localDb.tracks, localDb.components, localDb.runSessions,
      localDb.runSegments, localDb.measurements, localDb.parts, localDb.raceResults,
      localDb.customCars, localDb.carImages, localDb.trackFiles, localDb.setupTemplates, localDb.racers,
-     localDb.customPartCategories, localDb.categoryImages, localDb.syncMeta],
+     localDb.customPartCategories, localDb.categoryImages, localDb.partFiles, localDb.syncMeta],
     async () => {
       for (const setup of data.setupSnapshots) {
         const local = await localDb.setupSnapshots.get(setup.id);
@@ -713,6 +731,24 @@ async function pullFromServer(): Promise<void> {
         }
       }
 
+      for (const f of (data.partFiles || [])) {
+        const local = await localDb.partFiles.get(f.id);
+        if (!local || new Date(f.updated_at || f.updatedAt) > new Date(local.updatedAt)) {
+          const mimeType = f.mime_type || f.mimeType || "image/jpeg";
+          const blob = base64ToBlob(f.file_base64 || f.fileBase64, mimeType);
+          await localDb.partFiles.put({
+            id: f.id,
+            partId: f.part_id || f.partId,
+            blob,
+            name: f.name || "",
+            mimeType,
+            createdAt: f.created_at || f.createdAt,
+            updatedAt: f.updated_at || f.updatedAt,
+            _dirty: 0,
+          });
+        }
+      }
+
       await localDb.syncMeta.put({ key: "lastSyncTime", value: data.serverTime });
     }
   );
@@ -804,6 +840,7 @@ export async function wipeAndResync(): Promise<void> {
     localDb.trackFiles.clear(),
     localDb.setupTemplates.clear(),
     localDb.racers.clear(),
+    localDb.partFiles.clear(),
   ]);
   // Reset sync cursor so pull fetches everything
   await localDb.syncMeta.delete("lastSyncTime");

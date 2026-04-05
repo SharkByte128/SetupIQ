@@ -1635,6 +1635,8 @@ function PartDetail({
         name: file.name,
         mimeType: "image/webp",
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        _dirty: 1,
       };
       await localDb.partFiles.add(record);
       setFiles((prev) => [
@@ -1657,6 +1659,8 @@ function PartDetail({
         name: file.name,
         mimeType: file.type || "application/pdf",
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        _dirty: 1,
       };
       await localDb.partFiles.add(record);
       setFiles((prev) => [
@@ -2172,6 +2176,8 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
                 name: `${suggested.name}.webp`,
                 mimeType: "image/webp",
                 createdAt: now,
+                updatedAt: now,
+                _dirty: 1,
               });
               filesAttached++;
             }
@@ -2192,6 +2198,8 @@ function SuggestPartsView({ onDone }: { onDone: () => void }) {
                 name: `${suggested.name}.pdf`,
                 mimeType: "application/pdf",
                 createdAt: now,
+                updatedAt: now,
+                _dirty: 1,
               });
               filesAttached++;
             }

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
-import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages, trackImages, setupTemplates, racers, customPartCategories, categoryImages } from "../db/schema.js";
+import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages, trackImages, setupTemplates, racers, customPartCategories, categoryImages, partFiles } from "../db/schema.js";
 import { eq, gt, and, inArray } from "drizzle-orm";
 
 type AuthUser = { id: string; email: string; displayName: string };
@@ -27,6 +27,7 @@ interface SyncPushBody {
   racers?: SyncRecord[];
   partCategories?: SyncRecord[];
   categoryImages?: SyncRecord[];
+  partFiles?: SyncRecord[];
 }
 
 interface SyncPullQuery {
@@ -47,7 +48,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const since = request.query.since ? new Date(request.query.since) : new Date(0);
 
     try {
-      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages, userTrackImages, userSetupTemplates, userRacers, userPartCategories, userCategoryImages] = await Promise.all([
+      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages, userTrackImages, userSetupTemplates, userRacers, userPartCategories, userCategoryImages, userPartFiles] = await Promise.all([
         db.select().from(setupSnapshots).where(
           and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
         ),
@@ -89,6 +90,9 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         db.select().from(categoryImages).where(
           and(eq(categoryImages.userId, user.id), gt(categoryImages.updatedAt, since))
         ).catch(() => []),
+        db.select().from(partFiles).where(
+          and(eq(partFiles.userId, user.id), gt(partFiles.updatedAt, since))
+        ).catch(() => []),
       ]);
 
       // Segments & measurements scoped to user's sessions/setups
@@ -124,6 +128,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         racers: userRacers,
         partCategories: userPartCategories,
         categoryImages: userCategoryImages,
+        partFiles: userPartFiles,
         serverTime: new Date().toISOString(),
       };
     } catch (err: unknown) {
@@ -632,6 +637,38 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       results.categoryImages = body.categoryImages.length;
       } catch (err) {
         request.log.warn({ err }, "[sync/push] categoryImages upsert failed (table may not exist yet)");
+      }
+    }
+
+    // Upsert part files
+    if (body.partFiles?.length) {
+      try {
+      for (const record of body.partFiles) {
+        await db
+          .insert(partFiles)
+          .values({
+            id: record.id,
+            userId: user.id,
+            partId: (record.data.partId as string) || "",
+            fileBase64: (record.data.fileBase64 as string) || "",
+            name: record.data.name as string | undefined,
+            mimeType: record.data.mimeType as string | undefined,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: partFiles.id,
+            set: {
+              partId: (record.data.partId as string) || "",
+              fileBase64: (record.data.fileBase64 as string) || "",
+              name: record.data.name as string | undefined,
+              mimeType: record.data.mimeType as string | undefined,
+              updatedAt: new Date(),
+            },
+          });
+      }
+      results.partFiles = body.partFiles.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] partFiles upsert failed (table may not exist yet)");
       }
     }
 

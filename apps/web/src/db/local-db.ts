@@ -209,6 +209,8 @@ export interface LocalPartFile {
   name: string;
   mimeType: string; // "image/*" or "application/pdf"
   createdAt: string;
+  updatedAt: string;
+  _dirty: 0 | 1;
 }
 
 export interface LocalPartCategory {
@@ -720,6 +722,17 @@ class SetupIQDatabase extends Dexie {
       });
       await tx.table("categoryImages").toCollection().modify((rec: Record<string, unknown>) => {
         rec._dirty = 1;
+      });
+    });
+
+    // v26: add _dirty + updatedAt to partFiles for sync
+    this.version(26).stores({
+      partFiles: "id, partId, _dirty",
+    }).upgrade(async (tx) => {
+      const now = new Date().toISOString();
+      await tx.table("partFiles").toCollection().modify((rec: Record<string, unknown>) => {
+        if (!rec.updatedAt) rec.updatedAt = rec.createdAt || now;
+        if (rec._dirty === undefined) rec._dirty = 1;
       });
     });
   }

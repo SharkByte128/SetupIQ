@@ -373,3 +373,16 @@ export const categoryImages = pgTable("category_images", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── Part Files / Images (synced per user) ────────────────────
+
+export const partFiles = pgTable("part_files", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  partId: text("part_id").notNull(),
+  fileBase64: text("file_base64").notNull(),
+  name: text("name"),
+  mimeType: text("mime_type"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
