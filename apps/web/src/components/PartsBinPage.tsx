@@ -520,7 +520,7 @@ function CategoryGrid({
       </div>
 
       {/* Category thumbnail grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {filteredCategories.map((cat) => {
           const thumbUrl = categoryImages.get(cat.id);
           return (
@@ -534,13 +534,13 @@ function CategoryGrid({
                   {thumbUrl ? (
                     <img src={thumbUrl} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-4xl">{cat.icon}</span>
+                    <span className="text-2xl">{cat.icon}</span>
                   )}
                 </div>
                 {/* Label */}
-                <div className="px-2 py-2 text-left">
-                  <p className="text-sm font-medium truncate">{cat.name}</p>
-                  <p className="text-[11px] text-neutral-500">{counts[cat.id] || 0} parts</p>
+                <div className="px-1.5 py-1.5 text-left">
+                  <p className="text-xs font-medium truncate">{cat.name}</p>
+                  <p className="text-[10px] text-neutral-500">{counts[cat.id] || 0} parts</p>
                 </div>
               </button>
               {/* Upload thumbnail — always visible */}
