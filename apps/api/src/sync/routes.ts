@@ -85,10 +85,10 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         ),
         db.select().from(customPartCategories).where(
           and(eq(customPartCategories.userId, user.id), gt(customPartCategories.updatedAt, since))
-        ),
+        ).catch(() => []),
         db.select().from(categoryImages).where(
           and(eq(categoryImages.userId, user.id), gt(categoryImages.updatedAt, since))
-        ),
+        ).catch(() => []),
       ]);
 
       // Segments & measurements scoped to user's sessions/setups
@@ -571,6 +571,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
 
     // Upsert part categories
     if (body.partCategories?.length) {
+      try {
       for (const record of body.partCategories) {
         await db
           .insert(customPartCategories)
@@ -597,10 +598,14 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.partCategories = body.partCategories.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] partCategories upsert failed (table may not exist yet)");
+      }
     }
 
     // Upsert category images
     if (body.categoryImages?.length) {
+      try {
       for (const record of body.categoryImages) {
         await db
           .insert(categoryImages)
@@ -625,6 +630,9 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           });
       }
       results.categoryImages = body.categoryImages.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] categoryImages upsert failed (table may not exist yet)");
+      }
     }
 
     return { ok: true, upserted: results };
