@@ -296,6 +296,7 @@ export interface LocalCarIssue {
   status: "open" | "closed";
   createdAt: string;
   updatedAt: string;
+  _dirty: 0 | 1;
 }
 
 /** A single message in an issue's AI conversation thread. */
@@ -305,6 +306,7 @@ export interface LocalCarIssueMessage {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  _dirty: 0 | 1;
 }
 
 /** User-created vendor/manufacturer. */
@@ -787,6 +789,12 @@ class SetupIQDatabase extends Dexie {
     this.version(29).stores({
       carIssues: "id, carId, status, createdAt",
       carIssueMessages: "id, issueId, createdAt",
+    });
+
+    // v30: add _dirty index to carIssues and carIssueMessages for sync
+    this.version(30).stores({
+      carIssues: "id, carId, status, createdAt, updatedAt, _dirty",
+      carIssueMessages: "id, issueId, createdAt, _dirty",
     });
   }
 }

@@ -656,6 +656,7 @@ function NewIssueForm({
       status: "open",
       createdAt: now,
       updatedAt: now,
+      _dirty: 1,
     });
 
     // Save the user message
@@ -666,6 +667,7 @@ function NewIssueForm({
       role: "user",
       content: description.trim(),
       createdAt: now,
+      _dirty: 1,
     });
 
     // Build context and call Gemini
@@ -690,6 +692,7 @@ function NewIssueForm({
           role: "assistant",
           content: result.text,
           createdAt: new Date().toISOString(),
+          _dirty: 1,
         });
       }
     } catch (err) {
@@ -771,6 +774,7 @@ function IssueDetail({
       role: "user",
       content: followUp.trim(),
       createdAt: now,
+      _dirty: 1,
     });
 
     setFollowUp("");
@@ -803,8 +807,9 @@ function IssueDetail({
           role: "assistant",
           content: result.text,
           createdAt: new Date().toISOString(),
+          _dirty: 1,
         });
-        await localDb.carIssues.update(issueId, { updatedAt: new Date().toISOString() });
+        await localDb.carIssues.update(issueId, { updatedAt: new Date().toISOString(), _dirty: 1 });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -817,6 +822,7 @@ function IssueDetail({
     await localDb.carIssues.update(issueId, {
       status: issue.status === "open" ? "closed" : "open",
       updatedAt: new Date().toISOString(),
+      _dirty: 1,
     });
   }, [issueId, issue]);
 

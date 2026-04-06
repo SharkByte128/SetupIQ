@@ -142,6 +142,8 @@ async function hasDirtyRecords(): Promise<boolean> {
     localDb.customPartCategories.where("_dirty").equals(1).count(),
     localDb.categoryImages.where("_dirty").equals(1).count(),
     localDb.partFiles.where("_dirty").equals(1).count(),
+    localDb.carIssues.where("_dirty").equals(1).count(),
+    localDb.carIssueMessages.where("_dirty").equals(1).count(),
   ]);
   return counts.some((c) => c > 0);
 }
@@ -166,13 +168,15 @@ export async function markAllDirty(): Promise<void> {
     localDb.customPartCategories.toCollection().modify({ _dirty: 1 }),
     localDb.categoryImages.toCollection().modify({ _dirty: 1 }),
     localDb.partFiles.toCollection().modify({ _dirty: 1 }),
+    localDb.carIssues.toCollection().modify({ _dirty: 1 }),
+    localDb.carIssueMessages.toCollection().modify({ _dirty: 1 }),
   ]);
 }
 
 // ─── Push dirty records to server ───────────────────────────
 
 async function pushDirtyRecords(): Promise<void> {
-  const [dirtySetups, dirtyTracks, dirtySessions, dirtySegments, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages, dirtyTrackImages, dirtyComponents, dirtyMeasurements, dirtySetupTemplates, dirtyRacers, dirtyPartCategories, dirtyCategoryImages, dirtyPartFiles] = await Promise.all([
+  const [dirtySetups, dirtyTracks, dirtySessions, dirtySegments, dirtyParts, dirtyRaceResults, dirtyCustomCars, dirtyCarImages, dirtyTrackImages, dirtyComponents, dirtyMeasurements, dirtySetupTemplates, dirtyRacers, dirtyPartCategories, dirtyCategoryImages, dirtyPartFiles, dirtyCarIssues, dirtyCarIssueMessages] = await Promise.all([
     localDb.setupSnapshots.where("_dirty").equals(1).toArray(),
     localDb.tracks.where("_dirty").equals(1).toArray(),
     localDb.runSessions.where("_dirty").equals(1).toArray(),
@@ -189,12 +193,15 @@ async function pushDirtyRecords(): Promise<void> {
     localDb.customPartCategories.where("_dirty").equals(1).toArray(),
     localDb.categoryImages.where("_dirty").equals(1).toArray(),
     localDb.partFiles.where("_dirty").equals(1).toArray(),
+    localDb.carIssues.where("_dirty").equals(1).toArray(),
+    localDb.carIssueMessages.where("_dirty").equals(1).toArray(),
   ]);
 
   const hasAny = dirtySetups.length || dirtyTracks.length || dirtySessions.length || dirtySegments.length ||
     dirtyParts.length || dirtyRaceResults.length || dirtyCustomCars.length || dirtyCarImages.length ||
     dirtyTrackImages.length || dirtyComponents.length || dirtyMeasurements.length || dirtySetupTemplates.length || dirtyRacers.length ||
-    dirtyPartCategories.length || dirtyCategoryImages.length || dirtyPartFiles.length;
+    dirtyPartCategories.length || dirtyCategoryImages.length || dirtyPartFiles.length ||
+    dirtyCarIssues.length || dirtyCarIssueMessages.length;
   if (!hasAny) return;
 
   const body: Record<string, { id: string; updatedAt: string; data: Record<string, unknown> }[]> = {};
@@ -383,6 +390,22 @@ async function pushDirtyRecords(): Promise<void> {
     } catch (e) { console.warn("[sync/push] partFiles serialization failed", e); }
   }
 
+  if (dirtyCarIssues.length > 0) {
+    body.carIssues = dirtyCarIssues.map((issue) => ({
+      id: issue.id,
+      updatedAt: issue.updatedAt,
+      data: { carId: issue.carId, title: issue.title, description: issue.description, status: issue.status },
+    }));
+  }
+
+  if (dirtyCarIssueMessages.length > 0) {
+    body.carIssueMessages = dirtyCarIssueMessages.map((msg) => ({
+      id: msg.id,
+      updatedAt: msg.createdAt,
+      data: { issueId: msg.issueId, role: msg.role, content: msg.content },
+    }));
+  }
+
   // ─── Send push in chunks: data records first, then each blob type separately ───
   // This avoids 413 when many images/files are dirty at once.
 
@@ -452,6 +475,8 @@ async function pushDirtyRecords(): Promise<void> {
     ...(u.partCategories ? dirtyPartCategories.map((c) => localDb.customPartCategories.update(c.id, { _dirty: 0 })) : []),
     ...(u.categoryImages ? dirtyCategoryImages.map((img) => localDb.categoryImages.update(img.id, { _dirty: 0 })) : []),
     ...(u.partFiles ? dirtyPartFiles.map((f) => localDb.partFiles.update(f.id, { _dirty: 0 })) : []),
+    ...(u.carIssues ? dirtyCarIssues.map((i) => localDb.carIssues.update(i.id, { _dirty: 0 })) : []),
+    ...(u.carIssueMessages ? dirtyCarIssueMessages.map((m) => localDb.carIssueMessages.update(m.id, { _dirty: 0 })) : []),
   ]);
 }
 
@@ -474,6 +499,8 @@ interface PullResponse {
   partCategories: any[];
   categoryImages: any[];
   partFiles: any[];
+  carIssues: any[];
+  carIssueMessages: any[];
   serverTime: string;
 }
 
@@ -794,6 +821,36 @@ async function pullFromServer(): Promise<void> {
         }
       } } catch (e) { console.warn("[sync/pull] partFiles import failed", e); }
 
+      try { for (const issue of (data.carIssues || [])) {
+        const local = await localDb.carIssues.get(issue.id);
+        if (!local || new Date(issue.updated_at || issue.updatedAt) > new Date(local.updatedAt)) {
+          await localDb.carIssues.put({
+            id: issue.id,
+            carId: issue.car_id || issue.carId,
+            title: issue.title,
+            description: issue.description,
+            status: issue.status || "open",
+            createdAt: issue.created_at || issue.createdAt,
+            updatedAt: issue.updated_at || issue.updatedAt,
+            _dirty: 0,
+          });
+        }
+      } } catch (e) { console.warn("[sync/pull] carIssues import failed", e); }
+
+      try { for (const msg of (data.carIssueMessages || [])) {
+        const local = await localDb.carIssueMessages.get(msg.id);
+        if (!local) {
+          await localDb.carIssueMessages.put({
+            id: msg.id,
+            issueId: msg.issue_id || msg.issueId,
+            role: msg.role,
+            content: msg.content,
+            createdAt: msg.created_at || msg.createdAt,
+            _dirty: 0,
+          });
+        }
+      } } catch (e) { console.warn("[sync/pull] carIssueMessages import failed", e); }
+
       await localDb.syncMeta.put({ key: "lastSyncTime", value: data.serverTime });
 }
 
@@ -905,6 +962,8 @@ export async function wipeAndResync(): Promise<void> {
     localDb.setupTemplates.clear(),
     localDb.racers.clear(),
     localDb.partFiles.clear(),
+    localDb.carIssues.clear(),
+    localDb.carIssueMessages.clear(),
   ]);
   // Reset sync cursor so pull fetches everything
   await localDb.syncMeta.delete("lastSyncTime");

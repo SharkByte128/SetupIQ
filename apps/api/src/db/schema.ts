@@ -386,3 +386,27 @@ export const partFiles = pgTable("part_files", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── Car Issues (synced per user) ─────────────────────────────
+
+export const carIssues = pgTable("car_issues", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  carId: text("car_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  status: varchar("status", { length: 10 }).notNull().default("open"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Car Issue Messages (synced per user) ─────────────────────
+
+export const carIssueMessages = pgTable("car_issue_messages", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  issueId: text("issue_id").notNull().references(() => carIssues.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 10 }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
-import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages, trackImages, setupTemplates, racers, customPartCategories, categoryImages, partFiles } from "../db/schema.js";
+import { setupSnapshots, runSessions, runSegments, tracks, components, measurements, parts, raceResults, customCars, carImages, trackImages, setupTemplates, racers, customPartCategories, categoryImages, partFiles, carIssues, carIssueMessages } from "../db/schema.js";
 import { eq, gt, and, inArray } from "drizzle-orm";
 
 type AuthUser = { id: string; email: string; displayName: string };
@@ -28,6 +28,8 @@ interface SyncPushBody {
   partCategories?: SyncRecord[];
   categoryImages?: SyncRecord[];
   partFiles?: SyncRecord[];
+  carIssues?: SyncRecord[];
+  carIssueMessages?: SyncRecord[];
 }
 
 interface SyncPullQuery {
@@ -48,7 +50,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const since = request.query.since ? new Date(request.query.since) : new Date(0);
 
     try {
-      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages, userTrackImages, userSetupTemplates, userRacers, userPartCategories, userCategoryImages, userPartFiles] = await Promise.all([
+      const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages, userTrackImages, userSetupTemplates, userRacers, userPartCategories, userCategoryImages, userPartFiles, userCarIssues, userCarIssueMessages] = await Promise.all([
         db.select().from(setupSnapshots).where(
           and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
         ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] setupSnapshots query failed"); return []; }),
@@ -93,6 +95,12 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         db.select().from(partFiles).where(
           and(eq(partFiles.userId, user.id), gt(partFiles.updatedAt, since))
         ).catch(() => []),
+        db.select().from(carIssues).where(
+          and(eq(carIssues.userId, user.id), gt(carIssues.updatedAt, since))
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] carIssues query failed"); return []; }),
+        db.select().from(carIssueMessages).where(
+          eq(carIssueMessages.userId, user.id)
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] carIssueMessages query failed"); return []; }),
       ]);
 
       // Segments & measurements scoped to user's sessions/setups
@@ -139,6 +147,8 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
         partCategories: userPartCategories,
         categoryImages: userCategoryImages,
         partFiles: userPartFiles,
+        carIssues: userCarIssues,
+        carIssueMessages: userCarIssueMessages,
         serverTime: new Date().toISOString(),
       };
     } catch (err: unknown) {
@@ -748,6 +758,66 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       } catch (err) {
         request.log.warn({ err }, "[sync/push] partFiles upsert failed");
         errors.partFiles = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    // Upsert car issues
+    if (body.carIssues?.length) {
+      try {
+      for (const record of body.carIssues) {
+        await db
+          .insert(carIssues)
+          .values({
+            id: record.id,
+            userId: user.id,
+            carId: (record.data.carId as string) || "",
+            title: (record.data.title as string) || "Untitled",
+            description: (record.data.description as string) || "",
+            status: (record.data.status as string) || "open",
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: carIssues.id,
+            set: {
+              title: (record.data.title as string) || "Untitled",
+              description: (record.data.description as string) || "",
+              status: (record.data.status as string) || "open",
+              updatedAt: new Date(),
+            },
+          });
+      }
+      results.carIssues = body.carIssues.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] carIssues upsert failed");
+        errors.carIssues = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    // Upsert car issue messages
+    if (body.carIssueMessages?.length) {
+      try {
+      for (const record of body.carIssueMessages) {
+        await db
+          .insert(carIssueMessages)
+          .values({
+            id: record.id,
+            userId: user.id,
+            issueId: (record.data.issueId as string) || "",
+            role: (record.data.role as string) || "user",
+            content: (record.data.content as string) || "",
+          })
+          .onConflictDoUpdate({
+            target: carIssueMessages.id,
+            set: {
+              role: (record.data.role as string) || "user",
+              content: (record.data.content as string) || "",
+            },
+          });
+      }
+      results.carIssueMessages = body.carIssueMessages.length;
+      } catch (err) {
+        request.log.warn({ err }, "[sync/push] carIssueMessages upsert failed");
+        errors.carIssueMessages = err instanceof Error ? err.message : String(err);
       }
     }
 
