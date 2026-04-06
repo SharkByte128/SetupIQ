@@ -1048,7 +1048,7 @@ function CarRunsTab({ carId }: { carId: string }) {
   if (view.kind === "race-detail") {
     const race = raceResults.find((r) => r.id === view.raceId);
     if (!race) return <p className="px-4 py-6 text-sm text-neutral-500">Race not found.</p>;
-    return <RaceRunDetail race={race} onBack={() => setView({ kind: "list" })} />;
+    return <RaceRunDetail race={race} carId={carId} onBack={() => setView({ kind: "list" })} />;
   }
 
   const hasRaces = raceResults.length > 0;
@@ -1087,11 +1087,13 @@ function CarRunsTab({ carId }: { carId: string }) {
         <p className="text-center text-neutral-500 text-sm py-8">No runs or race results for this car yet.</p>
       )}
 
-      {/* Race results */}
+      {/* Run results */}
       {hasRaces && (
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-neutral-400 uppercase">Run Results</h3>
-          {raceResults.map((r) => (
+          {raceResults.map((r) => {
+            const setupSnap = r.setupSnapshotId ? snapshotMap.get(r.setupSnapshotId) : undefined;
+            return (
             <button
               key={r.id}
               onClick={() => setView({ kind: "race-detail", raceId: r.id })}
@@ -1110,11 +1112,18 @@ function CarRunsTab({ carId }: { carId: string }) {
                 <span>Fast: {fmt(r.fastLapMs)}</span>
                 {r.avgLapMs && <span>Avg: {fmt(r.avgLapMs)}</span>}
               </div>
+              {setupSnap && (
+                <p className="text-xs text-blue-300 mt-1">Setup: {setupSnap.name}</p>
+              )}
+              {!setupSnap && (
+                <p className="text-xs text-neutral-600 mt-1 italic">No setup assigned — tap to assign</p>
+              )}
               {r.community && (
                 <p className="text-xs text-neutral-600 mt-1">{r.community}</p>
               )}
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1856,12 +1865,29 @@ function parseLapTimesText(text: string): { lapNumber: number; timeMs: number }[
 
 function RaceRunDetail({
   race,
+  carId,
   onBack,
 }: {
-  race: { id: string; eventName: string; className: string; roundType: string; roundNumber?: number; date: string; community?: string; position: number; totalEntries?: number; totalLaps: number; totalTimeMs: number; fastLapMs: number; avgLapMs?: number; laps: { lapNumber: number; timeMs: number }[]; sourceUrl?: string; notes?: string };
+  race: LocalRaceResult;
+  carId: string;
   onBack: () => void;
 }) {
   const stats = useMemo(() => computeLapStats(race.laps), [race.laps]);
+
+  // Setup selector
+  const allSnapshots = useLiveQuery(
+    () => localDb.setupSnapshots.where("carId").equals(carId).reverse().sortBy("updatedAt"),
+    [carId],
+  );
+  const currentSetupId = race.setupSnapshotId ?? "";
+  const currentSnap = allSnapshots?.find((s) => s.id === currentSetupId);
+
+  const handleSetupChange = async (newSetupId: string) => {
+    await localDb.raceResults.update(race.id, {
+      setupSnapshotId: newSetupId || undefined,
+      _dirty: 1 as const,
+    });
+  };
 
   return (
     <div className="px-4 py-4 space-y-4">
@@ -1876,6 +1902,24 @@ function RaceRunDetail({
           <span>{new Date(race.date).toLocaleDateString()}</span>
         </div>
         {race.community && <p className="text-xs text-neutral-500 mt-0.5">{race.community}</p>}
+      </div>
+
+      {/* Setup selector */}
+      <div>
+        <label className="text-[10px] text-neutral-500 block mb-0.5">Car Setup</label>
+        <select
+          value={currentSetupId}
+          onChange={(e) => handleSetupChange(e.target.value)}
+          className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+        >
+          <option value="">— no setup assigned —</option>
+          {(allSnapshots ?? []).map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+        {currentSnap && (
+          <p className="text-[10px] text-blue-300 mt-0.5">Using: {currentSnap.name}</p>
+        )}
       </div>
 
       {/* Analytics grid */}
