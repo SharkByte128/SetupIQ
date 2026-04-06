@@ -1090,7 +1090,7 @@ function CarRunsTab({ carId }: { carId: string }) {
       {/* Race results */}
       {hasRaces && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Race Results</h3>
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Run Results</h3>
           {raceResults.map((r) => (
             <button
               key={r.id}
