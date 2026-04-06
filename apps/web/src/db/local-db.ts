@@ -172,7 +172,7 @@ export interface LocalRaceResult {
   totalTimeMs: number;
   fastLapMs: number;
   avgLapMs?: number;
-  laps: { lapNumber: number; timeMs: number }[];
+  laps: { lapNumber: number; timeMs: number; setupSnapshotId?: string; hidden?: boolean }[];
   sourceUrl?: string;
   setupSnapshotId?: string;
   notes?: string;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
 import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
@@ -975,28 +975,6 @@ function StatBox({ label, value, highlight }: { label: string; value: string; hi
   );
 }
 
-function LapTable({ laps, bestMs }: { laps: { lapNumber: number; timeMs: number }[]; bestMs: number }) {
-  return (
-    <div className="max-h-64 overflow-y-auto space-y-0.5">
-      {laps.map((lap, i) => {
-        const isBest = lap.timeMs === bestMs;
-        return (
-          <div
-            key={`${lap.lapNumber}-${i}`}
-            className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
-              isBest
-                ? "bg-green-950/40 border border-green-800/50 text-green-300"
-                : "bg-neutral-900/50 text-neutral-300"
-            }`}
-          >
-            <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
-            <span className="font-mono">{fmt(lap.timeMs)}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function CarRunsTab({ carId }: { carId: string }) {
   const [view, setView] = useState<RunsView>({ kind: "list" });
@@ -1863,6 +1841,43 @@ function parseLapTimesText(text: string): { lapNumber: number; timeMs: number }[
 
 // ─── Race Detail View ─────────────────────────────────────────
 
+// ─── Run Detection (gap-based) ────────────────────────────────
+
+const GAP_THRESHOLD_MS = 60000; // 1 minute — laps >= this are breaks between runs
+
+type RaceLap = { lapNumber: number; timeMs: number; setupSnapshotId?: string; hidden?: boolean };
+
+interface DetectedRaceRun {
+  runNumber: number;
+  laps: (RaceLap & { idx: number })[];
+  gapAfterMs?: number; // the break-lap time following this run
+}
+
+function detectRaceRuns(laps: RaceLap[]): DetectedRaceRun[] {
+  const runs: DetectedRaceRun[] = [];
+  let current: DetectedRaceRun["laps"] = [];
+  let runNum = 1;
+
+  for (let i = 0; i < laps.length; i++) {
+    const lap = laps[i];
+    if (lap.timeMs >= GAP_THRESHOLD_MS) {
+      // This is a break — finalize the current run
+      if (current.length > 0) {
+        runs.push({ runNumber: runNum++, laps: current, gapAfterMs: lap.timeMs });
+        current = [];
+      }
+      continue; // skip gap lap entirely
+    }
+    current.push({ ...lap, idx: i });
+  }
+  if (current.length > 0) {
+    runs.push({ runNumber: runNum++, laps: current });
+  }
+  return runs;
+}
+
+// ─── Race Run Detail (with run groups + setup assignment) ─────
+
 function RaceRunDetail({
   race,
   carId,
@@ -1872,21 +1887,84 @@ function RaceRunDetail({
   carId: string;
   onBack: () => void;
 }) {
-  const stats = useMemo(() => computeLapStats(race.laps), [race.laps]);
+  const [expandedRun, setExpandedRun] = useState<number | null>(null);
+  const [expandedSetup, setExpandedSetup] = useState<string | null>(null);
+  const [dragRunNumber, setDragRunNumber] = useState<number | null>(null);
 
-  // Setup selector
+  // Min/max lap filter from Timing to Car Match
+  const timingNameRecord = useLiveQuery(() => localDb.carTimingNames.get(carId), [carId]);
+  const minLapMs = timingNameRecord?.minLapMs;
+  const maxLapMs = timingNameRecord?.maxLapMs;
+
+  // Setup snapshots for this car
   const allSnapshots = useLiveQuery(
     () => localDb.setupSnapshots.where("carId").equals(carId).reverse().sortBy("updatedAt"),
     [carId],
   );
-  const currentSetupId = race.setupSnapshotId ?? "";
-  const currentSnap = allSnapshots?.find((s) => s.id === currentSetupId);
+  const snapshotMap = useMemo(() => new Map((allSnapshots ?? []).map((s) => [s.id, s])), [allSnapshots]);
 
-  const handleSetupChange = async (newSetupId: string) => {
-    await localDb.raceResults.update(race.id, {
-      setupSnapshotId: newSetupId || undefined,
-      _dirty: 1 as const,
-    });
+  // Detect runs by gap (laps >= 60s)
+  const runs = useMemo(() => detectRaceRuns(race.laps), [race.laps]);
+
+  // Helper: is a lap counted for KPIs?
+  const isLapCounted = useCallback((lap: RaceLap) => {
+    if (lap.hidden) return false;
+    if (lap.timeMs >= GAP_THRESHOLD_MS) return false;
+    if (minLapMs != null && lap.timeMs < minLapMs) return false;
+    if (maxLapMs != null && lap.timeMs > maxLapMs) return false;
+    return true;
+  }, [minLapMs, maxLapMs]);
+
+  // Overall KPIs (all counted laps)
+  const overallStats = useMemo(() => {
+    const counted = race.laps.filter(isLapCounted);
+    return computeLapStats(counted);
+  }, [race.laps, isLapCounted]);
+
+  // Assign setup to a run (batch-updates all laps in the run)
+  const assignSetupToRun = useCallback(async (run: DetectedRaceRun, setupId: string) => {
+    const updated = [...race.laps];
+    for (const lap of run.laps) {
+      updated[lap.idx] = { ...updated[lap.idx], setupSnapshotId: setupId || undefined };
+    }
+    await localDb.raceResults.update(race.id, { laps: updated, _dirty: 1 as const });
+  }, [race.id, race.laps]);
+
+  // Setup summary: group counted laps by assigned setup
+  const setupSummary = useMemo(() => {
+    const groups = new Map<string, RaceLap[]>();
+    for (const lap of race.laps) {
+      if (!isLapCounted(lap)) continue;
+      const sid = lap.setupSnapshotId;
+      if (!sid) continue;
+      let arr = groups.get(sid);
+      if (!arr) { arr = []; groups.set(sid, arr); }
+      arr.push(lap);
+    }
+    return Array.from(groups.entries())
+      .map(([id, laps]) => ({
+        setupId: id,
+        setupName: snapshotMap.get(id)?.name ?? "Unknown Setup",
+        stats: computeLapStats(laps),
+        laps,
+      }))
+      .filter((g) => g.stats);
+  }, [race.laps, isLapCounted, snapshotMap]);
+
+  // Drag handlers (desktop)
+  const handleDragStart = (e: React.DragEvent, runNumber: number) => {
+    e.dataTransfer.setData("text/plain", String(runNumber));
+    e.dataTransfer.effectAllowed = "move";
+    setDragRunNumber(runNumber);
+  };
+  const handleDragEnd = () => setDragRunNumber(null);
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  const handleDrop = (e: React.DragEvent, setupId: string) => {
+    e.preventDefault();
+    const runNum = parseInt(e.dataTransfer.getData("text/plain"), 10);
+    const run = runs.find((r) => r.runNumber === runNum);
+    if (run) assignSetupToRun(run, setupId);
+    setDragRunNumber(null);
   };
 
   return (
@@ -1904,42 +1982,219 @@ function RaceRunDetail({
         {race.community && <p className="text-xs text-neutral-500 mt-0.5">{race.community}</p>}
       </div>
 
-      {/* Setup selector */}
-      <div>
-        <label className="text-[10px] text-neutral-500 block mb-0.5">Car Setup</label>
-        <select
-          value={currentSetupId}
-          onChange={(e) => handleSetupChange(e.target.value)}
-          className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
-        >
-          <option value="">— no setup assigned —</option>
-          {(allSnapshots ?? []).map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        {currentSnap && (
-          <p className="text-[10px] text-blue-300 mt-0.5">Using: {currentSnap.name}</p>
+      {/* Overall KPIs */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatBox label="Position" value={`P${race.position}${race.totalEntries ? `/${race.totalEntries}` : ""}`} />
+        {overallStats && (
+          <>
+            <StatBox label="Counted Laps" value={String(overallStats.count)} />
+            <StatBox label="Track Time" value={fmtTotal(overallStats.total)} />
+            <StatBox label="Fast Lap" value={fmt(overallStats.best)} highlight />
+            <StatBox label="Avg Lap" value={fmt(overallStats.avg)} />
+            <StatBox label="Consistency" value={`${overallStats.consistency.toFixed(1)}%`} />
+          </>
         )}
       </div>
 
-      {/* Analytics grid */}
-      <div className="grid grid-cols-3 gap-2">
-        <StatBox label="Position" value={`P${race.position}${race.totalEntries ? `/${race.totalEntries}` : ""}`} />
-        <StatBox label="Laps" value={String(race.totalLaps)} />
-        <StatBox label="Total Time" value={fmtTotal(race.totalTimeMs)} />
-        <StatBox label="Fast Lap" value={fmt(race.fastLapMs)} highlight />
-        {stats && <StatBox label="Avg Lap" value={fmt(stats.avg)} />}
-        {stats && <StatBox label="Median" value={fmt(stats.median)} />}
-        {stats && <StatBox label="Worst Lap" value={fmt(stats.worst)} />}
-        {stats && <StatBox label="Std Dev" value={fmt(stats.stdDev)} />}
-        {stats && <StatBox label="Consistency" value={`${stats.consistency.toFixed(1)}%`} />}
-      </div>
+      {/* Setup shelf — drag targets */}
+      {(allSnapshots ?? []).length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] text-neutral-500 uppercase">Drag a run to a setup, or use the dropdown inside each run</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(allSnapshots ?? []).map((s) => (
+              <div
+                key={s.id}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, s.id)}
+                className={`rounded-full px-3 py-1 text-[10px] font-medium border transition-colors cursor-default ${
+                  dragRunNumber
+                    ? "border-blue-500 bg-blue-950/40 text-blue-300 ring-1 ring-blue-500/30"
+                    : "border-neutral-700 bg-neutral-800 text-neutral-400"
+                }`}
+              >
+                {s.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Lap times */}
-      {race.laps.length > 0 && (
+      {/* Detected Runs */}
+      {runs.length > 0 && (
+        <div className="space-y-1">
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Runs</h3>
+          {runs.map((run) => {
+            const counted = run.laps.filter(isLapCounted);
+            const runStats = computeLapStats(counted);
+            const runSetupId = run.laps[0]?.setupSnapshotId ?? "";
+            const allSameSetup = run.laps.every((l) => (l.setupSnapshotId ?? "") === runSetupId);
+            const displaySetupId = allSameSetup ? runSetupId : "";
+            const setupSnap = displaySetupId ? snapshotMap.get(displaySetupId) : undefined;
+            const isExpanded = expandedRun === run.runNumber;
+            const bestInRun = counted.length > 0 ? Math.min(...counted.map((l) => l.timeMs)) : 0;
+
+            return (
+              <Fragment key={run.runNumber}>
+                <div
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, run.runNumber)}
+                  onDragEnd={handleDragEnd}
+                  className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden cursor-grab active:cursor-grabbing"
+                >
+                  {/* Run header */}
+                  <button
+                    onClick={() => setExpandedRun(isExpanded ? null : run.runNumber)}
+                    className="w-full text-left p-3 hover:bg-neutral-800/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-neutral-200">
+                        Run {run.runNumber} · Laps {run.laps[0]?.lapNumber}–{run.laps[run.laps.length - 1]?.lapNumber}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {setupSnap && (
+                          <span className="text-[10px] text-blue-300 truncate max-w-[100px]">{setupSnap.name}</span>
+                        )}
+                        <span className="text-neutral-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
+                      </div>
+                    </div>
+                    {runStats && (
+                      <div className="mt-1.5 grid grid-cols-4 gap-2">
+                        <MiniStat label="Laps" value={String(runStats.count)} />
+                        <MiniStat label="Fast" value={fmt(runStats.best)} highlight />
+                        <MiniStat label="Avg" value={fmt(runStats.avg)} />
+                        <MiniStat label="Consistency" value={`${runStats.consistency.toFixed(1)}%`} />
+                      </div>
+                    )}
+                    {!runStats && counted.length === 0 && (
+                      <p className="mt-1 text-[10px] text-neutral-600">All laps filtered by min/max threshold</p>
+                    )}
+                  </button>
+
+                  {/* Expanded: setup selector + laps */}
+                  {isExpanded && (
+                    <div className="border-t border-neutral-800">
+                      {/* Setup selector for this run */}
+                      <div className="px-3 py-2 bg-neutral-800/30">
+                        <label className="text-[10px] text-neutral-500 block mb-0.5">Car Setup for this run</label>
+                        <select
+                          value={displaySetupId}
+                          onChange={(e) => { if (e.target.value !== displaySetupId) assignSetupToRun(run, e.target.value); }}
+                          className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+                        >
+                          <option value="">— assign setup —</option>
+                          {(allSnapshots ?? []).map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Expanded KPIs */}
+                      {runStats && (
+                        <div className="px-3 pt-2 grid grid-cols-3 gap-1.5">
+                          <MiniStat label="Total Time" value={fmtTotal(runStats.total)} />
+                          <MiniStat label="Median" value={fmt(runStats.median)} />
+                          <MiniStat label="Std Dev" value={fmt(runStats.stdDev)} />
+                        </div>
+                      )}
+
+                      {/* Lap list */}
+                      <div className="px-3 pb-2 space-y-0.5 mt-2">
+                        {run.laps.map((lap) => {
+                          const filtered = !isLapCounted(lap);
+                          const isBest = lap.timeMs === bestInRun && !filtered;
+                          return (
+                            <div
+                              key={`${lap.lapNumber}-${lap.idx}`}
+                              className={`flex items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
+                                filtered
+                                  ? "bg-neutral-900/30 text-neutral-600 line-through"
+                                  : isBest
+                                    ? "bg-green-950/40 border border-green-800/50 text-green-300"
+                                    : "bg-neutral-900/50 text-neutral-300"
+                              }`}
+                            >
+                              <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
+                              <span className="font-mono">{fmt(lap.timeMs)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Break indicator between runs */}
+                {run.gapAfterMs && (
+                  <div className="text-center py-0.5">
+                    <span className="text-[10px] text-neutral-600">·· break ({fmtTotal(run.gapAfterMs)}) ··</span>
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Setup Summary — aggregate KPIs per setup */}
+      {setupSummary.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Lap Times</h3>
-          <LapTable laps={race.laps} bestMs={race.fastLapMs} />
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Setup Summary</h3>
+          {setupSummary.map((g) => {
+            const isExpanded = expandedSetup === g.setupId;
+            const bestInSetup = Math.min(...g.laps.map((l) => l.timeMs));
+            return (
+              <div key={g.setupId} className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden">
+                <button
+                  onClick={() => setExpandedSetup(isExpanded ? null : g.setupId)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-neutral-800/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-blue-300">{g.setupName}</span>
+                    <span className="text-neutral-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
+                  </div>
+                  {g.stats && (
+                    <div className="mt-1 grid grid-cols-5 gap-1.5">
+                      <MiniStat label="Laps" value={String(g.stats.count)} />
+                      <MiniStat label="Best" value={fmt(g.stats.best)} highlight />
+                      <MiniStat label="Avg" value={fmt(g.stats.avg)} />
+                      <MiniStat label="Consistency" value={`${g.stats.consistency.toFixed(1)}%`} />
+                      <MiniStat label="Std Dev" value={fmt(g.stats.stdDev)} />
+                    </div>
+                  )}
+                </button>
+
+                {isExpanded && g.stats && (
+                  <div className="border-t border-neutral-800">
+                    {/* Extra KPIs */}
+                    <div className="px-3 pt-2 grid grid-cols-3 gap-1.5">
+                      <MiniStat label="Total Time" value={fmtTotal(g.stats.total)} />
+                      <MiniStat label="Median" value={fmt(g.stats.median)} />
+                      <MiniStat label="Worst" value={fmt(g.stats.worst)} />
+                    </div>
+                    {/* Lap list */}
+                    <div className="px-3 pb-2 space-y-0.5 mt-2">
+                      {g.laps.map((lap, i) => {
+                        const isBest = lap.timeMs === bestInSetup;
+                        return (
+                          <div
+                            key={`${lap.lapNumber}-${i}`}
+                            className={`flex items-center justify-between rounded px-2 py-1.5 text-xs ${
+                              isBest
+                                ? "bg-green-950/40 border border-green-800/50 text-green-300"
+                                : "bg-neutral-900/50 text-neutral-300"
+                            }`}
+                          >
+                            <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
+                            <span className="font-mono">{fmt(lap.timeMs)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
