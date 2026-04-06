@@ -1906,6 +1906,20 @@ function RaceRunDetail({
   // Detect runs by gap (laps >= 60s)
   const runs = useMemo(() => detectRaceRuns(race.laps), [race.laps]);
 
+  // Auto-assign unassigned laps to the car's last modified setup
+  const latestSetupId = allSnapshots?.[0]?.id;
+  useEffect(() => {
+    if (!latestSetupId || !race.laps.length) return;
+    const hasUnassigned = race.laps.some((l) => !l.setupSnapshotId && l.timeMs < GAP_THRESHOLD_MS);
+    if (!hasUnassigned) return;
+    const updated = race.laps.map((l) =>
+      !l.setupSnapshotId && l.timeMs < GAP_THRESHOLD_MS
+        ? { ...l, setupSnapshotId: latestSetupId }
+        : l,
+    );
+    localDb.raceResults.update(race.id, { laps: updated, _dirty: 1 as const });
+  }, [race.id, race.laps, latestSetupId]);
+
   // Helper: is a lap counted for KPIs?
   const isLapCounted = useCallback((lap: RaceLap) => {
     if (lap.hidden) return false;
