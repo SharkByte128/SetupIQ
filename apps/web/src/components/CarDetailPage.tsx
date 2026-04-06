@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
-import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
+import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot, type LocalCarIssue, type LocalCarIssueMessage } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -9,7 +9,7 @@ import { v4 as uuid } from "uuid";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
-type Tab = "setup" | "runs" | "details";
+type Tab = "setup" | "runs" | "issues" | "details";
 
 interface CarDetailPageProps {
   carId: string;
@@ -210,7 +210,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
 
       {/* Tab bar */}
       <div className="px-4 flex gap-1 border-b border-neutral-800">
-        {(["setup", "runs", "details"] as const).map((t) => (
+        {(["setup", "runs", "issues", "details"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -230,6 +230,17 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
         {tab === "setup" && <SetupsPage forcedCarId={carId} />}
 
         {tab === "runs" && <CarRunsTab carId={carId} />}
+
+        {tab === "issues" && (
+          <CarIssuesTab
+            carId={carId}
+            carName={carName}
+            manufacturer={manufacturer}
+            scale={scale}
+            driveType={driveType}
+            chassisModel={chassisModel?.name}
+          />
+        )}
 
         {tab === "details" && (
           <div className="px-4 py-4 flex flex-col gap-4">
@@ -434,6 +445,482 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Issues Tab (Gemini AI chat) ──────────────────────────────
+
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+
+async function callGeminiForIssue(body: Record<string, unknown>): Promise<{ text?: string; error?: string }> {
+  // Try server proxy first
+  const serverUrl = (await localDb.syncMeta.get("sync_server_url"))?.value;
+  if (serverUrl) {
+    try {
+      const resp = await fetch(`${serverUrl}/api/gemini/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        return { text: text || "No response from AI." };
+      }
+      if (resp.status !== 503) {
+        return { error: `Gemini API error (${resp.status})` };
+      }
+    } catch { /* fall through */ }
+  }
+
+  // Fall back to local API key
+  const keyRow = await localDb.syncMeta.get("gemini_api_key");
+  const apiKey = keyRow?.value?.trim();
+  if (!apiKey) {
+    return { error: "No Gemini API key configured. Add one in Settings or configure GEMINI_API_KEY on the server." };
+  }
+
+  try {
+    const resp = await fetch(
+      `${GEMINI_API_BASE}/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    );
+    if (!resp.ok) return { error: `Gemini API error (${resp.status})` };
+    const data = await resp.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    return { text: text || "No response from AI." };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Build a text summary of the car + its current setups for Gemini context. */
+async function buildCarContext(carId: string, carName: string, manufacturer: string, scale: string, driveType: string, chassisModel?: string): Promise<string> {
+  const lines: string[] = [];
+  lines.push(`Car: ${carName}`);
+  lines.push(`Manufacturer: ${manufacturer}`);
+  if (chassisModel) lines.push(`Chassis: ${chassisModel}`);
+  lines.push(`Scale: ${scale}, Drive: ${driveType}`);
+
+  // Include current setup snapshots
+  const setups = await localDb.setupSnapshots.where("carId").equals(carId).toArray();
+  if (setups.length > 0) {
+    lines.push("");
+    lines.push("=== Current Setup(s) ===");
+    for (const setup of setups) {
+      lines.push(`\nSetup: ${setup.name}`);
+      if (setup.entries?.length) {
+        for (const entry of setup.entries) {
+          lines.push(`  ${entry.capabilityId}: ${entry.value}`);
+        }
+      }
+      if (setup.wheelTireSetups?.length) {
+        lines.push("  Wheel/Tire:");
+        for (const wt of setup.wheelTireSetups) {
+          const parts = [`${wt.position} ${wt.side}`];
+          if (wt.wheelId) parts.push(`wheel=${wt.wheelId}`);
+          if (wt.tireId) parts.push(`tire=${wt.tireId}`);
+          if (wt.mount) parts.push(`mount=${wt.mount.method}`);
+          lines.push(`    ${parts.join(", ")}`);
+        }
+      }
+      if (setup.notes) lines.push(`  Notes: ${setup.notes}`);
+    }
+  }
+
+  // Include components on this car
+  const components = await localDb.components.toArray();
+  if (components.length > 0) {
+    lines.push("");
+    lines.push("=== Components ===");
+    for (const c of components) {
+      lines.push(`  ${c.type}: ${c.brand} ${c.name}${c.sku ? ` (${c.sku})` : ""}${c.notes ? ` — ${c.notes}` : ""}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+interface CarIssuesTabProps {
+  carId: string;
+  carName: string;
+  manufacturer: string;
+  scale: string;
+  driveType: string;
+  chassisModel?: string;
+}
+
+type IssuesView =
+  | { kind: "list" }
+  | { kind: "new" }
+  | { kind: "detail"; issueId: string };
+
+function CarIssuesTab({ carId, carName, manufacturer, scale, driveType, chassisModel }: CarIssuesTabProps) {
+  const [view, setView] = useState<IssuesView>({ kind: "list" });
+
+  const issues = useLiveQuery(
+    () => localDb.carIssues.where("carId").equals(carId).reverse().sortBy("createdAt"),
+    [carId],
+  );
+
+  if (view.kind === "new") {
+    return (
+      <NewIssueForm
+        carId={carId}
+        carName={carName}
+        manufacturer={manufacturer}
+        scale={scale}
+        driveType={driveType}
+        chassisModel={chassisModel}
+        onBack={() => setView({ kind: "list" })}
+        onCreated={(issueId) => setView({ kind: "detail", issueId })}
+      />
+    );
+  }
+
+  if (view.kind === "detail") {
+    return (
+      <IssueDetail
+        issueId={view.issueId}
+        carId={carId}
+        carName={carName}
+        manufacturer={manufacturer}
+        scale={scale}
+        driveType={driveType}
+        chassisModel={chassisModel}
+        onBack={() => setView({ kind: "list" })}
+      />
+    );
+  }
+
+  return (
+    <div className="px-4 py-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">Issues</h2>
+        <button
+          onClick={() => setView({ kind: "new" })}
+          className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+        >
+          + New Issue
+        </button>
+      </div>
+
+      {(!issues || issues.length === 0) && (
+        <p className="text-sm text-neutral-500">No issues yet. Ask Gemini AI about your car, setup, or configuration.</p>
+      )}
+
+      {issues?.map((issue) => (
+        <button
+          key={issue.id}
+          onClick={() => setView({ kind: "detail", issueId: issue.id })}
+          className="w-full text-left rounded-lg border border-neutral-800 bg-neutral-900/50 p-3 hover:border-neutral-700 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${issue.status === "open" ? "bg-green-500" : "bg-neutral-600"}`} />
+            <p className="text-sm font-medium text-neutral-200 truncate">{issue.title}</p>
+          </div>
+          <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{issue.description}</p>
+          <p className="text-[10px] text-neutral-600 mt-1">{new Date(issue.createdAt).toLocaleDateString()}</p>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function NewIssueForm({
+  carId, carName, manufacturer, scale, driveType, chassisModel, onBack, onCreated,
+}: CarIssuesTabProps & { onBack: () => void; onCreated: (id: string) => void }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+
+  const inputClass =
+    "w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500";
+
+  const handleSubmit = useCallback(async () => {
+    if (!title.trim() || !description.trim()) return;
+    setSending(true);
+    setError("");
+
+    const issueId = uuid();
+    const now = new Date().toISOString();
+
+    // Create the issue
+    await localDb.carIssues.put({
+      id: issueId,
+      carId,
+      title: title.trim(),
+      description: description.trim(),
+      status: "open",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Save the user message
+    const userMsgId = uuid();
+    await localDb.carIssueMessages.put({
+      id: userMsgId,
+      issueId,
+      role: "user",
+      content: description.trim(),
+      createdAt: now,
+    });
+
+    // Build context and call Gemini
+    try {
+      const context = await buildCarContext(carId, carName, manufacturer, scale, driveType, chassisModel);
+
+      const result = await callGeminiForIssue({
+        systemInstruction: {
+          parts: [{
+            text: `You are an expert RC car setup advisor for Mini-Z and other 1:28-scale RC cars. The user is asking about an issue with their car. Here is the car's current configuration:\n\n${context}\n\nProvide helpful, specific advice based on the car's actual setup. Be concise but thorough. Use markdown formatting for readability.`,
+          }],
+        },
+        contents: [{ parts: [{ text: `Issue: ${title.trim()}\n\n${description.trim()}` }] }],
+      });
+
+      if (result.error) {
+        setError(result.error);
+      } else if (result.text) {
+        await localDb.carIssueMessages.put({
+          id: uuid(),
+          issueId,
+          role: "assistant",
+          content: result.text,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+
+    setSending(false);
+    onCreated(issueId);
+  }, [title, description, carId, carName, manufacturer, scale, driveType, chassisModel, onCreated]);
+
+  return (
+    <div className="px-4 py-4 space-y-4">
+      <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">← Back to Issues</button>
+      <h2 className="text-sm font-semibold text-neutral-300">New Issue</h2>
+
+      <div>
+        <label className="text-xs text-neutral-400 mb-1 block">Title</label>
+        <input
+          className={inputClass}
+          placeholder="e.g. Car understeers in tight corners"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="text-xs text-neutral-400 mb-1 block">Description</label>
+        <textarea
+          className={inputClass + " min-h-[100px]"}
+          placeholder="Describe the issue in detail. Your car's setup and configuration will be automatically included."
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <p className="text-[10px] text-neutral-600 mt-1">
+          Your car details, setup entries, and components will be sent to Gemini AI for context.
+        </p>
+      </div>
+
+      {error && <p className="text-xs text-red-400 bg-red-400/10 rounded px-3 py-2">{error}</p>}
+
+      <button
+        onClick={handleSubmit}
+        disabled={sending || !title.trim() || !description.trim()}
+        className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2.5 transition-colors"
+      >
+        {sending ? "Sending to Gemini AI…" : "Submit Issue"}
+      </button>
+    </div>
+  );
+}
+
+function IssueDetail({
+  issueId, carId, carName, manufacturer, scale, driveType, chassisModel, onBack,
+}: { issueId: string; carId: string; carName: string; manufacturer: string; scale: string; driveType: string; chassisModel?: string; onBack: () => void }) {
+  const [followUp, setFollowUp] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const issue = useLiveQuery(() => localDb.carIssues.get(issueId), [issueId]);
+  const messages = useLiveQuery(
+    () => localDb.carIssueMessages.where("issueId").equals(issueId).sortBy("createdAt"),
+    [issueId],
+  );
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages?.length]);
+
+  const handleFollowUp = useCallback(async () => {
+    if (!followUp.trim() || sending) return;
+    setSending(true);
+    setError("");
+
+    const now = new Date().toISOString();
+    await localDb.carIssueMessages.put({
+      id: uuid(),
+      issueId,
+      role: "user",
+      content: followUp.trim(),
+      createdAt: now,
+    });
+
+    const userText = followUp.trim();
+    setFollowUp("");
+
+    try {
+      const context = await buildCarContext(carId, carName, manufacturer, scale, driveType, chassisModel);
+
+      // Build full conversation history for Gemini
+      const allMessages = await localDb.carIssueMessages.where("issueId").equals(issueId).sortBy("createdAt");
+      const contents = allMessages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+
+      const result = await callGeminiForIssue({
+        systemInstruction: {
+          parts: [{
+            text: `You are an expert RC car setup advisor for Mini-Z and other 1:28-scale RC cars. The user is discussing an issue with their car titled "${issue?.title}". Here is the car's current configuration:\n\n${context}\n\nProvide helpful, specific advice based on the car's actual setup. Be concise but thorough. Use markdown formatting for readability.`,
+          }],
+        },
+        contents,
+      });
+
+      if (result.error) {
+        setError(result.error);
+      } else if (result.text) {
+        await localDb.carIssueMessages.put({
+          id: uuid(),
+          issueId,
+          role: "assistant",
+          content: result.text,
+          createdAt: new Date().toISOString(),
+        });
+        await localDb.carIssues.update(issueId, { updatedAt: new Date().toISOString() });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+    setSending(false);
+  }, [followUp, issueId, carId, carName, manufacturer, scale, driveType, chassisModel, issue?.title, sending]);
+
+  const handleToggleStatus = useCallback(async () => {
+    if (!issue) return;
+    await localDb.carIssues.update(issueId, {
+      status: issue.status === "open" ? "closed" : "open",
+      updatedAt: new Date().toISOString(),
+    });
+  }, [issueId, issue]);
+
+  const handleDelete = useCallback(async () => {
+    if (!confirm("Delete this issue and all messages?")) return;
+    await localDb.carIssueMessages.where("issueId").equals(issueId).delete();
+    await localDb.carIssues.delete(issueId);
+    onBack();
+  }, [issueId, onBack]);
+
+  if (!issue) return null;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2 border-b border-neutral-800 flex-shrink-0">
+        <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">← Back to Issues</button>
+        <div className="flex items-center justify-between mt-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${issue.status === "open" ? "bg-green-500" : "bg-neutral-600"}`} />
+              <h2 className="text-sm font-semibold text-neutral-200 truncate">{issue.title}</h2>
+            </div>
+            <p className="text-xs text-neutral-500 mt-0.5 line-clamp-1">{issue.description}</p>
+          </div>
+          <div className="flex gap-2 flex-shrink-0 ml-2">
+            <button
+              onClick={handleToggleStatus}
+              className={`text-[10px] px-2 py-1 rounded ${
+                issue.status === "open"
+                  ? "bg-neutral-800 text-neutral-400 hover:text-neutral-300"
+                  : "bg-green-900/30 text-green-400 hover:text-green-300"
+              }`}
+            >
+              {issue.status === "open" ? "Close" : "Reopen"}
+            </button>
+            <button
+              onClick={handleDelete}
+              className="text-[10px] px-2 py-1 rounded bg-neutral-800 text-red-400 hover:text-red-300"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {messages?.map((msg) => (
+          <div
+            key={msg.id}
+            className={`rounded-lg p-3 text-sm ${
+              msg.role === "user"
+                ? "bg-blue-900/20 border border-blue-800/30 ml-8"
+                : "bg-neutral-800/50 border border-neutral-700/50 mr-4"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className={`text-[10px] font-medium uppercase tracking-wider ${
+                msg.role === "user" ? "text-blue-400" : "text-amber-400"
+              }`}>
+                {msg.role === "user" ? "You" : "Gemini AI"}
+              </span>
+              <span className="text-[10px] text-neutral-600">
+                {new Date(msg.createdAt).toLocaleString()}
+              </span>
+            </div>
+            <div className="text-neutral-300 text-xs leading-relaxed whitespace-pre-wrap">
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {sending && (
+          <div className="bg-neutral-800/50 border border-neutral-700/50 rounded-lg p-3 mr-4">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-amber-400 mb-1.5">Gemini AI</p>
+            <p className="text-xs text-neutral-500 animate-pulse">Thinking…</p>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Follow-up input */}
+      {issue.status === "open" && (
+        <div className="px-4 py-3 border-t border-neutral-800 flex-shrink-0">
+          {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+          <div className="flex gap-2">
+            <input
+              className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500"
+              placeholder="Ask a follow-up question…"
+              value={followUp}
+              onChange={(e) => setFollowUp(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleFollowUp(); } }}
+            />
+            <button
+              onClick={handleFollowUp}
+              disabled={sending || !followUp.trim()}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors flex-shrink-0"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

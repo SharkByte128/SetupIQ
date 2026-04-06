@@ -287,6 +287,26 @@ export interface LocalCarNote {
   updatedAt: string;
 }
 
+/** A user-created issue / question about a car, setup, or configuration. */
+export interface LocalCarIssue {
+  id: string;
+  carId: string;
+  title: string;
+  description: string;
+  status: "open" | "closed";
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A single message in an issue's AI conversation thread. */
+export interface LocalCarIssueMessage {
+  id: string;
+  issueId: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
 /** User-created vendor/manufacturer. */
 export interface LocalCustomVendor {
   id: string;
@@ -341,6 +361,8 @@ class SetupIQDatabase extends Dexie {
   racers!: Table<LocalRacer, string>;
   carTimingNames!: Table<CarTimingName, string>;
   carNotes!: Table<LocalCarNote, string>;
+  carIssues!: Table<LocalCarIssue, string>;
+  carIssueMessages!: Table<LocalCarIssueMessage, string>;
   hiddenGarageCars!: Table<HiddenGarageCar, string>;
   setupTemplates!: Table<LocalSetupTemplate, string>;
   customPartCategories!: Table<LocalPartCategory, string>;
@@ -759,6 +781,12 @@ class SetupIQDatabase extends Dexie {
     // v28: index name on customVendors for orderBy("name")
     this.version(28).stores({
       customVendors: "id, name, slug, _dirty",
+    });
+
+    // v29: add carIssues and carIssueMessages tables
+    this.version(29).stores({
+      carIssues: "id, carId, status, createdAt",
+      carIssueMessages: "id, issueId, createdAt",
     });
   }
 }
