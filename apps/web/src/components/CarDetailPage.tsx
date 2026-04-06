@@ -1071,6 +1071,14 @@ function CarRunsTab({ carId }: { carId: string }) {
           <h3 className="text-xs font-semibold text-neutral-400 uppercase">Run Results</h3>
           {raceResults.map((r) => {
             const setupSnap = r.setupSnapshotId ? snapshotMap.get(r.setupSnapshotId) : undefined;
+            const filteredCardLaps = r.laps.filter((l) => {
+              if (l.hidden) return false;
+              if (l.timeMs >= GAP_THRESHOLD_MS) return false;
+              if (minLapMs != null && l.timeMs < minLapMs) return false;
+              if (maxLapMs != null && l.timeMs > maxLapMs) return false;
+              return true;
+            });
+            const cardStats = computeLapStats(filteredCardLaps);
             return (
             <button
               key={r.id}
@@ -1086,9 +1094,9 @@ function CarRunsTab({ carId }: { carId: string }) {
               </div>
               <div className="mt-1 flex gap-4 text-xs text-neutral-400">
                 <span>P{r.position}{r.totalEntries ? `/${r.totalEntries}` : ""}</span>
-                <span>{r.totalLaps} laps</span>
-                <span>Fast: {fmt(r.fastLapMs)}</span>
-                {r.avgLapMs && <span>Avg: {fmt(r.avgLapMs)}</span>}
+                <span>{filteredCardLaps.length} laps</span>
+                {cardStats && <span>Fast: {fmt(cardStats.best)}</span>}
+                {cardStats && <span>Avg: {fmt(cardStats.avg)}</span>}
               </div>
               {setupSnap && (
                 <p className="text-xs text-blue-300 mt-1">Setup: {setupSnap.name}</p>

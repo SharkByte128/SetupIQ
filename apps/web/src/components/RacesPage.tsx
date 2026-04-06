@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { allCars, getCarById } from "@setupiq/shared";
-import { localDb, type LocalRaceResult } from "../db/local-db.js";
+import { localDb, type LocalRaceResult, type CarTimingName } from "../db/local-db.js";
 import { useNltSync } from "../hooks/use-nlt-sync.js";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
@@ -154,6 +154,25 @@ function RaceList({
   onImport: () => void;
   onSelect: (r: LocalRaceResult) => void;
 }) {
+  // Per-car min/max lap filter
+  const carTimingNames = useLiveQuery(() => localDb.carTimingNames.toArray(), []);
+  const timingMap = useMemo(() => {
+    const m = new Map<string, CarTimingName>();
+    for (const t of carTimingNames ?? []) m.set(t.carId, t);
+    return m;
+  }, [carTimingNames]);
+  const GAP_MS = 60000;
+  const filterLaps = useCallback((r: LocalRaceResult) => {
+    const t = timingMap.get(r.carId);
+    return r.laps.filter((l) => {
+      if (l.hidden) return false;
+      if (l.timeMs >= GAP_MS) return false;
+      if (t?.minLapMs != null && l.timeMs < t.minLapMs) return false;
+      if (t?.maxLapMs != null && l.timeMs > t.maxLapMs) return false;
+      return true;
+    });
+  }, [timingMap]);
+
   return (
     <div className="space-y-4">
       <NltSyncBar sync={nltSync} />
@@ -182,6 +201,8 @@ function RaceList({
         <div className="space-y-2">
           {results.map((r) => {
             const car = getCarById(r.carId);
+            const fl = filterLaps(r);
+            const bestMs = fl.length > 0 ? Math.min(...fl.map((l) => l.timeMs)) : 0;
             return (
               <button
                 key={r.id}
@@ -197,8 +218,8 @@ function RaceList({
                 </div>
                 <div className="mt-1 flex gap-4 text-xs text-neutral-400">
                   <span>P{r.position}{r.totalEntries ? `/${r.totalEntries}` : ""}</span>
-                  <span>{r.totalLaps} laps</span>
-                  <span>Fast: {(r.fastLapMs / 1000).toFixed(3)}s</span>
+                  <span>{fl.length} laps</span>
+                  <span>Fast: {bestMs > 0 ? `${(bestMs / 1000).toFixed(3)}s` : "—"}</span>
                   {car && <span className="text-neutral-600">{car.name}</span>}
                 </div>
               </button>
@@ -492,15 +513,35 @@ function RaceDetail({
   onDelete: () => void;
 }) {
   const car = getCarById(result.carId);
-  const avgMs = result.avgLapMs ?? (result.totalLaps > 0 ? result.totalTimeMs / result.totalLaps : 0);
+
+  // Per-car min/max lap filter
+  const timingRec = useLiveQuery(
+    () => result.carId ? localDb.carTimingNames.get(result.carId) : undefined,
+    [result.carId],
+  );
+  const GAP_MS = 60000;
+  const filteredLaps = useMemo(() => result.laps.filter((l) => {
+    if (l.hidden) return false;
+    if (l.timeMs >= GAP_MS) return false;
+    if (timingRec?.minLapMs != null && l.timeMs < timingRec.minLapMs) return false;
+    if (timingRec?.maxLapMs != null && l.timeMs > timingRec.maxLapMs) return false;
+    return true;
+  }), [result.laps, timingRec]);
+
+  const bestMs = filteredLaps.length > 0 ? Math.min(...filteredLaps.map((l) => l.timeMs)) : 0;
+  const avgMs = filteredLaps.length > 0
+    ? filteredLaps.reduce((t, l) => t + l.timeMs, 0) / filteredLaps.length
+    : 0;
 
   const fastIdx = useMemo(() => {
-    if (result.laps.length === 0) return -1;
+    if (filteredLaps.length === 0) return -1;
     let minMs = Infinity;
-    let idx = 0;
-    result.laps.forEach((l, i) => { if (l.timeMs < minMs) { minMs = l.timeMs; idx = i; } });
+    let idx = -1;
+    result.laps.forEach((l, i) => {
+      if (filteredLaps.includes(l) && l.timeMs < minMs) { minMs = l.timeMs; idx = i; }
+    });
     return idx;
-  }, [result.laps]);
+  }, [result.laps, filteredLaps]);
 
   return (
     <div className="space-y-4">
@@ -520,11 +561,11 @@ function RaceDetail({
       {/* Stats grid */}
       <div className="grid grid-cols-3 gap-2">
         <StatCard label="Position" value={`P${result.position}${result.totalEntries ? `/${result.totalEntries}` : ""}`} />
-        <StatCard label="Laps" value={String(result.totalLaps)} />
-        <StatCard label="Total Time" value={formatTotalTime(result.totalTimeMs)} />
-        <StatCard label="Fast Lap" value={`${(result.fastLapMs / 1000).toFixed(3)}s`} highlight />
+        <StatCard label="Laps" value={String(filteredLaps.length)} />
+        <StatCard label="Total Time" value={formatTotalTime(filteredLaps.reduce((t, l) => t + l.timeMs, 0))} />
+        <StatCard label="Fast Lap" value={bestMs > 0 ? `${(bestMs / 1000).toFixed(3)}s` : "–"} highlight />
         <StatCard label="Avg Lap" value={avgMs > 0 ? `${(avgMs / 1000).toFixed(3)}s` : "–"} />
-        <StatCard label="Pace" value={result.totalLaps > 0 ? `${result.totalLaps}` : "–"} />
+        <StatCard label="Pace" value={filteredLaps.length > 0 ? `${filteredLaps.length}` : "–"} />
       </div>
 
       {/* Lap times */}
@@ -532,19 +573,24 @@ function RaceDetail({
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-neutral-400 uppercase">Lap Times</h3>
           <div className="max-h-72 overflow-y-auto space-y-0.5">
-            {result.laps.map((lap, i) => (
+            {result.laps.map((lap, i) => {
+              const excluded = !filteredLaps.includes(lap);
+              return (
               <div
                 key={lap.lapNumber}
                 className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
-                  i === fastIdx
-                    ? "bg-green-950/40 border border-green-800/50 text-green-300"
-                    : "bg-neutral-900/50 text-neutral-300"
+                  excluded
+                    ? "bg-neutral-900/30 text-neutral-600 line-through"
+                    : i === fastIdx
+                      ? "bg-green-950/40 border border-green-800/50 text-green-300"
+                      : "bg-neutral-900/50 text-neutral-300"
                 }`}
               >
                 <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
                 <span className="font-mono">{(lap.timeMs / 1000).toFixed(3)}s</span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
