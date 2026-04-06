@@ -1026,6 +1026,11 @@ function CarRunsTab({ carId }: { carId: string }) {
     [carId],
   );
 
+  // Load min/max lap filter from timing match
+  const timingNameRecord = useLiveQuery(() => localDb.carTimingNames.get(carId), [carId]);
+  const minLapMs = timingNameRecord?.minLapMs;
+  const maxLapMs = timingNameRecord?.maxLapMs;
+
   const loading = raceResults === undefined || sessions === undefined;
 
   if (loading) {
@@ -1119,7 +1124,12 @@ function CarRunsTab({ carId }: { carId: string }) {
           <h3 className="text-xs font-semibold text-neutral-400 uppercase">Sessions</h3>
           {sessions.map((s) => {
             const allLaps = s.segments.flatMap((seg) => (seg.lapTimes ?? []).filter((l) => !l.hidden));
-            const sessionStats = computeLapStats(allLaps);
+            const filteredLaps = allLaps.filter((l) => {
+              if (minLapMs != null && l.timeMs < minLapMs) return false;
+              if (maxLapMs != null && l.timeMs > maxLapMs) return false;
+              return true;
+            });
+            const sessionStats = computeLapStats(filteredLaps);
             const isExpanded = expandedSessionId === s.id;
 
             return (
@@ -1159,6 +1169,8 @@ function CarRunsTab({ carId }: { carId: string }) {
                     session={s}
                     snapshotMap={snapshotMap}
                     carId={carId}
+                    minLapMs={minLapMs}
+                    maxLapMs={maxLapMs}
                   />
                 )}
               </div>
@@ -1215,10 +1227,14 @@ function SessionSetupBreakdown({
   session,
   snapshotMap,
   carId,
+  minLapMs,
+  maxLapMs,
 }: {
   session: LocalRunSession & { segments: LocalRunSegment[] };
   snapshotMap: Map<string, LocalSetupSnapshot>;
   carId: string;
+  minLapMs?: number;
+  maxLapMs?: number;
 }) {
   const [expandedSetupId, setExpandedSetupId] = useState<string | null>(null);
   const setupGroups = useMemo(() => groupLapsBySetup(session, snapshotMap), [session, snapshotMap]);
@@ -1229,7 +1245,12 @@ function SessionSetupBreakdown({
         <p className="px-3 py-3 text-xs text-neutral-500">No lap data in this session.</p>
       )}
       {setupGroups.map((group) => {
-        const visibleLaps = group.laps.filter((l) => !l.lap.hidden);
+        const visibleLaps = group.laps.filter((l) => {
+          if (l.lap.hidden) return false;
+          if (minLapMs != null && l.lap.timeMs < minLapMs) return false;
+          if (maxLapMs != null && l.lap.timeMs > maxLapMs) return false;
+          return true;
+        });
         const stats = computeLapStats(visibleLaps.map((l) => l.lap));
         const isExpanded = expandedSetupId === group.setupSnapshotId;
 
@@ -1261,6 +1282,8 @@ function SessionSetupBreakdown({
                 group={group}
                 snapshotMap={snapshotMap}
                 carId={carId}
+                minLapMs={minLapMs}
+                maxLapMs={maxLapMs}
               />
             )}
           </div>
@@ -1276,19 +1299,30 @@ function SetupLapsList({
   group,
   snapshotMap,
   carId,
+  minLapMs,
+  maxLapMs,
 }: {
   group: SetupGroup;
   snapshotMap: Map<string, LocalSetupSnapshot>;
   carId: string;
+  minLapMs?: number;
+  maxLapMs?: number;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const bestMs = Math.min(...group.laps.filter((l) => !l.lap.hidden).map((l) => l.lap.timeMs));
+  const countedLaps = group.laps.filter((l) => {
+    if (l.lap.hidden) return false;
+    if (minLapMs != null && l.lap.timeMs < minLapMs) return false;
+    if (maxLapMs != null && l.lap.timeMs > maxLapMs) return false;
+    return true;
+  });
+  const bestMs = countedLaps.length > 0 ? Math.min(...countedLaps.map((l) => l.lap.timeMs)) : 0;
 
   return (
     <div className="px-3 pb-2 space-y-0.5">
       {group.laps.map((entry, idx) => {
         const { lap } = entry;
-        const isBest = lap.timeMs === bestMs && !lap.hidden;
+        const isOutOfRange = (minLapMs != null && lap.timeMs < minLapMs) || (maxLapMs != null && lap.timeMs > maxLapMs);
+        const isBest = lap.timeMs === bestMs && !lap.hidden && !isOutOfRange;
         const isEditing = editingIdx === idx;
 
         return (
@@ -1296,7 +1330,7 @@ function SetupLapsList({
             <button
               onClick={() => setEditingIdx(isEditing ? null : idx)}
               className={`w-full flex items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
-                lap.hidden
+                lap.hidden || isOutOfRange
                   ? "bg-neutral-900/30 text-neutral-600 line-through"
                   : isBest
                     ? "bg-green-950/40 border border-green-800/50 text-green-300"
