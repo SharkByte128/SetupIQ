@@ -302,29 +302,29 @@ async function pushDirtyRecords(): Promise<void> {
   }
 
   if (dirtyCarImages.length > 0) {
-    body.carImages = await Promise.all(
-      dirtyCarImages.map(async (img) => {
-        const base64 = await blobToBase64(img.blob);
-        return {
-          id: img.id,
-          updatedAt: img.updatedAt,
-          data: { carId: img.carId, imageBase64: base64, name: img.name, mimeType: img.mimeType || img.blob.type },
-        };
-      }),
-    );
+    try {
+      body.carImages = (await Promise.all(
+        dirtyCarImages.map(async (img) => {
+          try {
+            const base64 = await blobToBase64(img.blob);
+            return { id: img.id, updatedAt: img.updatedAt, data: { carId: img.carId, imageBase64: base64, name: img.name, mimeType: img.mimeType || img.blob.type } };
+          } catch { console.warn("[sync/push] skipping carImage", img.id, "— blob conversion failed"); return null; }
+        }),
+      )).filter((x): x is NonNullable<typeof x> => x !== null);
+    } catch (e) { console.warn("[sync/push] carImages serialization failed", e); }
   }
 
   if (dirtyTrackImages.length > 0) {
-    body.trackImages = await Promise.all(
-      dirtyTrackImages.map(async (img) => {
-        const base64 = await blobToBase64(img.blob);
-        return {
-          id: img.id,
-          updatedAt: img.updatedAt,
-          data: { trackId: img.trackId, imageBase64: base64, name: img.name, mimeType: img.mimeType || img.blob.type },
-        };
-      }),
-    );
+    try {
+      body.trackImages = (await Promise.all(
+        dirtyTrackImages.map(async (img) => {
+          try {
+            const base64 = await blobToBase64(img.blob);
+            return { id: img.id, updatedAt: img.updatedAt, data: { trackId: img.trackId, imageBase64: base64, name: img.name, mimeType: img.mimeType || img.blob.type } };
+          } catch { console.warn("[sync/push] skipping trackImage", img.id, "— blob conversion failed"); return null; }
+        }),
+      )).filter((x): x is NonNullable<typeof x> => x !== null);
+    } catch (e) { console.warn("[sync/push] trackImages serialization failed", e); }
   }
 
   if (dirtySetupTemplates.length > 0) {
@@ -358,29 +358,29 @@ async function pushDirtyRecords(): Promise<void> {
   }
 
   if (dirtyCategoryImages.length > 0) {
-    body.categoryImages = await Promise.all(
-      dirtyCategoryImages.map(async (img) => {
-        const base64 = await blobToBase64(img.blob);
-        return {
-          id: img.id,
-          updatedAt: img.updatedAt,
-          data: { categoryId: img.categoryId, imageBase64: base64, name: img.name, mimeType: img.mimeType || img.blob.type },
-        };
-      }),
-    );
+    try {
+      body.categoryImages = (await Promise.all(
+        dirtyCategoryImages.map(async (img) => {
+          try {
+            const base64 = await blobToBase64(img.blob);
+            return { id: img.id, updatedAt: img.updatedAt, data: { categoryId: img.categoryId, imageBase64: base64, name: img.name, mimeType: img.mimeType || img.blob.type } };
+          } catch { console.warn("[sync/push] skipping categoryImage", img.id, "— blob conversion failed"); return null; }
+        }),
+      )).filter((x): x is NonNullable<typeof x> => x !== null);
+    } catch (e) { console.warn("[sync/push] categoryImages serialization failed", e); }
   }
 
   if (dirtyPartFiles.length > 0) {
-    body.partFiles = await Promise.all(
-      dirtyPartFiles.map(async (f) => {
-        const base64 = await blobToBase64(f.blob);
-        return {
-          id: f.id,
-          updatedAt: f.updatedAt,
-          data: { partId: f.partId, fileBase64: base64, name: f.name, mimeType: f.mimeType || f.blob.type },
-        };
-      }),
-    );
+    try {
+      body.partFiles = (await Promise.all(
+        dirtyPartFiles.map(async (f) => {
+          try {
+            const base64 = await blobToBase64(f.blob);
+            return { id: f.id, updatedAt: f.updatedAt, data: { partId: f.partId, fileBase64: base64, name: f.name, mimeType: f.mimeType || f.blob.type } };
+          } catch { console.warn("[sync/push] skipping partFile", f.id, "— blob conversion failed"); return null; }
+        }),
+      )).filter((x): x is NonNullable<typeof x> => x !== null);
+    } catch (e) { console.warn("[sync/push] partFiles serialization failed", e); }
   }
 
   const pushRes = await syncFetch<{ ok: boolean; upserted: Record<string, number>; errors?: Record<string, string> }>("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
@@ -439,12 +439,8 @@ async function pullFromServer(): Promise<void> {
 
   const data = await syncFetch<PullResponse>(`/api/sync/pull?since=${encodeURIComponent(since)}`);
 
-  await localDb.transaction("rw",
-    [localDb.setupSnapshots, localDb.tracks, localDb.components, localDb.runSessions,
-     localDb.runSegments, localDb.measurements, localDb.parts, localDb.raceResults,
-     localDb.customCars, localDb.carImages, localDb.trackFiles, localDb.setupTemplates, localDb.racers,
-     localDb.customPartCategories, localDb.categoryImages, localDb.partFiles, localDb.syncMeta],
-    async () => {
+  // Import each record type independently — no wrapping transaction
+  // so one failing type doesn't abort all others
       try { for (const setup of (data.setupSnapshots || [])) {
         const local = await localDb.setupSnapshots.get(setup.id);
         if (!local || new Date(setup.updated_at || setup.updatedAt) > new Date(local.updatedAt)) {
@@ -755,8 +751,6 @@ async function pullFromServer(): Promise<void> {
       } } catch (e) { console.warn("[sync/pull] partFiles import failed", e); }
 
       await localDb.syncMeta.put({ key: "lastSyncTime", value: data.serverTime });
-    }
-  );
 }
 
 // ─── Full sync cycle ────────────────────────────────────────
@@ -767,14 +761,35 @@ export async function performSync(): Promise<void> {
     return;
   }
   setState("syncing");
+
+  let pushOk = true;
+  let pullOk = true;
+
+  // Push and pull are independent — one failing shouldn't block the other
   try {
     await pushDirtyRecords();
-    await pullFromServer();
-    const dirty = await hasDirtyRecords();
-    setState(dirty ? "pending" : "synced");
   } catch (err) {
-    console.error("[sync] failed:", err);
+    console.error("[sync] push failed:", err);
+    pushOk = false;
+  }
+
+  try {
+    await pullFromServer();
+  } catch (err) {
+    console.error("[sync] pull failed:", err);
+    pullOk = false;
+  }
+
+  // Determine state: if both failed, show error; otherwise check dirty
+  if (!pushOk && !pullOk) {
     setState("error");
+  } else {
+    try {
+      const dirty = await hasDirtyRecords();
+      setState(dirty ? "pending" : "synced");
+    } catch {
+      setState("error");
+    }
   }
 }
 
