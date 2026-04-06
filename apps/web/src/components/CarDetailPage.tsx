@@ -1202,6 +1202,7 @@ interface SetupGroup {
 function groupLapsBySetup(
   session: LocalRunSession & { segments: LocalRunSegment[] },
   snapshotMap: Map<string, LocalSetupSnapshot>,
+  defaultSetupId?: string,
 ): SetupGroup[] {
   const groupMap = new Map<string, SetupGroup>();
 
@@ -1209,7 +1210,11 @@ function groupLapsBySetup(
     const segLaps = seg.lapTimes ?? [];
     for (let i = 0; i < segLaps.length; i++) {
       const lap = segLaps[i];
-      const effectiveSetupId = lap.setupSnapshotId ?? seg.setupSnapshotId;
+      let effectiveSetupId = lap.setupSnapshotId ?? seg.setupSnapshotId;
+      // Fall back to car's last modified setup if snapshot is unknown
+      if (!snapshotMap.has(effectiveSetupId) && defaultSetupId) {
+        effectiveSetupId = defaultSetupId;
+      }
       let group = groupMap.get(effectiveSetupId);
       if (!group) {
         const snap = snapshotMap.get(effectiveSetupId);
@@ -1237,7 +1242,51 @@ function SessionSetupBreakdown({
   maxLapMs?: number;
 }) {
   const [expandedSetupId, setExpandedSetupId] = useState<string | null>(null);
-  const setupGroups = useMemo(() => groupLapsBySetup(session, snapshotMap), [session, snapshotMap]);
+
+  // Default setup = car's last modified snapshot
+  const latestSnapshot = useLiveQuery(
+    () => localDb.setupSnapshots.where("carId").equals(carId).reverse().sortBy("updatedAt").then((s) => s[0]),
+    [carId],
+  );
+  const defaultSetupId = latestSnapshot?.id;
+
+  const setupGroups = useMemo(
+    () => groupLapsBySetup(session, snapshotMap, defaultSetupId),
+    [session, snapshotMap, defaultSetupId],
+  );
+
+  // All snapshots for reassign dropdown
+  const allSnapshots = useLiveQuery(
+    () => localDb.setupSnapshots.where("carId").equals(carId).reverse().sortBy("updatedAt"),
+    [carId],
+  );
+
+  const reassignGroup = useCallback(async (group: SetupGroup, newSetupId: string) => {
+    // Batch-update all laps in this group to the new setup
+    const bySegment = new Map<string, { indexInSegment: number }[]>();
+    for (const entry of group.laps) {
+      let arr = bySegment.get(entry.segmentId);
+      if (!arr) { arr = []; bySegment.set(entry.segmentId, arr); }
+      arr.push(entry);
+    }
+    for (const [segId, entries] of bySegment) {
+      const seg = await localDb.runSegments.get(segId);
+      if (!seg?.lapTimes) continue;
+      const updated = [...seg.lapTimes];
+      for (const e of entries) {
+        if (e.indexInSegment < updated.length) {
+          updated[e.indexInSegment] = { ...updated[e.indexInSegment], setupSnapshotId: newSetupId };
+        }
+      }
+      // If ALL laps in segment now point to newSetupId, also update segment-level
+      const allSame = updated.every((l) => l.setupSnapshotId === newSetupId);
+      await localDb.runSegments.update(segId, {
+        lapTimes: updated,
+        ...(allSame ? { setupSnapshotId: newSetupId } : {}),
+        _dirty: 1 as const,
+      });
+    }
+  }, []);
 
   return (
     <div className="border-t border-neutral-800">
@@ -1276,15 +1325,33 @@ function SessionSetupBreakdown({
               )}
             </button>
 
-            {/* Expanded: individual laps */}
+            {/* Expanded: reassign setup + individual laps */}
             {isExpanded && (
-              <SetupLapsList
-                group={group}
-                snapshotMap={snapshotMap}
-                carId={carId}
-                minLapMs={minLapMs}
-                maxLapMs={maxLapMs}
-              />
+              <div>
+                {/* Group-level setup reassign */}
+                <div className="px-3 py-2 border-t border-neutral-800/50 bg-neutral-800/30">
+                  <label className="text-[10px] text-neutral-500 block mb-0.5">Car Setup for these laps</label>
+                  <select
+                    value={group.setupSnapshotId}
+                    onChange={(e) => { if (e.target.value) reassignGroup(group, e.target.value); }}
+                    className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+                  >
+                    {!snapshotMap.has(group.setupSnapshotId) && (
+                      <option value={group.setupSnapshotId}>— {group.setupName} —</option>
+                    )}
+                    {(allSnapshots ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <SetupLapsList
+                  group={group}
+                  snapshotMap={snapshotMap}
+                  carId={carId}
+                  minLapMs={minLapMs}
+                  maxLapMs={maxLapMs}
+                />
+              </div>
             )}
           </div>
         );

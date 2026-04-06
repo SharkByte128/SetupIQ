@@ -774,6 +774,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             title: (record.data.title as string) || "Untitled",
             description: (record.data.description as string) || "",
             status: (record.data.status as string) || "open",
+            createdAt: record.data.createdAt ? new Date(record.data.createdAt as string) : new Date(),
             updatedAt: new Date(),
           })
           .onConflictDoUpdate({
@@ -805,6 +806,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
             issueId: (record.data.issueId as string) || "",
             role: (record.data.role as string) || "user",
             content: (record.data.content as string) || "",
+            createdAt: record.data.createdAt ? new Date(record.data.createdAt as string) : new Date(),
           })
           .onConflictDoUpdate({
             target: carIssueMessages.id,

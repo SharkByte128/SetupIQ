@@ -795,6 +795,16 @@ class SetupIQDatabase extends Dexie {
     this.version(30).stores({
       carIssues: "id, carId, status, createdAt, updatedAt, _dirty",
       carIssueMessages: "id, issueId, createdAt, _dirty",
+    }).upgrade(async (tx) => {
+      // Mark all existing issues & messages as dirty so they get pushed on next sync
+      await tx.table("carIssues").toCollection().modify({ _dirty: 1 });
+      await tx.table("carIssueMessages").toCollection().modify({ _dirty: 1 });
+    });
+
+    // v31: patch issues that already passed v30 without _dirty being set
+    this.version(31).stores({}).upgrade(async (tx) => {
+      await tx.table("carIssues").filter((r: any) => r._dirty === undefined || r._dirty === null).modify({ _dirty: 1 });
+      await tx.table("carIssueMessages").filter((r: any) => r._dirty === undefined || r._dirty === null).modify({ _dirty: 1 });
     });
   }
 }

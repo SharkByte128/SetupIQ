@@ -394,7 +394,7 @@ async function pushDirtyRecords(): Promise<void> {
     body.carIssues = dirtyCarIssues.map((issue) => ({
       id: issue.id,
       updatedAt: issue.updatedAt,
-      data: { carId: issue.carId, title: issue.title, description: issue.description, status: issue.status },
+      data: { carId: issue.carId, title: issue.title, description: issue.description, status: issue.status, createdAt: issue.createdAt },
     }));
   }
 
@@ -402,7 +402,7 @@ async function pushDirtyRecords(): Promise<void> {
     body.carIssueMessages = dirtyCarIssueMessages.map((msg) => ({
       id: msg.id,
       updatedAt: msg.createdAt,
-      data: { issueId: msg.issueId, role: msg.role, content: msg.content },
+      data: { issueId: msg.issueId, role: msg.role, content: msg.content, createdAt: msg.createdAt },
     }));
   }
 
