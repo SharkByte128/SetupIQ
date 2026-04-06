@@ -96,7 +96,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
           and(eq(partFiles.userId, user.id), gt(partFiles.updatedAt, since))
         ).catch(() => []),
         db.select().from(carIssues).where(
-          and(eq(carIssues.userId, user.id), gt(carIssues.updatedAt, since))
+          eq(carIssues.userId, user.id)
         ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] carIssues query failed"); return []; }),
         db.select().from(carIssueMessages).where(
           eq(carIssueMessages.userId, user.id)
