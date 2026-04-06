@@ -383,14 +383,58 @@ async function pushDirtyRecords(): Promise<void> {
     } catch (e) { console.warn("[sync/push] partFiles serialization failed", e); }
   }
 
-  const pushRes = await syncFetch<{ ok: boolean; upserted: Record<string, number>; errors?: Record<string, string> }>("/api/sync/push", { method: "POST", body: JSON.stringify(body) });
+  // ─── Send push in chunks: data records first, then each blob type separately ───
+  // This avoids 413 when many images/files are dirty at once.
 
-  if (pushRes.errors && Object.keys(pushRes.errors).length > 0) {
-    console.warn("[sync] partial push failures:", pushRes.errors);
+  // Separate blob keys from data keys
+  const blobKeys = ["carImages", "trackImages", "categoryImages", "partFiles"] as const;
+  const dataBody: Record<string, any> = {};
+  const blobBodies: Record<string, any[]> = {};
+
+  for (const [key, value] of Object.entries(body)) {
+    if (blobKeys.includes(key as any)) {
+      blobBodies[key] = value;
+    } else {
+      dataBody[key] = value;
+    }
+  }
+
+  // Aggregate all upserted counts
+  const allUpserted: Record<string, number> = {};
+  const allErrors: Record<string, string> = {};
+
+  // 1) Push data records (small payload)
+  if (Object.keys(dataBody).length > 0) {
+    const res = await syncFetch<{ ok: boolean; upserted: Record<string, number>; errors?: Record<string, string> }>("/api/sync/push", { method: "POST", body: JSON.stringify(dataBody) });
+    Object.assign(allUpserted, res.upserted);
+    if (res.errors) Object.assign(allErrors, res.errors);
+  }
+
+  // 2) Push each blob type one-by-one to keep payload size down
+  for (const [key, records] of Object.entries(blobBodies)) {
+    if (!records || records.length === 0) continue;
+    // Push blob records one at a time if they're large
+    for (const record of records) {
+      try {
+        const res = await syncFetch<{ ok: boolean; upserted: Record<string, number>; errors?: Record<string, string> }>("/api/sync/push", {
+          method: "POST",
+          body: JSON.stringify({ [key]: [record] }),
+        });
+        allUpserted[key] = (allUpserted[key] || 0) + (res.upserted[key] || 0);
+        if (res.errors?.[key]) allErrors[key] = res.errors[key];
+      } catch (e) {
+        console.warn(`[sync/push] ${key} record ${record.id} failed`, e);
+        allErrors[key] = e instanceof Error ? e.message : String(e);
+      }
+    }
+  }
+
+  if (Object.keys(allErrors).length > 0) {
+    console.warn("[sync] partial push failures:", allErrors);
   }
 
   // Mark pushed records as clean — only for record types the server confirmed
-  const u = pushRes.upserted;
+  const u = allUpserted;
   await Promise.all([
     ...(u.setupSnapshots ? dirtySetups.map((s) => localDb.setupSnapshots.update(s.id, { _dirty: 0 })) : []),
     ...(u.tracks ? dirtyTracks.map((t) => localDb.tracks.update(t.id, { _dirty: 0 })) : []),

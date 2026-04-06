@@ -6,6 +6,9 @@
 
 	# API routes — proxy to Fastify as-is (no prefix stripping)
 	handle /api/* {
+		request_body {
+			max_size 50MB
+		}
 		reverse_proxy api:3001
 	}
 

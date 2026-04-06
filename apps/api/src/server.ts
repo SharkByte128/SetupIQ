@@ -20,7 +20,10 @@ const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
 
 async function start(): Promise<void> {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: true,
+    bodyLimit: 50 * 1024 * 1024, // 50 MB — sync push can include base64 images
+  });
 
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN || "http://localhost:5173",
