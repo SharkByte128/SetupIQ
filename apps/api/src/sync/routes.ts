@@ -51,39 +51,39 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       const [userSetups, userTracks, userComponents, userSessions, , , userParts, userRaceResults, userCustomCars, userCarImages, userTrackImages, userSetupTemplates, userRacers, userPartCategories, userCategoryImages, userPartFiles] = await Promise.all([
         db.select().from(setupSnapshots).where(
           and(eq(setupSnapshots.userId, user.id), gt(setupSnapshots.updatedAt, since))
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] setupSnapshots query failed"); return []; }),
         db.select().from(tracks).where(
           and(eq(tracks.userId, user.id), gt(tracks.updatedAt, since))
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] tracks query failed"); return []; }),
         db.select().from(components).where(
           eq(components.userId, user.id)
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] components query failed"); return []; }),
         db.select().from(runSessions).where(
           eq(runSessions.userId, user.id)
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] runSessions query failed"); return []; }),
         Promise.resolve([]), // placeholder — segments queried below
         Promise.resolve([]), // placeholder — measurements queried below
         db.select().from(parts).where(
           and(eq(parts.userId, user.id), gt(parts.updatedAt, since))
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] parts query failed"); return []; }),
         db.select().from(raceResults).where(
           eq(raceResults.userId, user.id)
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] raceResults query failed"); return []; }),
         db.select().from(customCars).where(
           and(eq(customCars.userId, user.id), gt(customCars.updatedAt, since))
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] customCars query failed"); return []; }),
         db.select().from(carImages).where(
           and(eq(carImages.userId, user.id), gt(carImages.updatedAt, since))
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] carImages query failed"); return []; }),
         db.select().from(trackImages).where(
           and(eq(trackImages.userId, user.id), gt(trackImages.updatedAt, since))
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] trackImages query failed"); return []; }),
         db.select().from(setupTemplates).where(
           and(eq(setupTemplates.userId, user.id), gt(setupTemplates.updatedAt, since))
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] setupTemplates query failed"); return []; }),
         db.select().from(racers).where(
           and(eq(racers.userId, user.id), gt(racers.updatedAt, since))
-        ),
+        ).catch((e) => { request.log.warn({ err: e }, "[sync/pull] racers query failed"); return []; }),
         db.select().from(customPartCategories).where(
           and(eq(customPartCategories.userId, user.id), gt(customPartCategories.updatedAt, since))
         ).catch(() => []),
@@ -96,21 +96,31 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       ]);
 
       // Segments & measurements scoped to user's sessions/setups
-      const allUserSessions = await db.select({ id: runSessions.id }).from(runSessions).where(eq(runSessions.userId, user.id));
-      const sessionIds = allUserSessions.map((s) => s.id);
-      const userSegments = sessionIds.length > 0
-        ? await db.select().from(runSegments).where(
-            inArray(runSegments.sessionId, sessionIds)
-          )
-        : [];
+      let userSegments: any[] = [];
+      try {
+        const allUserSessions = await db.select({ id: runSessions.id }).from(runSessions).where(eq(runSessions.userId, user.id));
+        const sessionIds = allUserSessions.map((s) => s.id);
+        userSegments = sessionIds.length > 0
+          ? await db.select().from(runSegments).where(
+              inArray(runSegments.sessionId, sessionIds)
+            )
+          : [];
+      } catch (e) {
+        request.log.warn({ err: e }, "[sync/pull] runSegments query failed");
+      }
 
-      const allUserSetups = await db.select({ id: setupSnapshots.id }).from(setupSnapshots).where(eq(setupSnapshots.userId, user.id));
-      const setupIds = allUserSetups.map((s) => s.id);
-      const userMeasurements = setupIds.length > 0
-        ? await db.select().from(measurements).where(
-            inArray(measurements.setupId, setupIds)
-          )
-        : [];
+      let userMeasurements: any[] = [];
+      try {
+        const allUserSetups = await db.select({ id: setupSnapshots.id }).from(setupSnapshots).where(eq(setupSnapshots.userId, user.id));
+        const setupIds = allUserSetups.map((s) => s.id);
+        userMeasurements = setupIds.length > 0
+          ? await db.select().from(measurements).where(
+              inArray(measurements.setupId, setupIds)
+            )
+          : [];
+      } catch (e) {
+        request.log.warn({ err: e }, "[sync/pull] measurements query failed");
+      }
 
       return {
         setupSnapshots: userSetups,

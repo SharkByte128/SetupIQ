@@ -445,7 +445,7 @@ async function pullFromServer(): Promise<void> {
      localDb.customCars, localDb.carImages, localDb.trackFiles, localDb.setupTemplates, localDb.racers,
      localDb.customPartCategories, localDb.categoryImages, localDb.partFiles, localDb.syncMeta],
     async () => {
-      for (const setup of data.setupSnapshots) {
+      try { for (const setup of (data.setupSnapshots || [])) {
         const local = await localDb.setupSnapshots.get(setup.id);
         if (!local || new Date(setup.updated_at || setup.updatedAt) > new Date(local.updatedAt)) {
           await localDb.setupSnapshots.put({
@@ -462,9 +462,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] setupSnapshots import failed", e); }
 
-      for (const track of data.tracks) {
+      try { for (const track of (data.tracks || [])) {
         const local = await localDb.tracks.get(track.id);
         if (!local || new Date(track.updated_at || track.updatedAt) > new Date(local.updatedAt)) {
           await localDb.tracks.put({
@@ -488,9 +488,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] tracks import failed", e); }
 
-      for (const session of data.runSessions) {
+      try { for (const session of (data.runSessions || [])) {
         const local = await localDb.runSessions.get(session.id);
         const serverStartedAt = session.started_at || session.startedAt;
         const serverEndedAt = session.ended_at || session.endedAt;
@@ -516,9 +516,9 @@ async function pullFromServer(): Promise<void> {
             });
           }
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] runSessions import failed", e); }
 
-      for (const seg of (data.runSegments || [])) {
+      try { for (const seg of (data.runSegments || [])) {
         const local = await localDb.runSegments.get(seg.id);
         if (!local) {
           await localDb.runSegments.put({
@@ -543,9 +543,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] runSegments import failed", e); }
 
-      for (const part of (data.parts || [])) {
+      try { for (const part of (data.parts || [])) {
         const local = await localDb.parts.get(part.id);
         if (!local || new Date(part.updated_at || part.updatedAt) > new Date(local.updatedAt)) {
           await localDb.parts.put({
@@ -565,9 +565,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] parts import failed", e); }
 
-      for (const result of (data.raceResults || [])) {
+      try { for (const result of (data.raceResults || [])) {
         const local = await localDb.raceResults.get(result.id);
         if (!local) {
           await localDb.raceResults.put({
@@ -611,9 +611,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] raceResults import failed", e); }
 
-      for (const car of (data.customCars || [])) {
+      try { for (const car of (data.customCars || [])) {
         const local = await localDb.customCars.get(car.id);
         if (!local || new Date(car.updated_at || car.updatedAt) > new Date(local.updatedAt)) {
           await localDb.customCars.put({
@@ -631,9 +631,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] customCars import failed", e); }
 
-      for (const img of (data.carImages || [])) {
+      try { for (const img of (data.carImages || [])) {
         const local = await localDb.carImages.get(img.id);
         if (!local || new Date(img.updated_at || img.updatedAt) > new Date(local.updatedAt)) {
           const mimeType = img.mime_type || img.mimeType || "image/jpeg";
@@ -649,9 +649,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] carImages import failed", e); }
 
-      for (const img of (data.trackImages || [])) {
+      try { for (const img of (data.trackImages || [])) {
         const local = await localDb.trackFiles.get(img.id);
         if (!local || new Date(img.updated_at || img.updatedAt) > new Date(local.updatedAt)) {
           const mimeType = img.mime_type || img.mimeType || "image/jpeg";
@@ -667,9 +667,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] trackImages import failed", e); }
 
-      for (const tmpl of (data.setupTemplates || [])) {
+      try { for (const tmpl of (data.setupTemplates || [])) {
         const local = await localDb.setupTemplates.get(tmpl.id);
         if (!local || new Date(tmpl.updated_at || tmpl.updatedAt) > new Date(local.updatedAt)) {
           await localDb.setupTemplates.put({
@@ -684,9 +684,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] setupTemplates import failed", e); }
 
-      for (const racer of (data.racers || [])) {
+      try { for (const racer of (data.racers || [])) {
         const local = await localDb.racers.get(racer.id);
         if (!local || new Date(racer.updated_at || racer.updatedAt) > new Date(local.updatedAt)) {
           await localDb.racers.put({
@@ -699,9 +699,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] racers import failed", e); }
 
-      for (const cat of (data.partCategories || [])) {
+      try { for (const cat of (data.partCategories || [])) {
         const local = await localDb.customPartCategories.get(cat.id);
         if (!local || new Date(cat.updated_at || cat.updatedAt) > new Date(local.updatedAt)) {
           await localDb.customPartCategories.put({
@@ -716,9 +716,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] partCategories import failed", e); }
 
-      for (const img of (data.categoryImages || [])) {
+      try { for (const img of (data.categoryImages || [])) {
         const local = await localDb.categoryImages.get(img.id);
         if (!local || new Date(img.updated_at || img.updatedAt) > new Date(local.updatedAt)) {
           const mimeType = img.mime_type || img.mimeType || "image/jpeg";
@@ -734,9 +734,9 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] categoryImages import failed", e); }
 
-      for (const f of (data.partFiles || [])) {
+      try { for (const f of (data.partFiles || [])) {
         const local = await localDb.partFiles.get(f.id);
         if (!local || new Date(f.updated_at || f.updatedAt) > new Date(local.updatedAt)) {
           const mimeType = f.mime_type || f.mimeType || "image/jpeg";
@@ -752,7 +752,7 @@ async function pullFromServer(): Promise<void> {
             _dirty: 0,
           });
         }
-      }
+      } } catch (e) { console.warn("[sync/pull] partFiles import failed", e); }
 
       await localDb.syncMeta.put({ key: "lastSyncTime", value: data.serverTime });
     }
