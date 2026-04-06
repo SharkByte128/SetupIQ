@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
-import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot, type LocalCarIssue, type LocalCarIssueMessage } from "../db/local-db.js";
+import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -773,7 +773,6 @@ function IssueDetail({
       createdAt: now,
     });
 
-    const userText = followUp.trim();
     setFollowUp("");
 
     try {
