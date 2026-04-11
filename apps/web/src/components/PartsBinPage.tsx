@@ -309,11 +309,16 @@ export function PartsBinPage() {
   const [view, setView] = useState<View>({ type: "categories" });
   const [adminMode, setAdminMode] = useState(() => localStorage.getItem("partsBinAdmin") === "1");
   const allVendors = useAllVendors();
+  const allCategories = useAllCategories();
 
   const toggleAdmin = useCallback((v: boolean) => {
     setAdminMode(v);
     localStorage.setItem("partsBinAdmin", v ? "1" : "0");
   }, []);
+
+  const findCategory = useCallback((id: string) => {
+    return allCategories.find(c => c.id === id) ?? getCategoryById(id);
+  }, [allCategories]);
 
   const goBack = useCallback(() => {
     switch (view.type) {
@@ -325,7 +330,7 @@ export function PartsBinPage() {
         break;
       case "detail":
         {
-          const c = getCategoryById(view.part.categoryId);
+          const c = findCategory(view.part.categoryId);
           if (c) setView({ type: "parts", category: c });
           else setView({ type: "categories" });
         }
@@ -343,7 +348,7 @@ export function PartsBinPage() {
       default:
         break;
     }
-  }, [view]);
+  }, [view, findCategory]);
 
   return (
     <div className="px-4 py-4">
@@ -399,7 +404,7 @@ export function PartsBinPage() {
           part={view.part}
           onEdit={() => {
             const v = allVendors.find(v => v.id === view.part.vendorId);
-            const c = getCategoryById(view.part.categoryId);
+            const c = findCategory(view.part.categoryId);
             if (c) setView({ type: "add", category: c, vendor: v, editPart: view.part });
           }}
         />
