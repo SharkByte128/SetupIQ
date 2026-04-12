@@ -917,6 +917,144 @@ function UncategorizedPartRow({
   );
 }
 
+// ── Tire Columns View (grouped by width, sorted by shore) ─────
+
+const TIRE_WIDTH_COLUMNS = [
+  { key: "8.5", label: "8.5 mm" },
+  { key: "11", label: "11 mm" },
+  { key: "14", label: "14 mm" },
+];
+
+function parseShore(val: unknown): number {
+  if (val === undefined || val === null || val === "") return -Infinity;
+  const n = parseFloat(String(val));
+  return isNaN(n) ? -Infinity : n;
+}
+
+function TireColumnsView({
+  parts,
+  thumbnails,
+  allVendors,
+  category,
+  catThumb,
+  adminMode,
+  onDetail,
+  onEdit,
+  onClonePart,
+}: {
+  parts: LocalPart[];
+  thumbnails: Map<string, string>;
+  allVendors: Vendor[];
+  category: MergedCategory;
+  catThumb: string | undefined;
+  adminMode: boolean;
+  onDetail: (p: LocalPart) => void;
+  onEdit: (p: LocalPart) => void;
+  onClonePart: (p: LocalPart) => void;
+}) {
+  // Group by widthMm, then sort each group descending by shore
+  const columns = useMemo(() => {
+    const buckets = new Map<string, LocalPart[]>();
+    const otherParts: LocalPart[] = [];
+
+    for (const part of parts) {
+      const w = part.attributes.widthMm;
+      const wStr = w !== undefined && w !== "" ? String(w) : null;
+      const col = wStr ? TIRE_WIDTH_COLUMNS.find(c => c.key === wStr) : null;
+      if (col) {
+        const list = buckets.get(col.key) ?? [];
+        list.push(part);
+        buckets.set(col.key, list);
+      } else {
+        otherParts.push(part);
+      }
+    }
+
+    // Sort each bucket descending by shore
+    const sortByShore = (a: LocalPart, b: LocalPart) =>
+      parseShore(b.attributes.shore) - parseShore(a.attributes.shore);
+
+    const result = TIRE_WIDTH_COLUMNS.map(col => ({
+      ...col,
+      parts: (buckets.get(col.key) ?? []).sort(sortByShore),
+    }));
+
+    if (otherParts.length > 0) {
+      result.push({ key: "other", label: "Other", parts: otherParts.sort(sortByShore) });
+    }
+
+    return result;
+  }, [parts]);
+
+  return (
+    <div className="grid grid-cols-3 gap-3 mb-4">
+      {columns.map(col => (
+        <div key={col.key} className="flex flex-col">
+          <h3 className="text-xs font-semibold text-neutral-400 text-center mb-2 border-b border-neutral-800 pb-1">
+            {col.label}
+          </h3>
+          <div className="flex flex-col gap-2">
+            {col.parts.length === 0 ? (
+              <p className="text-[10px] text-neutral-600 text-center py-4">—</p>
+            ) : col.parts.map(part => {
+              const thumbUrl = thumbnails.get(part.id);
+              const vendor = allVendors.find(v => v.id === part.vendorId);
+              const shore = part.attributes.shore;
+              const compound = part.attributes.compound;
+              return (
+                <div key={part.id} className="relative group">
+                  <button
+                    onClick={() => onDetail(part)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden flex flex-col hover:border-neutral-600 transition-colors text-left"
+                  >
+                    <div className="w-full aspect-square bg-neutral-800 flex items-center justify-center overflow-hidden">
+                      {thumbUrl ? (
+                        <img src={thumbUrl} alt={part.name} className="w-full h-full object-cover" />
+                      ) : vendor ? (
+                        <VendorLogo slug={vendor.slug} size={32} />
+                      ) : catThumb ? (
+                        <img src={catThumb} alt="" className="w-full h-full object-cover opacity-40" />
+                      ) : (
+                        <span className="text-xl text-neutral-600">🟢</span>
+                      )}
+                    </div>
+                    <div className="px-1.5 py-1">
+                      <p className="text-[10px] font-medium truncate">{part.name}</p>
+                      {shore && (
+                        <p className="text-[10px] text-blue-400 font-semibold">Shore {shore}</p>
+                      )}
+                      {compound && (
+                        <p className="text-[10px] text-neutral-500 truncate">{compound}</p>
+                      )}
+                      {part.sku && (
+                        <p className="text-[9px] text-neutral-600 font-mono truncate">{part.sku}</p>
+                      )}
+                    </div>
+                  </button>
+                  {adminMode && (
+                    <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEdit(part); }}
+                        className="absolute top-1 right-1 bg-black/70 text-amber-400 rounded-full w-5 h-5 text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Edit"
+                      >✏️</button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onClonePart(part); }}
+                        className="absolute top-1 left-1 bg-black/70 text-amber-400 rounded-full w-5 h-5 text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Clone"
+                      >📋</button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Category Parts Grid ───────────────────────────────────────
 
 function CategoryPartsGrid({
@@ -946,6 +1084,7 @@ function CategoryPartsGrid({
   const allVendors = useAllVendors();
   const categoryImages = useCategoryImages();
   const catThumb = categoryImages.get(category.id);
+  const isTireCategory = category.id === "front-tires" || category.id === "rear-tires";
 
   return (
     <>
@@ -1006,6 +1145,18 @@ function CategoryPartsGrid({
             + Add First Part
           </button>
         </div>
+      ) : isTireCategory ? (
+        <TireColumnsView
+          parts={parts}
+          thumbnails={thumbnails}
+          allVendors={allVendors}
+          category={category}
+          catThumb={catThumb}
+          adminMode={adminMode}
+          onDetail={onDetail}
+          onEdit={onEdit}
+          onClonePart={onClonePart}
+        />
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 mb-4">
           {parts.map((part) => {
