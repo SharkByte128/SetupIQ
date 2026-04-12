@@ -957,8 +957,8 @@ function TireColumnsView({
 
     for (const part of parts) {
       const w = part.attributes.widthMm;
-      const wStr = w !== undefined && w !== "" ? String(w) : null;
-      const col = wStr ? TIRE_WIDTH_COLUMNS.find(c => c.key === wStr) : null;
+      const wNum = w !== undefined && w !== "" ? Number(w) : NaN;
+      const col = !isNaN(wNum) ? TIRE_WIDTH_COLUMNS.find(c => Number(c.key) === wNum) : null;
       if (col) {
         const list = buckets.get(col.key) ?? [];
         list.push(part);
