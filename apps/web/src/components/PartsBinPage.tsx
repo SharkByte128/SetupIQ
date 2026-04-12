@@ -935,7 +935,6 @@ function TireColumnsView({
   parts,
   thumbnails,
   allVendors,
-  category,
   catThumb,
   adminMode,
   onDetail,
@@ -945,7 +944,6 @@ function TireColumnsView({
   parts: LocalPart[];
   thumbnails: Map<string, string>;
   allVendors: Vendor[];
-  category: MergedCategory;
   catThumb: string | undefined;
   adminMode: boolean;
   onDetail: (p: LocalPart) => void;
@@ -1150,7 +1148,6 @@ function CategoryPartsGrid({
           parts={parts}
           thumbnails={thumbnails}
           allVendors={allVendors}
-          category={category}
           catThumb={catThumb}
           adminMode={adminMode}
           onDetail={onDetail}
