@@ -40,6 +40,9 @@ export function RunsPage() {
 
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
+  // NLT sync engine — lives here so it survives view transitions
+  const nltSync = useNltSyncEngine();
+
   const handleStartSession = useCallback(
     async (carId: string, setupId: string) => {
       const s = await startSession(carId, setupId);
@@ -66,6 +69,7 @@ export function RunsPage() {
           raceResults={raceResults ?? []}
           loading={loading}
           addMenuOpen={addMenuOpen}
+          nltSync={nltSync}
           onToggleAddMenu={() => setAddMenuOpen((o) => !o)}
           onNewRun={() => { setAddMenuOpen(false); setView({ kind: "new" }); }}
           onAddRace={() => { setAddMenuOpen(false); setView({ kind: "addRace" }); }}
@@ -139,6 +143,9 @@ export function RunsPage() {
       {view.kind === "liveDashboard" && (
         <LiveRunDashboard
           resultId={view.result.id}
+          isSyncing={nltSync.isSyncing}
+          isPaused={nltSync.isPaused}
+          syncStatus={nltSync.syncStatus}
           onBack={() => setView({ kind: "list" })}
         />
       )}
@@ -153,6 +160,7 @@ function AnalyticsDashboard({
   raceResults,
   loading,
   addMenuOpen,
+  nltSync,
   onToggleAddMenu,
   onNewRun,
   onAddRace,
@@ -163,6 +171,7 @@ function AnalyticsDashboard({
   raceResults: LocalRaceResult[];
   loading: boolean;
   addMenuOpen: boolean;
+  nltSync: ReturnType<typeof useNltSyncEngine>;
   onToggleAddMenu: () => void;
   onNewRun: () => void;
   onAddRace: () => void;
@@ -279,7 +288,7 @@ function AnalyticsDashboard({
       </div>
 
       {/* NLT Sync mini form */}
-      <NltSyncMini />
+      <NltSyncMini sync={nltSync} />
 
       {/* Stats overview */}
       <div className="grid grid-cols-4 gap-2">
@@ -412,25 +421,37 @@ function AnalyticsDashboard({
   );
 }
 
-// ─── NLT Sync Mini Form ──────────────────────────────────────
+// ─── NLT Sync Hook (lives at RunsPage level, survives view changes) ──
 
-interface NltRaceSummary {
-  id: number;
-  name: string;
-  status: string;
-  mode: string;
-  startedAt: string | null;
+interface NltSyncState {
+  isSyncing: boolean;
+  isPaused: boolean;
+  syncStatus: string | null;
+  startSync: () => Promise<void>;
+  stopSync: () => void;
+  doSyncTick: () => Promise<boolean>;
+  buildUrl: () => string | null;
+  // Expose refs so NltSyncMini can read/write them
+  lastNewLapAtRef: React.RefObject<number>;
+  lastLapTotalRef: React.RefObject<number>;
 }
 
-function NltSyncMini() {
-  const [expanded, setExpanded] = useState(false);
+function useNltSyncEngine(): NltSyncState & {
+  selectedTrackId: string;
+  setSelectedTrackId: (id: string) => void;
+  raceNumber: string;
+  setRaceNumber: (n: string) => void;
+  tracks: { id: string; name: string; timingFeedUrl?: string; nltCommunityId?: string }[];
+  selectedTrack: { id: string; name: string; timingFeedUrl?: string; nltCommunityId?: string } | undefined;
+  feedUrl: string | undefined;
+  races: NltRaceSummary[];
+  racesLoading: boolean;
+  racesError: string | null;
+  isLiveRace: boolean;
+  timingNameMap: Map<string, string>;
+} {
   const [selectedTrackId, setSelectedTrackId] = useState(() => localStorage.getItem("nlt_last_track_id") ?? "");
   const [raceNumber, setRaceNumber] = useState(() => localStorage.getItem("nlt_last_race_number") ?? "");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<NltRaceData[] | null>(null);
-  // "ignore" means hidden, any car id means linked
-  const [selectedCars, setSelectedCars] = useState<Record<number, string | "ignore">>({});
 
   // Race listing from NLT community
   const [races, setRaces] = useState<NltRaceSummary[]>([]);
@@ -446,7 +467,7 @@ function NltSyncMini() {
   const lastLapTotalRef = useRef<number>(0);
   const syncStartedAtRef = useRef<number>(Date.now());
 
-  // Timing→car mappings (saved from Timing to Car Match)
+  // Timing→car mappings
   const carTimingNames = useLiveQuery(() => localDb.carTimingNames.toArray()) ?? [];
   const timingNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -476,11 +497,12 @@ function NltSyncMini() {
       syncIntervalRef.current = null;
       setIsSyncing(false);
       setSyncStatus(null);
+      setIsPaused(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceNumber, selectedTrackId]);
 
-  // Fetch race list when track changes and has a feed URL
+  // Fetch race list when track changes
   useEffect(() => {
     if (!feedUrl && !nltCommunityId) { setRaces([]); return; }
     setRacesLoading(true);
@@ -516,7 +538,6 @@ function NltSyncMini() {
       .finally(() => setRacesLoading(false));
   }, [feedUrl, nltCommunityId]);
 
-  /** Build the full NLT race URL from current raceNumber + feedUrl */
   const buildUrl = useCallback((): string | null => {
     const trimmed = raceNumber.trim();
     if (!trimmed) return null;
@@ -525,12 +546,10 @@ function NltSyncMini() {
       const base = feedUrl.endsWith("/") ? feedUrl : feedUrl + "/";
       return base + trimmed;
     }
-    // Numeric race ID without feed URL — construct minimal valid URL
     if (/^\d+$/.test(trimmed)) return `https://nextleveltiming.com/races/${trimmed}`;
     return null;
   }, [raceNumber, feedUrl]);
 
-  /** Upsert race results for one live-sync tick. Returns true if any change. */
   const doSyncTick = useCallback(async (): Promise<boolean> => {
     const url = buildUrl();
     if (!url) return false;
@@ -617,8 +636,6 @@ function NltSyncMini() {
     if (selectedTrackId) localStorage.setItem("nlt_last_track_id", selectedTrackId);
     setIsSyncing(true);
     setIsPaused(false);
-    setPreview(null);
-    setError(null);
     lastNewLapAtRef.current = Date.now();
     lastLapTotalRef.current = 0;
     syncStartedAtRef.current = Date.now();
@@ -632,21 +649,18 @@ function NltSyncMini() {
       const idleMins = (now - lastNewLapAtRef.current) / 60000;
       const totalHrs = (now - syncStartedAtRef.current) / 3600000;
 
-      // 1 hour total idle → stop completely
       if (totalHrs >= 1 && idleMins >= 60) {
         stopSync();
         setSyncStatus("Auto-stopped · no activity in 1 hour");
         return;
       }
 
-      // 5 min idle → pause for 5 min
       if (idleMins >= 5) {
         setIsPaused(true);
         setSyncStatus(`Paused · no new laps in ${Math.floor(idleMins)}min · resumes at ${new Date(lastNewLapAtRef.current + 10 * 60000).toLocaleTimeString()}`);
-        // If we've been paused for 5 min (10 min since last lap), resume
         if (idleMins >= 10) {
           setIsPaused(false);
-          lastNewLapAtRef.current = now; // reset idle timer
+          lastNewLapAtRef.current = now;
           await doSyncTick();
           setSyncStatus(`Resumed · ${new Date().toLocaleTimeString()}`);
         }
@@ -658,6 +672,37 @@ function NltSyncMini() {
       setSyncStatus(`Last check: ${new Date().toLocaleTimeString()}`);
     }, 8000);
   }, [buildUrl, raceNumber, selectedTrackId, doSyncTick, stopSync]);
+
+  return {
+    isSyncing, isPaused, syncStatus, startSync, stopSync, doSyncTick, buildUrl,
+    lastNewLapAtRef, lastLapTotalRef,
+    selectedTrackId, setSelectedTrackId, raceNumber, setRaceNumber,
+    tracks, selectedTrack, feedUrl, races, racesLoading, racesError, isLiveRace, timingNameMap,
+  };
+}
+
+// ─── NLT Sync Mini Form ──────────────────────────────────────
+
+interface NltRaceSummary {
+  id: number;
+  name: string;
+  status: string;
+  mode: string;
+  startedAt: string | null;
+}
+
+function NltSyncMini({ sync }: { sync: ReturnType<typeof useNltSyncEngine> }) {
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<NltRaceData[] | null>(null);
+  const [selectedCars, setSelectedCars] = useState<Record<number, string | "ignore">>({});
+
+  const {
+    isSyncing, isPaused, syncStatus, startSync, stopSync, buildUrl, timingNameMap,
+    selectedTrackId, setSelectedTrackId, raceNumber, setRaceNumber,
+    tracks, selectedTrack, feedUrl, races, racesLoading, racesError, isLiveRace,
+  } = sync;
 
   const handleImport = async () => {
     const url = buildUrl();
@@ -793,7 +838,7 @@ function NltSyncMini() {
               </button>
             ) : isLiveRace ? (
               <button
-                onClick={startSync}
+                onClick={() => { setPreview(null); setError(null); startSync(); }}
                 disabled={!canAct}
                 className="rounded bg-red-700 text-white px-3 py-1.5 text-xs font-medium hover:bg-red-600 disabled:opacity-50 whitespace-nowrap"
               >
@@ -1420,7 +1465,13 @@ function RaceDetail({
 
 // ─── Live Run Dashboard ──────────────────────────────────────
 
-function LiveRunDashboard({ resultId, onBack }: { resultId: string; onBack: () => void }) {
+function LiveRunDashboard({ resultId, isSyncing, isPaused, syncStatus, onBack }: {
+  resultId: string;
+  isSyncing: boolean;
+  isPaused: boolean;
+  syncStatus: string | null;
+  onBack: () => void;
+}) {
   // Live-query so we re-render whenever sync updates this record
   const result = useLiveQuery(() => localDb.raceResults.get(resultId), [resultId]);
 
@@ -1478,8 +1529,15 @@ function LiveRunDashboard({ resultId, onBack }: { resultId: string; onBack: () =
       <div>
         <div className="flex items-center gap-2">
           <h2 className="text-base font-semibold text-neutral-200">{result.eventName}</h2>
-          <span className="text-xs text-red-400 animate-pulse">● LIVE</span>
+          {isSyncing && (
+            <span className={`text-xs ${isPaused ? "text-amber-400" : "text-red-400 animate-pulse"}`}>
+              {isPaused ? "⏸ Paused" : "● LIVE"}
+            </span>
+          )}
         </div>
+        {isSyncing && syncStatus && (
+          <p className={`text-[10px] mt-0.5 ${isPaused ? "text-amber-400" : "text-green-400"}`}>{syncStatus}</p>
+        )}
         <div className="flex gap-3 text-xs text-neutral-400 mt-1">
           <span>{result.className}</span>
           <span>{result.roundType}</span>
