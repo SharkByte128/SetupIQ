@@ -1510,7 +1510,7 @@ function LiveRunDashboard({ resultId, onBack }: { resultId: string; onBack: () =
             All Laps <span className="text-neutral-600 font-normal">({allLaps.length} total, {allLaps.length - kpiLaps.length} ignored)</span>
           </h3>
           <div className="max-h-80 overflow-y-auto space-y-0.5">
-            {allLaps.map((lap, i) => {
+            {allLaps.map((lap) => {
               const ignored = isIgnored(lap);
               const isBest = lap.timeMs === bestMs && !ignored;
               return (
