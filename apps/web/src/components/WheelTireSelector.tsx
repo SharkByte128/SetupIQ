@@ -21,11 +21,11 @@ export function WheelTireSelector({ position, side, setup, onChange, extraTires 
   const defaultWidth = position === "front" ? 8.5 : 11;
   const selectedWidth = base.widthMm ?? defaultWidth;
 
-  // Filter tires and wheels purely by width — position no longer matters
-  const filteredExtraTires = extraTires.filter((t) => t.widthMm === selectedWidth);
-  const filteredLibraryTires = allTires.filter((t) => t.widthMm === selectedWidth);
-  const filteredExtraWheels = extraWheels.filter((w) => w.widthMm === selectedWidth);
-  const filteredLibraryWheels = allWheels.filter((w) => w.widthMm === selectedWidth);
+  // Filter tires and wheels by width — items with no width set (0) pass through
+  const filteredExtraTires = extraTires.filter((t) => !t.widthMm || t.widthMm === selectedWidth);
+  const filteredLibraryTires = allTires.filter((t) => !t.widthMm || t.widthMm === selectedWidth);
+  const filteredExtraWheels = extraWheels.filter((w) => !w.widthMm || w.widthMm === selectedWidth);
+  const filteredLibraryWheels = allWheels.filter((w) => !w.widthMm || w.widthMm === selectedWidth);
 
   return (
     <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-3 space-y-3">
