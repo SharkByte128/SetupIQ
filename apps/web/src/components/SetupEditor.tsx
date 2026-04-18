@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import type { CarDefinition, SetupEntry, WheelTireSetup, SetupSnapshot, TireComponent, WheelPosition } from "@setupiq/shared";
-import { validateSetup } from "@setupiq/shared";
+import type { CarDefinition, SetupEntry, WheelTireSetup, SetupSnapshot, TireComponent, WheelPosition, Capability, CapabilityOption } from "@setupiq/shared";
+import { validateSetup, capabilityPartsBinMap, capabilityPartsBinMap } from "@setupiq/shared";
 import { CapabilityField } from "./CapabilityField.js";
 import { WheelTireSelector } from "./WheelTireSelector.js";
 import { RichNotesEditor } from "./RichNotesEditor.js";
@@ -91,15 +91,63 @@ export function SetupEditor({ car, existing, onSave, onCancel }: Props) {
     return m;
   }, [errors]);
 
+  // Enrich capabilities whose options come from the Parts Bin
+  const enrichedCapabilities = useMemo(() => {
+    return car.capabilities.map((cap) => {
+      const binCatId = capabilityPartsBinMap[cap.id];
+      if (!binCatId || cap.valueType !== "pick") return cap;
+      const binParts = allParts
+        .filter((p) => p.categoryId === binCatId)
+        .filter((p) =>
+          !resolvedChassisId ||
+          p.compatibleChassisIds.length === 0 ||
+          p.compatibleChassisIds.includes(resolvedChassisId),
+        );
+      if (binParts.length === 0) return cap;
+      const existingValues = new Set((cap.options ?? []).map((o) => String(o.value)));
+      const extraOptions: CapabilityOption[] = binParts
+        .filter((p) => !existingValues.has(`partsbin-${p.id}`))
+        .map((p) => ({
+          label: p.name + (p.attributes.stiffness ? ` (${p.attributes.stiffness})` : ""),
+          value: `partsbin-${p.id}`,
+        }));
+      return { ...cap, options: [...extraOptions, ...(cap.options ?? [])] };
+    });
+  }, [car.capabilities, allParts, resolvedChassisId]);
+
   // Group capabilities by category
   const categories = useMemo(() => {
-    const cats = new Map<string, typeof car.capabilities>();
-    for (const cap of car.capabilities) {
+    const cats = new Map<string, Capability[]>();
+    for (const cap of enrichedCapabilities) {
       if (!cats.has(cap.category)) cats.set(cap.category, []);
       cats.get(cap.category)!.push(cap);
     }
     return cats;
-  }, [car]);
+  }, [enrichedCapabilities !resolvedChassisId ||
+          p.compatibleChassisIds.length === 0 ||
+          p.compatibleChassisIds.includes(resolvedChassisId),
+        );
+      if (binParts.length === 0) return cap;
+      const existingValues = new Set((cap.options ?? []).map((o) => String(o.value)));
+      const extraOptions: CapabilityOption[] = binParts
+        .filter((p) => !existingValues.has(`partsbin-${p.id}`))
+        .map((p) => ({
+          label: p.name + (p.attributes.stiffness ? ` (${p.attributes.stiffness})` : ""),
+          value: `partsbin-${p.id}`,
+        }));
+      return { ...cap, options: [...extraOptions, ...(cap.options ?? [])] };
+    });
+  }, [car.capabilities, allParts, resolvedChassisId]);
+
+  // Group capabilities by category
+  const categories = useMemo(() => {
+    const cats = new Map<string, Capability[]>();
+    for (const cap of enrichedCapabilities) {
+      if (!cats.has(cap.category)) cats.set(cap.category, []);
+      cats.get(cap.category)!.push(cap);
+    }
+    return cats;
+  }, [enrichedCapabilities]);
 
   const handleChange = (capId: string, value: string | number | boolean) => {
     setValues((prev) => {

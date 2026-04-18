@@ -69,6 +69,7 @@ export type PartCategoryId =
   | "diff"
   | "front-tires"
   | "rear-tires"
+  | "t-plates"
   | "kingpins"
   | "batteries"
   | "knuckles";
@@ -203,11 +204,33 @@ export const partCategories: PartCategory[] = [
       { key: "version", label: "Version", type: "text" },
     ],
   },
+  {
+    id: "t-plates",
+    name: "T-Plates",
+    icon: "🔩",
+    attributes: [
+      { key: "material", label: "Material", type: "pick", options: ["FRP", "Carbon", "Stock / Plastic"] },
+      { key: "stiffness", label: "Stiffness", type: "pick", options: ["Soft", "Soft/Medium", "Medium", "Medium/Hard", "Hard"] },
+      { key: "thickness", label: "Thickness (mm)", type: "number", unit: "mm" },
+      { key: "variant", label: "Variant / Number", type: "text" },
+    ],
+  },
 ];
 
 export function getCategoryById(id: string): PartCategory | undefined {
   return partCategories.find((c) => c.id === id);
 }
+
+/**
+ * Maps setup-form capability IDs to Parts Bin category IDs.
+ * When a capability ID appears here, the setup form will merge
+ * the user's inventory for that category into the capability's
+ * pick options, filtered by chassis compatibility.
+ */
+export const capabilityPartsBinMap: Record<string, PartCategoryId> = {
+  "front-t-plate": "t-plates",
+  "t-plate": "t-plates",
+};
 
 // ── Part Model (user-created parts) ──────────────────────────
 

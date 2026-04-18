@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { getCarById, getChassisPlatformById, chassisPlatforms, allTires, allWheels } from "@setupiq/shared";
-import type { TireComponent } from "@setupiq/shared";
+import { getCarById, getChassisPlatformById, chassisPlatforms, allTires, allWheels, capabilityPartsBinMap } from "@setupiq/shared";
+import type { TireComponent, Capability, CapabilityOption } from "@setupiq/shared";
 import { localDb, recordDeletion, recordDeletions, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
@@ -2567,13 +2567,15 @@ function buildSystemPrompt(
   runStats: ReturnType<typeof computeLapStats>,
   lapRanges: string,
   partsBinTires: TireComponent[],
+  enrichedCapabilities?: Capability[],
 ): string {
   const carInfo = car
     ? `Car: ${car.name} (${car.manufacturer}, ${car.scale} scale, ${car.driveType})`
     : "Car: Unknown";
 
   // Build human-readable setup entries WITH available options
-  const entryLines = (car?.capabilities ?? []).map((cap) => {
+  const caps = enrichedCapabilities ?? car?.capabilities ?? [];
+  const entryLines = caps.map((cap) => {
     const entry = snapshot.entries.find((e) => e.capabilityId === cap.id);
     const currentVal = entry ? String(entry.value) : "(not set)";
     let valDisplay = currentVal;
@@ -2713,6 +2715,30 @@ function SetupCoachChat({
       }));
   }, [allParts, resolvedChassisId]);
 
+  // Enrich capabilities with Parts Bin items (e.g. T-plates)
+  const enrichedCapabilities = useMemo(() => {
+    return (car?.capabilities ?? []).map((cap) => {
+      const binCatId = capabilityPartsBinMap[cap.id];
+      if (!binCatId || cap.valueType !== "pick") return cap;
+      const binParts = allParts
+        .filter((p) => p.categoryId === binCatId)
+        .filter((p) =>
+          !resolvedChassisId ||
+          p.compatibleChassisIds.length === 0 ||
+          p.compatibleChassisIds.includes(resolvedChassisId),
+        );
+      if (binParts.length === 0) return cap;
+      const existingValues = new Set((cap.options ?? []).map((o: CapabilityOption) => String(o.value)));
+      const extraOptions: CapabilityOption[] = binParts
+        .filter((p) => !existingValues.has(`partsbin-${p.id}`))
+        .map((p) => ({
+          label: p.name + (p.attributes.stiffness ? ` (${p.attributes.stiffness})` : ""),
+          value: `partsbin-${p.id}`,
+        }));
+      return { ...cap, options: [...extraOptions, ...(cap.options ?? [])] };
+    });
+  }, [car?.capabilities, allParts, resolvedChassisId]);
+
   // Load or create the chat record for this (race + setup) combo
   const chatRecord = useLiveQuery(
     () => localDb.setupChats
@@ -2756,7 +2782,7 @@ function SetupCoachChat({
     }
 
     // Build Gemini request
-    const systemPrompt = buildSystemPrompt(car, snapshot, runStats, lapRanges, partsBinTires);
+    const systemPrompt = buildSystemPrompt(car, snapshot, runStats, lapRanges, partsBinTires, enrichedCapabilities);
     const contents = updatedMessages.map((m) => ({
       role: m.role === "user" ? "user" : "model",
       parts: [{ text: m.text }],
