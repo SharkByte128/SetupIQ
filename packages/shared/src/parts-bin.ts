@@ -155,7 +155,7 @@ export const partCategories: PartCategory[] = [
     icon: "🟢",
     attributes: [
       { key: "compound", label: "Compound", type: "pick", options: ["Super Soft", "Soft", "Medium", "Hard"], required: true },
-      { key: "widthMm", label: "Width (mm)", type: "number", unit: "mm" },
+      { key: "widthMm", label: "Width (mm)", type: "pick", options: ["8.5", "11", "14"], unit: "mm", required: true },
       { key: "diameterMm", label: "Diameter (mm)", type: "number", unit: "mm" },
       { key: "color", label: "Color", type: "text" },
       { key: "shore", label: "Shore Rating", type: "text" },
@@ -167,7 +167,7 @@ export const partCategories: PartCategory[] = [
     icon: "🔵",
     attributes: [
       { key: "compound", label: "Compound", type: "pick", options: ["Super Soft", "Soft", "Medium", "Hard"], required: true },
-      { key: "widthMm", label: "Width (mm)", type: "number", unit: "mm" },
+      { key: "widthMm", label: "Width (mm)", type: "pick", options: ["8.5", "11", "14"], unit: "mm", required: true },
       { key: "diameterMm", label: "Diameter (mm)", type: "number", unit: "mm" },
       { key: "color", label: "Color", type: "text" },
       { key: "shore", label: "Shore Rating", type: "text" },

@@ -71,8 +71,9 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
       }));
   }, [allParts, resolvedChassisId]);
 
-  const partsBinFrontTires = useMemo(() => partsBinTires.filter((t) => t.position === "front"), [partsBinTires]);
-  const partsBinRearTires = useMemo(() => partsBinTires.filter((t) => t.position === "rear"), [partsBinTires]);
+  // All parts bin tires available in every corner — user picks by width
+  const partsBinFrontTires = partsBinTires;
+  const partsBinRearTires = partsBinTires;
 
   // Live entries state for inline editing
   const [liveEntries, setLiveEntries] = useState<SetupEntry[]>(() => [...setup.entries]);
@@ -104,7 +105,11 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
     ? new Map(compareSetup.entries.map((e: SetupEntry) => [e.capabilityId, e.value]))
     : null;
 
-  const tireMap = new Map(allTires.map((t) => [t.id, t]));
+  const tireMap = useMemo(() => {
+    const m = new Map(allTires.map((t) => [t.id, t]));
+    for (const t of partsBinTires) m.set(t.id, t);
+    return m;
+  }, [partsBinTires]);
   const wheelMap = new Map(allWheels.map((w) => [w.id, w]));
 
   // Group capabilities by category
@@ -171,11 +176,16 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
     });
   }, [doAutoSave]);
 
+  /** Part categories handled by the Wheels & Tires 4-corner selector instead of sections. */
+  const tireCategoryIds = new Set(["front-tires", "rear-tires"]);
+
   /** Filter parts for a given set of part-category IDs and the car's chassis. */
   const getPartsForCategories = useCallback((partCatIds: string[]): LocalPart[] => {
-    if (partCatIds.length === 0) return [];
+    // Exclude tire categories — those are shown in the Wheels & Tires selector
+    const filtered = partCatIds.filter((id) => !tireCategoryIds.has(id));
+    if (filtered.length === 0) return [];
     return allParts
-      .filter((p) => partCatIds.includes(p.categoryId))
+      .filter((p) => filtered.includes(p.categoryId))
       .filter((p) =>
         !resolvedChassisId ||
         p.compatibleChassisIds.length === 0 ||
@@ -402,7 +412,7 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
               <div>
                 <p className="text-xs text-neutral-500 mb-1">Parts Categories:</p>
                 <div className="flex flex-wrap gap-1">
-                  {partCategories.map((pc) => {
+                  {partCategories.filter((pc) => !tireCategoryIds.has(pc.id)).map((pc) => {
                     const isAssigned = sec.partCategoryIds.includes(pc.id);
                     const assignedElsewhere = !isAssigned && liveSections.some((s) => s.id !== sec.id && s.partCategoryIds.includes(pc.id));
                     return (
@@ -440,6 +450,9 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
         <>
           {liveSections.map((sec) => {
             const sectionParts = getPartsForCategories(sec.partCategoryIds);
+            const hasCaps = sec.capabilityCategories.some((catName) => categories.has(catName));
+            // Hide sections that are empty after excluding tire categories
+            if (!hasCaps && sectionParts.length === 0) return null;
             const colClass =
               sec.columns === 2 ? "grid-cols-2"
               : sec.columns === 3 ? "grid-cols-3"

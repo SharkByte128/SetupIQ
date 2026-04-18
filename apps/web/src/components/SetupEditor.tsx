@@ -51,8 +51,9 @@ export function SetupEditor({ car, existing, onSave, onCancel }: Props) {
       }));
   }, [allParts, resolvedChassisId]);
 
-  const partsBinFrontTires = useMemo(() => partsBinTires.filter((t) => t.position === "front"), [partsBinTires]);
-  const partsBinRearTires = useMemo(() => partsBinTires.filter((t) => t.position === "rear"), [partsBinTires]);
+  // All parts bin tires available in every corner — user picks by width
+  const partsBinFrontTires = partsBinTires;
+  const partsBinRearTires = partsBinTires;
 
   // Build initial values from existing or defaults
   const initEntries = useMemo(() => {

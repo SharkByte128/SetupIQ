@@ -63,12 +63,12 @@ export function WheelTireSelector({ position, side, setup, onChange, extraTires 
           {extraTires.length > 0
             ? extraTires.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
+                  {t.name} ({t.compound}){t.widthMm ? ` ${t.widthMm}mm` : ""}{t.color ? ` [${t.color}]` : ""}
                 </option>
               ))
             : libraryTires.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
+                  {t.name} ({t.compound}){t.widthMm ? ` ${t.widthMm}mm` : ""}{t.color ? ` [${t.color}]` : ""}
                 </option>
               ))
           }
