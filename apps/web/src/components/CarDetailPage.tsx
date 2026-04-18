@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
-import { localDb, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
+import { localDb, recordDeletion, recordDeletions, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -123,7 +123,7 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
       if (!file) return;
       const resized = await resizeImage(file, 400);
       const existing = await localDb.carImages.where("carId").equals(carId).first();
-      if (existing) await localDb.carImages.delete(existing.id);
+      if (existing) { await localDb.carImages.delete(existing.id); await recordDeletion("carImages", existing.id); }
       await localDb.carImages.put({
         id: uuid(),
         carId,
@@ -172,11 +172,13 @@ export function CarDetailPage({ carId, onBack }: CarDetailPageProps) {
     // Remove setups
     const setups = await localDb.setupSnapshots.where("carId").equals(carId).toArray();
     await localDb.setupSnapshots.bulkDelete(setups.map((s) => s.id));
+    await recordDeletions("setupSnapshots", setups.map((s) => s.id));
     // Remove image
     const img = await localDb.carImages.where("carId").equals(carId).first();
-    if (img) await localDb.carImages.delete(img.id);
+    if (img) { await localDb.carImages.delete(img.id); await recordDeletion("carImages", img.id); }
     // Remove custom car record
     await localDb.customCars.delete(carId);
+    await recordDeletion("customCars", carId);
     onBack();
   }, [carId, onBack]);
 
@@ -828,8 +830,11 @@ function IssueDetail({
 
   const handleDelete = useCallback(async () => {
     if (!confirm("Delete this issue and all messages?")) return;
-    await localDb.carIssueMessages.where("issueId").equals(issueId).delete();
+    const msgs = await localDb.carIssueMessages.where("issueId").equals(issueId).toArray();
+    await localDb.carIssueMessages.bulkDelete(msgs.map(m => m.id));
+    await recordDeletions("carIssueMessages", msgs.map(m => m.id));
     await localDb.carIssues.delete(issueId);
+    await recordDeletion("carIssues", issueId);
     onBack();
   }, [issueId, onBack]);
 

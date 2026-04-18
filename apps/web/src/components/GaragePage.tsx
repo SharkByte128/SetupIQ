@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { allCars, getChassisPlatformById } from "@setupiq/shared";
 import type { CarDefinition } from "@setupiq/shared";
-import { localDb, type LocalCarImage, type LocalCustomCar } from "../db/local-db.js";
+import { localDb, recordDeletion, type LocalCarImage, type LocalCustomCar } from "../db/local-db.js";
 import { CarDetailPage } from "./CarDetailPage.js";
 import { PartsBinPage } from "./PartsBinPage.js";
 import { CatalogPage } from "./CatalogPage.js";
@@ -78,6 +78,7 @@ export function GaragePage() {
       const existing = await localDb.carImages.where("carId").equals(uploadTargetCarId).first();
       if (existing) {
         await localDb.carImages.delete(existing.id);
+        await recordDeletion("carImages", existing.id);
       }
 
       const record: LocalCarImage = {
@@ -331,12 +332,13 @@ export function GaragePage() {
                       e.stopPropagation();
                       if (gc.kind === "custom") {
                         await localDb.customCars.delete(gc.car.id);
+                        await recordDeletion("customCars", gc.car.id);
                       } else {
                         await localDb.hiddenGarageCars.put({ carId: gc.car.id });
                       }
                       // Also remove image if exists
                       const img = await localDb.carImages.where("carId").equals(gc.car.id).first();
-                      if (img) await localDb.carImages.delete(img.id);
+                      if (img) { await localDb.carImages.delete(img.id); await recordDeletion("carImages", img.id); }
                     }}
                     className="text-xs text-red-400 hover:text-red-300"
                   >

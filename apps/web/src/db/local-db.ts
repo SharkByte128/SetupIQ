@@ -326,6 +326,15 @@ export interface HiddenGarageCar {
   carId: string;
 }
 
+/** Tombstone for a deleted record — sent to server on next push. */
+export interface DeletedRecord {
+  id: string;          // auto-increment key
+  table: string;       // e.g. "parts", "partFiles", "customCars"
+  recordId: string;    // PK of the deleted row
+  deletedAt: string;   // ISO timestamp
+  _pushed: 0 | 1;     // 0 = not yet sent to server
+}
+
 /** Setup sheet template — defines which capabilities appear on a setup form. */
 export interface LocalSetupTemplate {
   id: string;
@@ -370,6 +379,7 @@ class SetupIQDatabase extends Dexie {
   customPartCategories!: Table<LocalPartCategory, string>;
   categoryImages!: Table<LocalCategoryImage, string>;
   customVendors!: Table<LocalCustomVendor, string>;
+  deletedRecords!: Table<DeletedRecord, number>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -806,7 +816,39 @@ class SetupIQDatabase extends Dexie {
       await tx.table("carIssues").filter((r: any) => r._dirty === undefined || r._dirty === null).modify({ _dirty: 1 });
       await tx.table("carIssueMessages").filter((r: any) => r._dirty === undefined || r._dirty === null).modify({ _dirty: 1 });
     });
+
+    // v32: add deletedRecords tombstone table for syncing deletes
+    this.version(32).stores({
+      deletedRecords: "++id, table, recordId, _pushed",
+    });
   }
 }
 
 export const localDb = new SetupIQDatabase();
+
+/**
+ * Record a tombstone so the next sync push tells the server to delete this record.
+ * Call this AFTER the actual localDb.*.delete() call.
+ */
+export async function recordDeletion(table: string, recordId: string): Promise<void> {
+  await localDb.deletedRecords.add({
+    table,
+    recordId,
+    deletedAt: new Date().toISOString(),
+    _pushed: 0,
+  } as any);  // `id` is auto-increment
+}
+
+/** Convenience: record tombstones for multiple records in the same table. */
+export async function recordDeletions(table: string, recordIds: string[]): Promise<void> {
+  if (recordIds.length === 0) return;
+  const now = new Date().toISOString();
+  await localDb.deletedRecords.bulkAdd(
+    recordIds.map(recordId => ({
+      table,
+      recordId,
+      deletedAt: now,
+      _pushed: 0,
+    } as any))
+  );
+}
