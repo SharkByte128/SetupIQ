@@ -1099,12 +1099,25 @@ function CarRunsTab({ carId }: { carId: string }) {
 
       if (existing) {
         if (existing.totalLaps !== match.totalLaps || existing.fastLapMs !== match.fastLapMs) {
+          // Merge laps: preserve existing lap data (setupSnapshotId, hidden, etc.)
+          // and only append truly new laps from the timing source.
+          const existingByNum = new Map(existing.laps.map((l) => [l.lapNumber, l]));
+          const mergedLaps = match.laps.map((freshLap) => {
+            const prev = existingByNum.get(freshLap.lapNumber);
+            if (prev) {
+              // Keep user-assigned fields, update timeMs only if it changed
+              return { ...prev, timeMs: freshLap.timeMs };
+            }
+            // New lap — assign latest setup
+            return { ...freshLap, setupSnapshotId: latestSnapshot?.id };
+          });
+
           await localDb.raceResults.update(existing.id, {
             totalLaps: match.totalLaps,
             totalTimeMs: match.totalTimeMs,
             fastLapMs: match.fastLapMs,
             avgLapMs: match.totalLaps > 0 ? Math.round(match.totalTimeMs / match.totalLaps) : undefined,
-            laps: lapsWithSetup,
+            laps: mergedLaps,
             position: match.position,
             _dirty: 1,
           });
