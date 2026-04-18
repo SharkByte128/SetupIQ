@@ -91,6 +91,7 @@ export interface TireComponent extends SharedComponent {
   widthMm: number;
   diameterMm?: number;
   color?: string;
+  shore?: number;
 }
 
 export interface WheelComponent extends SharedComponent {

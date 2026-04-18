@@ -68,6 +68,7 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
         compound: (String(p.attributes.compound ?? "medium").toLowerCase()) as TireComponent["compound"],
         widthMm: Number(p.attributes.widthMm ?? p.attributes["width__mm_"]) || 0,
         color: String(p.attributes.color ?? ""),
+        shore: p.attributes.shore !== undefined && p.attributes.shore !== "" ? Number(p.attributes.shore) : undefined,
       }));
   }, [allParts, resolvedChassisId]);
 
