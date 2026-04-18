@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
-import { localDb, recordDeletion, recordDeletions, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot, type LocalSetupChat } from "../db/local-db.js";
+import { localDb, recordDeletion, recordDeletions, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -2374,7 +2374,6 @@ function RaceRunDetail({
             const counted = group.allLaps.filter(isLapCounted);
             const groupStats = computeLapStats(counted);
             const isOpen = expandedGroup === group.setupId;
-            const bestInGroup = counted.length > 0 ? Math.min(...counted.map((l) => l.timeMs)) : 0;
 
             return (
               <div key={group.setupId || "__unassigned"} className="rounded-lg border border-neutral-800 bg-neutral-900 overflow-hidden">
@@ -2520,7 +2519,6 @@ function RaceRunDetail({
                         carId={carId}
                         runStats={groupStats}
                         lapRanges={formatLapRanges(group.runs)}
-                        bestLap={bestInGroup}
                       />
                     )}
                   </div>
@@ -2554,7 +2552,6 @@ function buildSystemPrompt(
   snapshot: LocalSetupSnapshot,
   runStats: ReturnType<typeof computeLapStats>,
   lapRanges: string,
-  bestLap: number,
 ): string {
   const carInfo = car
     ? `Car: ${car.name} (${car.manufacturer}, ${car.scale} scale, ${car.driveType})`
@@ -2609,14 +2606,12 @@ function SetupCoachChat({
   carId,
   runStats,
   lapRanges,
-  bestLap,
 }: {
   raceResultId: string;
   setupSnapshotId: string;
   carId: string;
   runStats: ReturnType<typeof computeLapStats>;
   lapRanges: string;
-  bestLap: number;
 }) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -2670,7 +2665,7 @@ function SetupCoachChat({
     }
 
     // Build Gemini request
-    const systemPrompt = buildSystemPrompt(car, snapshot, runStats, lapRanges, bestLap);
+    const systemPrompt = buildSystemPrompt(car, snapshot, runStats, lapRanges);
     const contents = updatedMessages.map((m) => ({
       role: m.role === "user" ? "user" : "model",
       parts: [{ text: m.text }],
@@ -2714,7 +2709,7 @@ function SetupCoachChat({
     } finally {
       setSending(false);
     }
-  }, [input, snapshot, sending, messages, chatRecord, raceResultId, setupSnapshotId, carId, car, runStats, lapRanges, bestLap]);
+  }, [input, snapshot, sending, messages, chatRecord, raceResultId, setupSnapshotId, carId, car, runStats, lapRanges]);
 
   /** Parse a setup-change JSON block from AI response and create a new setup snapshot. */
   const applySetupChange = useCallback(async (aiText: string) => {

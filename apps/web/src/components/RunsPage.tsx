@@ -441,8 +441,8 @@ function useNltSyncEngine(): NltSyncState & {
   setSelectedTrackId: (id: string) => void;
   raceNumber: string;
   setRaceNumber: (n: string) => void;
-  tracks: { id: string; name: string; timingFeedUrl?: string; nltCommunityId?: string }[];
-  selectedTrack: { id: string; name: string; timingFeedUrl?: string; nltCommunityId?: string } | undefined;
+  tracks: { id: string; name: string; timingFeedUrl?: string; nltCommunityId?: number }[];
+  selectedTrack: { id: string; name: string; timingFeedUrl?: string; nltCommunityId?: number } | undefined;
   feedUrl: string | undefined;
   races: NltRaceSummary[];
   racesLoading: boolean;
