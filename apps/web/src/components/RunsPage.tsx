@@ -1424,19 +1424,17 @@ function LiveRunDashboard({ resultId, onBack }: { resultId: string; onBack: () =
   // Live-query so we re-render whenever sync updates this record
   const result = useLiveQuery(() => localDb.raceResults.get(resultId), [resultId]);
 
-  if (!result) return <p className="text-center text-neutral-500 text-sm py-8">Loading…</p>;
-
-  const car = getCarById(result.carId);
-
-  // Per-car min/max lap filter
+  // Per-car min/max lap filter — must be called unconditionally (hooks rule)
+  const carId = result?.carId;
   const timingRec = useLiveQuery(
-    () => result.carId ? localDb.carTimingNames.get(result.carId) : undefined,
-    [result.carId],
+    () => carId ? localDb.carTimingNames.get(carId) : undefined,
+    [carId],
   );
+
   const GAP_MS = 60000;
 
   // All laps for display (including hidden/ignored)
-  const allLaps = result.laps;
+  const allLaps = result?.laps ?? [];
 
   // Filtered laps for KPIs only
   const kpiLaps = useMemo(() => allLaps.filter((l) => {
@@ -1467,6 +1465,10 @@ function LiveRunDashboard({ resultId, onBack }: { resultId: string; onBack: () =
     if (timingRec?.maxLapMs != null && l.timeMs > timingRec.maxLapMs) return true;
     return false;
   };
+
+  if (!result) return <p className="text-center text-neutral-500 text-sm py-8">Loading…</p>;
+
+  const car = getCarById(result.carId);
 
   return (
     <div className="space-y-4">
