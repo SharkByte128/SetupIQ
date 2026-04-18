@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
-import { localDb, recordDeletion, recordDeletions, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
+import { localDb, recordDeletion, recordDeletions, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot, type LocalSetupChat } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
 import { resizeImage } from "../lib/resize-image.js";
@@ -2188,7 +2188,46 @@ function detectRaceRuns(laps: RaceLap[]): DetectedRaceRun[] {
   return runs;
 }
 
-// ─── Race Run Detail (with run groups + setup assignment) ─────
+// ─── Race Run Detail (with setup-grouped runs + AI chat) ─────
+
+/** Format lap ranges for display, e.g. "Laps 2-22, 24-31, 33-35" */
+function formatLapRanges(runs: DetectedRaceRun[]): string {
+  return runs.map((r) => {
+    const first = r.laps[0]?.lapNumber;
+    const last = r.laps[r.laps.length - 1]?.lapNumber;
+    return first === last ? `${first}` : `${first}–${last}`;
+  }).join(", ");
+}
+
+/** Group detected runs by setupSnapshotId. Runs with the same setup are merged. */
+interface SetupRunGroup {
+  setupId: string;
+  setupName: string;
+  runs: DetectedRaceRun[];
+  allLaps: (RaceLap & { idx: number })[];
+}
+
+function groupRunsBySetup(
+  runs: DetectedRaceRun[],
+  snapshotMap: Map<string, { name: string }>,
+): SetupRunGroup[] {
+  const groups = new Map<string, { runs: DetectedRaceRun[]; laps: (RaceLap & { idx: number })[] }>();
+  for (const run of runs) {
+    const setupId = run.laps[0]?.setupSnapshotId ?? "";
+    const allSame = run.laps.every((l) => (l.setupSnapshotId ?? "") === setupId);
+    const key = allSame ? setupId : "";
+    let g = groups.get(key);
+    if (!g) { g = { runs: [], laps: [] }; groups.set(key, g); }
+    g.runs.push(run);
+    g.laps.push(...run.laps);
+  }
+  return Array.from(groups.entries()).map(([id, g]) => ({
+    setupId: id,
+    setupName: id ? (snapshotMap.get(id)?.name ?? "Unknown Setup") : "Unassigned",
+    runs: g.runs,
+    allLaps: g.laps,
+  }));
+}
 
 function RaceRunDetail({
   race,
@@ -2199,8 +2238,8 @@ function RaceRunDetail({
   carId: string;
   onBack: () => void;
 }) {
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [expandedRun, setExpandedRun] = useState<number | null>(null);
-  const [expandedSetup, setExpandedSetup] = useState<string | null>(null);
   const [dragRunNumber, setDragRunNumber] = useState<number | null>(null);
 
   // Min/max lap filter from Timing to Car Match
@@ -2217,6 +2256,9 @@ function RaceRunDetail({
 
   // Detect runs by gap (laps >= 60s)
   const runs = useMemo(() => detectRaceRuns(race.laps), [race.laps]);
+
+  // Group runs by setup
+  const setupGroups = useMemo(() => groupRunsBySetup(runs, snapshotMap), [runs, snapshotMap]);
 
   // Auto-assign unassigned laps to the car's last modified setup
   const latestSetupId = allSnapshots?.[0]?.id;
@@ -2255,27 +2297,6 @@ function RaceRunDetail({
     }
     await localDb.raceResults.update(race.id, { laps: updated, _dirty: 1 as const });
   }, [race.id, race.laps]);
-
-  // Setup summary: group counted laps by assigned setup
-  const setupSummary = useMemo(() => {
-    const groups = new Map<string, RaceLap[]>();
-    for (const lap of race.laps) {
-      if (!isLapCounted(lap)) continue;
-      const sid = lap.setupSnapshotId;
-      if (!sid) continue;
-      let arr = groups.get(sid);
-      if (!arr) { arr = []; groups.set(sid, arr); }
-      arr.push(lap);
-    }
-    return Array.from(groups.entries())
-      .map(([id, laps]) => ({
-        setupId: id,
-        setupName: snapshotMap.get(id)?.name ?? "Unknown Setup",
-        stats: computeLapStats(laps),
-        laps,
-      }))
-      .filter((g) => g.stats);
-  }, [race.laps, isLapCounted, snapshotMap]);
 
   // Drag handlers (desktop)
   const handleDragStart = (e: React.DragEvent, runNumber: number) => {
@@ -2345,177 +2366,163 @@ function RaceRunDetail({
         </div>
       )}
 
-      {/* Detected Runs */}
-      {runs.length > 0 && (
-        <div className="space-y-1">
-          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Runs</h3>
-          {runs.map((run) => {
-            const counted = run.laps.filter(isLapCounted);
-            const runStats = computeLapStats(counted);
-            const runSetupId = run.laps[0]?.setupSnapshotId ?? "";
-            const allSameSetup = run.laps.every((l) => (l.setupSnapshotId ?? "") === runSetupId);
-            const displaySetupId = allSameSetup ? runSetupId : "";
-            const setupSnap = displaySetupId ? snapshotMap.get(displaySetupId) : undefined;
-            const isExpanded = expandedRun === run.runNumber;
-            const bestInRun = counted.length > 0 ? Math.min(...counted.map((l) => l.timeMs)) : 0;
+      {/* Setup-Grouped Runs */}
+      {setupGroups.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Runs by Setup</h3>
+          {setupGroups.map((group) => {
+            const counted = group.allLaps.filter(isLapCounted);
+            const groupStats = computeLapStats(counted);
+            const isOpen = expandedGroup === group.setupId;
+            const bestInGroup = counted.length > 0 ? Math.min(...counted.map((l) => l.timeMs)) : 0;
 
             return (
-              <Fragment key={run.runNumber}>
-                <div
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, run.runNumber)}
-                  onDragEnd={handleDragEnd}
-                  className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden cursor-grab active:cursor-grabbing"
-                >
-                  {/* Run header */}
-                  <button
-                    onClick={() => setExpandedRun(isExpanded ? null : run.runNumber)}
-                    className="w-full text-left p-3 hover:bg-neutral-800/50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-neutral-200">
-                        Run {run.runNumber} · Laps {run.laps[0]?.lapNumber}–{run.laps[run.laps.length - 1]?.lapNumber}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {setupSnap && (
-                          <span className="text-[10px] text-blue-300 truncate max-w-[100px]">{setupSnap.name}</span>
-                        )}
-                        <span className="text-neutral-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
-                      </div>
-                    </div>
-                    {runStats && (
-                      <div className="mt-1.5 grid grid-cols-4 gap-2">
-                        <MiniStat label="Laps" value={String(runStats.count)} />
-                        <MiniStat label="Fast" value={fmt(runStats.best)} highlight />
-                        <MiniStat label="Avg" value={fmt(runStats.avg)} />
-                        <MiniStat label="Consistency" value={`${runStats.consistency.toFixed(1)}%`} />
-                      </div>
-                    )}
-                    {!runStats && counted.length === 0 && (
-                      <p className="mt-1 text-[10px] text-neutral-600">All laps filtered by min/max threshold</p>
-                    )}
-                  </button>
-
-                  {/* Expanded: setup selector + laps */}
-                  {isExpanded && (
-                    <div className="border-t border-neutral-800">
-                      {/* Setup selector for this run */}
-                      <div className="px-3 py-2 bg-neutral-800/30">
-                        <label className="text-[10px] text-neutral-500 block mb-0.5">Car Setup for this run</label>
-                        <select
-                          value={displaySetupId}
-                          onChange={(e) => { if (e.target.value !== displaySetupId) assignSetupToRun(run, e.target.value); }}
-                          className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
-                        >
-                          <option value="">— assign setup —</option>
-                          {(allSnapshots ?? []).map((s) => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Expanded KPIs */}
-                      {runStats && (
-                        <div className="px-3 pt-2 grid grid-cols-3 gap-1.5">
-                          <MiniStat label="Total Time" value={fmtTotal(runStats.total)} />
-                          <MiniStat label="Median" value={fmt(runStats.median)} />
-                          <MiniStat label="Std Dev" value={fmt(runStats.stdDev)} />
-                        </div>
-                      )}
-
-                      {/* Lap list */}
-                      <div className="px-3 pb-2 space-y-0.5 mt-2">
-                        {run.laps.map((lap) => {
-                          const filtered = !isLapCounted(lap);
-                          const isBest = lap.timeMs === bestInRun && !filtered;
-                          return (
-                            <div
-                              key={`${lap.lapNumber}-${lap.idx}`}
-                              className={`flex items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
-                                filtered
-                                  ? "bg-neutral-900/30 text-neutral-600 line-through"
-                                  : isBest
-                                    ? "bg-green-950/40 border border-green-800/50 text-green-300"
-                                    : "bg-neutral-900/50 text-neutral-300"
-                              }`}
-                            >
-                              <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
-                              <span className="font-mono">{fmt(lap.timeMs)}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Break indicator between runs */}
-                {run.gapAfterMs && (
-                  <div className="text-center py-0.5">
-                    <span className="text-[10px] text-neutral-600">·· break ({fmtTotal(run.gapAfterMs)}) ··</span>
-                  </div>
-                )}
-              </Fragment>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Setup Summary — aggregate KPIs per setup */}
-      {setupSummary.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-neutral-400 uppercase">Setup Summary</h3>
-          {setupSummary.map((g) => {
-            const isExpanded = expandedSetup === g.setupId;
-            const bestInSetup = Math.min(...g.laps.map((l) => l.timeMs));
-            return (
-              <div key={g.setupId} className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden">
+              <div key={group.setupId || "__unassigned"} className="rounded-lg border border-neutral-800 bg-neutral-900 overflow-hidden">
+                {/* Group header */}
                 <button
-                  onClick={() => setExpandedSetup(isExpanded ? null : g.setupId)}
-                  className="w-full text-left px-3 py-2.5 hover:bg-neutral-800/50 transition-colors"
+                  onClick={() => setExpandedGroup(isOpen ? null : group.setupId)}
+                  className="w-full text-left p-3 hover:bg-neutral-800/50 transition-colors"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-blue-300">{g.setupName}</span>
-                    <span className="text-neutral-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
+                    <div>
+                      <span className="text-xs font-medium text-blue-300">{group.setupName}</span>
+                      <span className="text-[10px] text-neutral-500 ml-2">
+                        ({group.runs.length} run{group.runs.length > 1 ? "s" : ""})
+                      </span>
+                    </div>
+                    <span className="text-neutral-600 text-xs">{isOpen ? "▲" : "▼"}</span>
                   </div>
-                  {g.stats && (
-                    <div className="mt-1 grid grid-cols-5 gap-1.5">
-                      <MiniStat label="Laps" value={String(g.stats.count)} />
-                      <MiniStat label="Best" value={fmt(g.stats.best)} highlight />
-                      <MiniStat label="Avg" value={fmt(g.stats.avg)} />
-                      <MiniStat label="Consistency" value={`${g.stats.consistency.toFixed(1)}%`} />
-                      <MiniStat label="Std Dev" value={fmt(g.stats.stdDev)} />
+                  <p className="text-[10px] text-neutral-500 mt-0.5">
+                    Laps {formatLapRanges(group.runs)}
+                  </p>
+                  {groupStats && (
+                    <div className="mt-1.5 grid grid-cols-4 gap-2">
+                      <MiniStat label="Laps" value={String(groupStats.count)} />
+                      <MiniStat label="Fast" value={fmt(groupStats.best)} highlight />
+                      <MiniStat label="Avg" value={fmt(groupStats.avg)} />
+                      <MiniStat label="Consistency" value={`${groupStats.consistency.toFixed(1)}%`} />
                     </div>
                   )}
                 </button>
 
-                {isExpanded && g.stats && (
+                {/* Expanded: individual runs + setup selector + AI chat */}
+                {isOpen && (
                   <div className="border-t border-neutral-800">
-                    {/* Extra KPIs */}
-                    <div className="px-3 pt-2 grid grid-cols-3 gap-1.5">
-                      <MiniStat label="Total Time" value={fmtTotal(g.stats.total)} />
-                      <MiniStat label="Median" value={fmt(g.stats.median)} />
-                      <MiniStat label="Worst" value={fmt(g.stats.worst)} />
-                    </div>
-                    {/* Lap list */}
-                    <div className="px-3 pb-2 space-y-0.5 mt-2">
-                      {g.laps.map((lap, i) => {
-                        const isBest = lap.timeMs === bestInSetup;
+                    {/* Individual runs within this group */}
+                    <div className="px-3 py-2 space-y-1">
+                      {group.runs.map((run) => {
+                        const runCounted = run.laps.filter(isLapCounted);
+                        const runStats = computeLapStats(runCounted);
+                        const runSetupId = run.laps[0]?.setupSnapshotId ?? "";
+                        const isRunExpanded = expandedRun === run.runNumber;
+                        const bestInRun = runCounted.length > 0 ? Math.min(...runCounted.map((l) => l.timeMs)) : 0;
+
                         return (
-                          <div
-                            key={`${lap.lapNumber}-${i}`}
-                            className={`flex items-center justify-between rounded px-2 py-1.5 text-xs ${
-                              isBest
-                                ? "bg-green-950/40 border border-green-800/50 text-green-300"
-                                : "bg-neutral-900/50 text-neutral-300"
-                            }`}
-                          >
-                            <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
-                            <span className="font-mono">{fmt(lap.timeMs)}</span>
+                          <div key={run.runNumber} className="rounded-md bg-neutral-950 border border-neutral-800 overflow-hidden">
+                            <div className="flex items-center">
+                              <div
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, run.runNumber)}
+                                onDragEnd={handleDragEnd}
+                                className="px-2 py-3 cursor-grab active:cursor-grabbing text-neutral-600 hover:text-neutral-400"
+                                title="Drag to a setup"
+                              >
+                                ⠿
+                              </div>
+                              <button
+                                onClick={() => setExpandedRun(isRunExpanded ? null : run.runNumber)}
+                                className="flex-1 text-left p-2 hover:bg-neutral-900/50 transition-colors"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] font-medium text-neutral-300">
+                                    Run {run.runNumber} · Laps {run.laps[0]?.lapNumber}–{run.laps[run.laps.length - 1]?.lapNumber}
+                                  </span>
+                                  <span className="text-neutral-600 text-xs">{isRunExpanded ? "▲" : "▼"}</span>
+                                </div>
+                                {runStats && (
+                                  <div className="mt-1 grid grid-cols-4 gap-1.5">
+                                    <MiniStat label="Laps" value={String(runStats.count)} />
+                                    <MiniStat label="Fast" value={fmt(runStats.best)} highlight />
+                                    <MiniStat label="Avg" value={fmt(runStats.avg)} />
+                                    <MiniStat label="Consistency" value={`${runStats.consistency.toFixed(1)}%`} />
+                                  </div>
+                                )}
+                              </button>
+                            </div>
+
+                            {isRunExpanded && (
+                              <div className="border-t border-neutral-800">
+                                {/* Setup selector for this run */}
+                                <div className="px-3 py-2 bg-neutral-800/30">
+                                  <label className="text-[10px] text-neutral-500 block mb-0.5">Car Setup for this run</label>
+                                  <select
+                                    value={runSetupId}
+                                    onChange={(e) => { if (e.target.value !== runSetupId) assignSetupToRun(run, e.target.value); }}
+                                    className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200"
+                                  >
+                                    <option value="">— assign setup —</option>
+                                    {(allSnapshots ?? []).map((s) => (
+                                      <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Lap list */}
+                                <div className="px-3 pb-2 space-y-0.5 mt-2">
+                                  {run.laps.map((lap) => {
+                                    const filtered = !isLapCounted(lap);
+                                    const isBest = lap.timeMs === bestInRun && !filtered;
+                                    return (
+                                      <div
+                                        key={`${lap.lapNumber}-${lap.idx}`}
+                                        className={`flex items-center justify-between rounded px-2 py-1.5 text-xs transition-colors ${
+                                          filtered
+                                            ? "bg-neutral-900/30 text-neutral-600 line-through"
+                                            : isBest
+                                              ? "bg-green-950/40 border border-green-800/50 text-green-300"
+                                              : "bg-neutral-900/50 text-neutral-300"
+                                        }`}
+                                      >
+                                        <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
+                                        <span className="font-mono">{fmt(lap.timeMs)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Break indicator */}
+                            {run.gapAfterMs && (
+                              <div className="text-center py-0.5 border-t border-neutral-800/50">
+                                <span className="text-[10px] text-neutral-600">·· break ({fmtTotal(run.gapAfterMs)}) ··</span>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
+
+                    {/* Aggregate KPIs for the group */}
+                    {groupStats && (
+                      <div className="px-3 pb-2 grid grid-cols-3 gap-1.5">
+                        <MiniStat label="Total Time" value={fmtTotal(groupStats.total)} />
+                        <MiniStat label="Median" value={fmt(groupStats.median)} />
+                        <MiniStat label="Std Dev" value={fmt(groupStats.stdDev)} />
+                      </div>
+                    )}
+
+                    {/* AI Setup Coach Chat */}
+                    {group.setupId && (
+                      <SetupCoachChat
+                        raceResultId={race.id}
+                        setupSnapshotId={group.setupId}
+                        carId={carId}
+                        runStats={groupStats}
+                        lapRanges={formatLapRanges(group.runs)}
+                        bestLap={bestInGroup}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -2536,6 +2543,272 @@ function RaceRunDetail({
       )}
 
       {race.notes && <p className="text-xs text-neutral-400">{race.notes}</p>}
+    </div>
+  );
+}
+
+// ─── AI Setup Coach Chat ─────────────────────────────────────
+
+function buildSystemPrompt(
+  car: ReturnType<typeof getCarById>,
+  snapshot: LocalSetupSnapshot,
+  runStats: ReturnType<typeof computeLapStats>,
+  lapRanges: string,
+  bestLap: number,
+): string {
+  const carInfo = car
+    ? `Car: ${car.name} (${car.manufacturer}, ${car.scale} scale, ${car.driveType})`
+    : "Car: Unknown";
+
+  // Build human-readable setup entries
+  const entryLines = snapshot.entries.map((e) => {
+    const cap = car?.capabilities.find((c) => c.id === e.capabilityId);
+    const name = cap?.name ?? e.capabilityId;
+    let valDisplay = String(e.value);
+    if (cap?.options) {
+      const opt = cap.options.find((o) => String(o.value) === String(e.value));
+      if (opt) valDisplay = opt.label;
+    }
+    if (cap?.unit) valDisplay += ` ${cap.unit}`;
+    return `  ${name}: ${valDisplay}`;
+  });
+
+  const statsText = runStats
+    ? `Run Stats (Laps ${lapRanges}):
+  Best Lap: ${(runStats.best / 1000).toFixed(3)}s
+  Average: ${(runStats.avg / 1000).toFixed(3)}s
+  Worst: ${(runStats.worst / 1000).toFixed(3)}s
+  Consistency: ${runStats.consistency.toFixed(1)}%
+  Std Dev: ${(runStats.stdDev / 1000).toFixed(3)}s
+  Total Laps: ${runStats.count}`
+    : "No run statistics available.";
+
+  return `You are an expert RC car setup coach for Mini-Z cars. You help the driver improve their car setup based on their driving feedback and lap data.
+
+${carInfo}
+
+Current Setup: "${snapshot.name}"
+${entryLines.join("\n")}
+
+${statsText}
+
+GUIDELINES:
+- Focus on ONE change at a time when possible. The driver's goal is to make one change per run.
+- Ask clarifying questions about how the car feels (understeer, oversteer, traction, etc.) when needed.
+- Explain WHY you recommend a change — what effect it will have.
+- When you have enough information to suggest a setup change, include a JSON block that specifies the changes.
+- Format setup changes as: \`\`\`setup-change\n{"changes": [{"capabilityId": "...", "value": "..."}], "name": "new setup name"}\n\`\`\`
+- The driver can then apply these changes to create a new setup.
+- Be concise and practical. This is track-side coaching, not a textbook.
+- Consider the relationship between settings — e.g. stiffer springs may require damper adjustment.`;
+}
+
+function SetupCoachChat({
+  raceResultId,
+  setupSnapshotId,
+  carId,
+  runStats,
+  lapRanges,
+  bestLap,
+}: {
+  raceResultId: string;
+  setupSnapshotId: string;
+  carId: string;
+  runStats: ReturnType<typeof computeLapStats>;
+  lapRanges: string;
+  bestLap: number;
+}) {
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [creatingSetup, setCreatingSetup] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Load the setup snapshot
+  const snapshot = useLiveQuery(() => localDb.setupSnapshots.get(setupSnapshotId), [setupSnapshotId]);
+  const car = getCarById(carId);
+
+  // Load or create the chat record for this (race + setup) combo
+  const chatRecord = useLiveQuery(
+    () => localDb.setupChats
+      .where("raceResultId").equals(raceResultId)
+      .and((c) => c.setupSnapshotId === setupSnapshotId)
+      .first(),
+    [raceResultId, setupSnapshotId],
+  );
+
+  const messages = chatRecord?.messages ?? [];
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const handleSend = useCallback(async () => {
+    const text = input.trim();
+    if (!text || !snapshot || sending) return;
+    setSending(true);
+    setInput("");
+
+    const now = new Date().toISOString();
+    const userMsg = { role: "user" as const, text, createdAt: now };
+    const updatedMessages = [...messages, userMsg];
+
+    // Upsert chat record with user message
+    if (chatRecord) {
+      await localDb.setupChats.update(chatRecord.id, { messages: updatedMessages, updatedAt: now });
+    } else {
+      const chatId = crypto.randomUUID();
+      await localDb.setupChats.add({
+        id: chatId,
+        raceResultId,
+        setupSnapshotId,
+        carId,
+        messages: updatedMessages,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // Build Gemini request
+    const systemPrompt = buildSystemPrompt(car, snapshot, runStats, lapRanges, bestLap);
+    const contents = updatedMessages.map((m) => ({
+      role: m.role === "user" ? "user" : "model",
+      parts: [{ text: m.text }],
+    }));
+
+    try {
+      const res = await fetch(`${API_BASE}/api/gemini/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gemini-2.5-flash",
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Gemini API error");
+      const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "Sorry, I couldn't generate a response.";
+
+      const aiMsg = { role: "model" as const, text: aiText, createdAt: new Date().toISOString() };
+      const withReply = [...updatedMessages, aiMsg];
+
+      // Get the latest chat record (it may have been created above)
+      const latest = await localDb.setupChats
+        .where("raceResultId").equals(raceResultId)
+        .and((c) => c.setupSnapshotId === setupSnapshotId)
+        .first();
+      if (latest) {
+        await localDb.setupChats.update(latest.id, { messages: withReply, updatedAt: aiMsg.createdAt });
+      }
+    } catch {
+      const errMsg = { role: "model" as const, text: "Failed to reach the AI. Check your connection and try again.", createdAt: new Date().toISOString() };
+      const latest = await localDb.setupChats
+        .where("raceResultId").equals(raceResultId)
+        .and((c) => c.setupSnapshotId === setupSnapshotId)
+        .first();
+      if (latest) {
+        await localDb.setupChats.update(latest.id, { messages: [...updatedMessages, errMsg], updatedAt: errMsg.createdAt });
+      }
+    } finally {
+      setSending(false);
+    }
+  }, [input, snapshot, sending, messages, chatRecord, raceResultId, setupSnapshotId, carId, car, runStats, lapRanges, bestLap]);
+
+  /** Parse a setup-change JSON block from AI response and create a new setup snapshot. */
+  const applySetupChange = useCallback(async (aiText: string) => {
+    if (!snapshot) return;
+    const match = aiText.match(/```setup-change\n([\s\S]*?)\n```/);
+    if (!match) return;
+    try {
+      setCreatingSetup(true);
+      const parsed = JSON.parse(match[1]) as { changes: { capabilityId: string; value: string | number | boolean }[]; name?: string };
+      const newEntries = snapshot.entries.map((e) => {
+        const change = parsed.changes.find((c) => c.capabilityId === e.capabilityId);
+        return change ? { ...e, value: change.value } : e;
+      });
+      const now = new Date().toISOString();
+      const newId = crypto.randomUUID();
+      await localDb.setupSnapshots.add({
+        ...snapshot,
+        id: newId,
+        name: parsed.name ?? `${snapshot.name} (AI)`,
+        entries: newEntries,
+        createdAt: now,
+        updatedAt: now,
+        _dirty: 1 as const,
+      });
+    } catch {
+      // JSON parse failure — ignore silently
+    } finally {
+      setCreatingSetup(false);
+    }
+  }, [snapshot]);
+
+  const hasSetupChange = (text: string) => /```setup-change\n/.test(text);
+
+  return (
+    <div className="border-t border-neutral-800 px-3 py-3 space-y-2">
+      <h4 className="text-[10px] font-semibold text-neutral-500 uppercase flex items-center gap-1.5">
+        <span className="text-purple-400">✦</span> AI Setup Coach
+      </h4>
+
+      {/* Chat messages */}
+      {messages.length > 0 && (
+        <div className="max-h-64 overflow-y-auto space-y-2">
+          {messages.map((msg, i) => (
+            <div key={i} className={`text-xs ${msg.role === "user" ? "text-neutral-200" : "text-purple-200"}`}>
+              <div className="flex items-start gap-2">
+                <span className={`text-[9px] font-semibold uppercase mt-0.5 shrink-0 ${msg.role === "user" ? "text-blue-400" : "text-purple-400"}`}>
+                  {msg.role === "user" ? "You" : "AI"}
+                </span>
+                <div className="min-w-0">
+                  <div className="whitespace-pre-wrap break-words">{
+                    msg.role === "model"
+                      ? msg.text.replace(/```setup-change\n[\s\S]*?\n```/g, "[Setup change suggested — see button below]")
+                      : msg.text
+                  }</div>
+                  {msg.role === "model" && hasSetupChange(msg.text) && (
+                    <button
+                      onClick={() => applySetupChange(msg.text)}
+                      disabled={creatingSetup}
+                      className="mt-1.5 rounded-md bg-purple-700 text-white px-3 py-1 text-[10px] font-medium hover:bg-purple-600 disabled:opacity-50"
+                    >
+                      {creatingSetup ? "Creating…" : "Apply Setup Change"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="flex gap-2">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          placeholder="How did the car feel? (e.g. understeer in corners, loose on exit…)"
+          className="flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 placeholder:text-neutral-600 resize-none"
+          rows={2}
+          disabled={sending}
+        />
+        <button
+          onClick={handleSend}
+          disabled={!input.trim() || sending || !snapshot}
+          className="self-end rounded-md bg-purple-700 text-white px-3 py-1.5 text-xs font-medium hover:bg-purple-600 disabled:opacity-40"
+        >
+          {sending ? "…" : "Send"}
+        </button>
+      </div>
+
+      {!snapshot && (
+        <p className="text-[10px] text-neutral-600 italic">Assign a setup to this run group to enable AI coaching.</p>
+      )}
     </div>
   );
 }

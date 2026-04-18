@@ -355,6 +355,17 @@ export interface LocalSetupTemplate {
   _dirty: 0 | 1;
 }
 
+/** AI setup chat — persisted conversation per (raceResult + setupSnapshot). */
+export interface LocalSetupChat {
+  id: string;
+  raceResultId: string;
+  setupSnapshotId: string;
+  carId: string;
+  messages: { role: "user" | "model"; text: string; createdAt: string }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 class SetupIQDatabase extends Dexie {
   setupSnapshots!: Table<LocalSetupSnapshot, string>;
   runSessions!: Table<LocalRunSession, string>;
@@ -380,6 +391,7 @@ class SetupIQDatabase extends Dexie {
   categoryImages!: Table<LocalCategoryImage, string>;
   customVendors!: Table<LocalCustomVendor, string>;
   deletedRecords!: Table<DeletedRecord, number>;
+  setupChats!: Table<LocalSetupChat, string>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
@@ -820,6 +832,11 @@ class SetupIQDatabase extends Dexie {
     // v32: add deletedRecords tombstone table for syncing deletes
     this.version(32).stores({
       deletedRecords: "++id, table, recordId, _pushed",
+    });
+
+    // v33: add setupChats table for AI coaching per (race + setup)
+    this.version(33).stores({
+      setupChats: "id, raceResultId, setupSnapshotId, carId",
     });
   }
 }
