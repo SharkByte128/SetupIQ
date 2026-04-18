@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { getCarById, getChassisPlatformById, chassisPlatforms } from "@setupiq/shared";
+import { getCarById, getChassisPlatformById, chassisPlatforms, allTires, allWheels } from "@setupiq/shared";
 import { localDb, recordDeletion, recordDeletions, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
@@ -2557,18 +2557,46 @@ function buildSystemPrompt(
     ? `Car: ${car.name} (${car.manufacturer}, ${car.scale} scale, ${car.driveType})`
     : "Car: Unknown";
 
-  // Build human-readable setup entries
-  const entryLines = snapshot.entries.map((e) => {
-    const cap = car?.capabilities.find((c) => c.id === e.capabilityId);
-    const name = cap?.name ?? e.capabilityId;
-    let valDisplay = String(e.value);
-    if (cap?.options) {
-      const opt = cap.options.find((o) => String(o.value) === String(e.value));
+  // Build human-readable setup entries WITH available options
+  const entryLines = (car?.capabilities ?? []).map((cap) => {
+    const entry = snapshot.entries.find((e) => e.capabilityId === cap.id);
+    const currentVal = entry ? String(entry.value) : "(not set)";
+    let valDisplay = currentVal;
+    if (cap.options) {
+      const opt = cap.options.find((o) => String(o.value) === currentVal);
       if (opt) valDisplay = opt.label;
     }
-    if (cap?.unit) valDisplay += ` ${cap.unit}`;
-    return `  ${name}: ${valDisplay}`;
+    if (cap.unit && entry) valDisplay += ` ${cap.unit}`;
+
+    // Show available options for pick fields
+    let optionsStr = "";
+    if (cap.valueType === "pick" && cap.options) {
+      optionsStr = `  [options: ${cap.options.map((o) => o.label).join(", ")}]`;
+    } else if (cap.valueType === "numeric") {
+      const parts: string[] = [];
+      if (cap.min != null) parts.push(`min=${cap.min}`);
+      if (cap.max != null) parts.push(`max=${cap.max}`);
+      if (cap.step != null) parts.push(`step=${cap.step}`);
+      if (parts.length) optionsStr = `  [range: ${parts.join(", ")}${cap.unit ? ` ${cap.unit}` : ""}]`;
+    }
+    return `  ${cap.name} (${cap.id}): ${valDisplay}${optionsStr}`;
   });
+
+  // Build wheel/tire setup section
+  const wtLines: string[] = [];
+  for (const wt of snapshot.wheelTireSetups ?? []) {
+    const pos = `${wt.side} ${wt.position}`;
+    const tire = wt.tireId ? allTires.find((t) => t.id === wt.tireId) : undefined;
+    const wheel = wt.wheelId ? allWheels.find((w) => w.id === wt.wheelId) : undefined;
+    const tireName = tire ? `${tire.name} (${tire.color ?? tire.compound}, ${tire.widthMm}mm)` : wt.tireId ?? "none";
+    const wheelName = wheel ? `${wheel.name} (offset ${wheel.offset >= 0 ? "+" : ""}${wheel.offset})` : wt.wheelId ?? "none";
+    const mountStr = wt.mount ? `, mount: ${wt.mount.method}${wt.mount.edgeGlue !== "none" ? ` / edge-glue: ${wt.mount.edgeGlue}` : ""}` : "";
+    wtLines.push(`  ${pos}: tire=${tireName}, wheel=${wheelName}${mountStr}`);
+  }
+
+  // Available tire/wheel inventory
+  const tireInventory = allTires.map((t) => `  ${t.name} — ${t.position}, ${t.compound}, ${t.widthMm}mm, color: ${t.color ?? "N/A"}`).join("\n");
+  const wheelInventory = allWheels.map((w) => `  ${w.name} — ${w.position}, ${w.widthMm}mm, offset ${w.offset >= 0 ? "+" : ""}${w.offset}`).join("\n");
 
   const statsText = runStats
     ? `Run Stats (Laps ${lapRanges}):
@@ -2587,6 +2615,15 @@ ${carInfo}
 Current Setup: "${snapshot.name}"
 ${entryLines.join("\n")}
 
+Wheel & Tire Setup:
+${wtLines.length ? wtLines.join("\n") : "  (none configured)"}
+
+Available Tires:
+${tireInventory}
+
+Available Wheels:
+${wheelInventory}
+
 ${statsText}
 
 GUIDELINES:
@@ -2597,7 +2634,9 @@ GUIDELINES:
 - Format setup changes as: \`\`\`setup-change\n{"changes": [{"capabilityId": "...", "value": "..."}], "name": "new setup name"}\n\`\`\`
 - The driver can then apply these changes to create a new setup.
 - Be concise and practical. This is track-side coaching, not a textbook.
-- Consider the relationship between settings — e.g. stiffer springs may require damper adjustment.`;
+- Consider the relationship between settings — e.g. stiffer springs may require damper adjustment.
+- Tires are color-coded. The driver may refer to tires by color (e.g. "purple wheels" or "purple tires" mean the same thing). Match color references to the tire/wheel inventory above.
+- When suggesting capability changes, use the exact capabilityId and a value from the available options shown above.`;
 }
 
 function SetupCoachChat({
