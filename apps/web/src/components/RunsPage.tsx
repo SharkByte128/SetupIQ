@@ -19,7 +19,8 @@ type View =
   | { kind: "active"; session: RunSession }
   | { kind: "feedback"; session: RunSession; segment: RunSegment }
   | { kind: "summary"; session: RunSession }
-  | { kind: "raceDetail"; result: LocalRaceResult };
+  | { kind: "raceDetail"; result: LocalRaceResult }
+  | { kind: "liveDashboard"; result: LocalRaceResult };
 
 export function RunsPage() {
   const [view, setView] = useState<View>({ kind: "list" });
@@ -69,7 +70,7 @@ export function RunsPage() {
           onNewRun={() => { setAddMenuOpen(false); setView({ kind: "new" }); }}
           onAddRace={() => { setAddMenuOpen(false); setView({ kind: "addRace" }); }}
           onSelectSession={(s) => (s.endedAt ? setView({ kind: "summary", session: s }) : setView({ kind: "active", session: s }))}
-          onSelectRace={(r) => setView({ kind: "raceDetail", result: r })}
+          onSelectRace={(r) => setView({ kind: "liveDashboard", result: r })}
         />
       )}
 
@@ -132,6 +133,13 @@ export function RunsPage() {
             await localDb.raceResults.delete(view.result.id);
             setView({ kind: "list" });
           }}
+        />
+      )}
+
+      {view.kind === "liveDashboard" && (
+        <LiveRunDashboard
+          resultId={view.result.id}
+          onBack={() => setView({ kind: "list" })}
         />
       )}
     </div>
@@ -432,9 +440,11 @@ function NltSyncMini() {
   // Live sync state
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastNewLapAtRef = useRef<number>(Date.now());
   const lastLapTotalRef = useRef<number>(0);
+  const syncStartedAtRef = useRef<number>(Date.now());
 
   // Timing→car mappings (saved from Timing to Car Match)
   const carTimingNames = useLiveQuery(() => localDb.carTimingNames.toArray()) ?? [];
@@ -597,6 +607,7 @@ function NltSyncMini() {
   const stopSync = useCallback(() => {
     if (syncIntervalRef.current) { clearInterval(syncIntervalRef.current); syncIntervalRef.current = null; }
     setIsSyncing(false);
+    setIsPaused(false);
   }, []);
 
   const startSync = useCallback(async () => {
@@ -605,25 +616,47 @@ function NltSyncMini() {
     localStorage.setItem("nlt_last_race_number", raceNumber.trim());
     if (selectedTrackId) localStorage.setItem("nlt_last_track_id", selectedTrackId);
     setIsSyncing(true);
+    setIsPaused(false);
     setPreview(null);
     setError(null);
     lastNewLapAtRef.current = Date.now();
     lastLapTotalRef.current = 0;
+    syncStartedAtRef.current = Date.now();
     setSyncStatus(`Started · ${new Date().toLocaleTimeString()}`);
 
     await doSyncTick();
     setSyncStatus(`Last check: ${new Date().toLocaleTimeString()}`);
 
     syncIntervalRef.current = setInterval(async () => {
-      const idleMins = (Date.now() - lastNewLapAtRef.current) / 60000;
-      if (idleMins >= 90) {
+      const now = Date.now();
+      const idleMins = (now - lastNewLapAtRef.current) / 60000;
+      const totalHrs = (now - syncStartedAtRef.current) / 3600000;
+
+      // 1 hour total idle → stop completely
+      if (totalHrs >= 1 && idleMins >= 60) {
         stopSync();
-        setSyncStatus("Auto-stopped · no new laps in 90 min");
+        setSyncStatus("Auto-stopped · no activity in 1 hour");
         return;
       }
+
+      // 5 min idle → pause for 5 min
+      if (idleMins >= 5) {
+        setIsPaused(true);
+        setSyncStatus(`Paused · no new laps in ${Math.floor(idleMins)}min · resumes at ${new Date(lastNewLapAtRef.current + 10 * 60000).toLocaleTimeString()}`);
+        // If we've been paused for 5 min (10 min since last lap), resume
+        if (idleMins >= 10) {
+          setIsPaused(false);
+          lastNewLapAtRef.current = now; // reset idle timer
+          await doSyncTick();
+          setSyncStatus(`Resumed · ${new Date().toLocaleTimeString()}`);
+        }
+        return;
+      }
+
+      setIsPaused(false);
       await doSyncTick();
       setSyncStatus(`Last check: ${new Date().toLocaleTimeString()}`);
-    }, 60000);
+    }, 8000);
   }, [buildUrl, raceNumber, selectedTrackId, doSyncTick, stopSync]);
 
   const handleImport = async () => {
@@ -779,7 +812,9 @@ function NltSyncMini() {
 
           {/* Sync status */}
           {isSyncing && syncStatus && (
-            <p className="text-[10px] text-green-400">🔴 Live sync active · {syncStatus}</p>
+            <p className={`text-[10px] ${isPaused ? "text-amber-400" : "text-green-400"}`}>
+              {isPaused ? "⏸" : "🔴"} {isPaused ? "Paused" : "Live sync (8s)"} · {syncStatus}
+            </p>
           )}
           {!isSyncing && syncStatus && (
             <p className="text-[10px] text-neutral-500">{syncStatus}</p>
@@ -1379,6 +1414,240 @@ function RaceDetail({
       >
         Delete Result
       </button>
+    </div>
+  );
+}
+
+// ─── Live Run Dashboard ──────────────────────────────────────
+
+function LiveRunDashboard({ resultId, onBack }: { resultId: string; onBack: () => void }) {
+  // Live-query so we re-render whenever sync updates this record
+  const result = useLiveQuery(() => localDb.raceResults.get(resultId), [resultId]);
+
+  if (!result) return <p className="text-center text-neutral-500 text-sm py-8">Loading…</p>;
+
+  const car = getCarById(result.carId);
+
+  // Per-car min/max lap filter
+  const timingRec = useLiveQuery(
+    () => result.carId ? localDb.carTimingNames.get(result.carId) : undefined,
+    [result.carId],
+  );
+  const GAP_MS = 60000;
+
+  // All laps for display (including hidden/ignored)
+  const allLaps = result.laps;
+
+  // Filtered laps for KPIs only
+  const kpiLaps = useMemo(() => allLaps.filter((l) => {
+    if (l.hidden) return false;
+    if (l.timeMs >= GAP_MS) return false;
+    if (timingRec?.minLapMs != null && l.timeMs < timingRec.minLapMs) return false;
+    if (timingRec?.maxLapMs != null && l.timeMs > timingRec.maxLapMs) return false;
+    return true;
+  }), [allLaps, timingRec]);
+
+  const bestMs = kpiLaps.length > 0 ? Math.min(...kpiLaps.map((l) => l.timeMs)) : 0;
+  const avgMs = kpiLaps.length > 0
+    ? kpiLaps.reduce((t, l) => t + l.timeMs, 0) / kpiLaps.length
+    : 0;
+  const worstMs = kpiLaps.length > 0 ? Math.max(...kpiLaps.map((l) => l.timeMs)) : 0;
+  const stdDev = useMemo(() => {
+    if (kpiLaps.length < 2) return 0;
+    const mean = avgMs;
+    const variance = kpiLaps.reduce((t, l) => t + (l.timeMs - mean) ** 2, 0) / kpiLaps.length;
+    return Math.sqrt(variance);
+  }, [kpiLaps, avgMs]);
+
+  // Determine which laps are "ignored" for display styling
+  const isIgnored = (l: { timeMs: number; hidden?: boolean }) => {
+    if (l.hidden) return true;
+    if (l.timeMs >= GAP_MS) return true;
+    if (timingRec?.minLapMs != null && l.timeMs < timingRec.minLapMs) return true;
+    if (timingRec?.maxLapMs != null && l.timeMs > timingRec.maxLapMs) return true;
+    return false;
+  };
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">← Back</button>
+
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold text-neutral-200">{result.eventName}</h2>
+          <span className="text-xs text-red-400 animate-pulse">● LIVE</span>
+        </div>
+        <div className="flex gap-3 text-xs text-neutral-400 mt-1">
+          <span>{result.className}</span>
+          <span>{result.roundType}</span>
+          {car && <span>{car.name}</span>}
+        </div>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-4 gap-2">
+        <RaceStatCard label="Position" value={`P${result.position}${result.totalEntries ? `/${result.totalEntries}` : ""}`} />
+        <RaceStatCard label="Laps" value={String(kpiLaps.length)} />
+        <RaceStatCard label="Fast Lap" value={bestMs > 0 ? `${(bestMs / 1000).toFixed(3)}s` : "–"} highlight />
+        <RaceStatCard label="Avg Lap" value={avgMs > 0 ? `${(avgMs / 1000).toFixed(3)}s` : "–"} />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <RaceStatCard label="Worst" value={worstMs > 0 ? `${(worstMs / 1000).toFixed(3)}s` : "–"} />
+        <RaceStatCard label="Std Dev" value={stdDev > 0 ? `${(stdDev / 1000).toFixed(3)}s` : "–"} />
+        <RaceStatCard label="Total Time" value={formatTotalTime(kpiLaps.reduce((t, l) => t + l.timeMs, 0))} />
+      </div>
+
+      {/* Line chart */}
+      {kpiLaps.length >= 2 && <LapTimeChart laps={kpiLaps} />}
+
+      {/* Lap table — shows ALL laps including ignored */}
+      {allLaps.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">
+            All Laps <span className="text-neutral-600 font-normal">({allLaps.length} total, {allLaps.length - kpiLaps.length} ignored)</span>
+          </h3>
+          <div className="max-h-80 overflow-y-auto space-y-0.5">
+            {allLaps.map((lap, i) => {
+              const ignored = isIgnored(lap);
+              const isBest = lap.timeMs === bestMs && !ignored;
+              return (
+                <div
+                  key={lap.lapNumber}
+                  className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
+                    ignored
+                      ? "bg-neutral-900/30 text-neutral-600"
+                      : isBest
+                        ? "bg-green-950/40 border border-green-800/50 text-green-300"
+                        : "bg-neutral-900/50 text-neutral-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
+                    {ignored && <span className="text-[9px] text-neutral-600 italic">ignored</span>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`font-mono ${ignored ? "line-through" : ""}`}>
+                      {(lap.timeMs / 1000).toFixed(3)}s
+                    </span>
+                    {!ignored && bestMs > 0 && lap.timeMs !== bestMs && (
+                      <span className="text-[10px] text-neutral-600">
+                        +{((lap.timeMs - bestMs) / 1000).toFixed(3)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {result.sourceUrl && (
+        <a
+          href={result.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-400 hover:text-blue-300 underline"
+        >
+          View on Next Level Timing →
+        </a>
+      )}
+    </div>
+  );
+}
+
+// ─── Lap Time SVG Chart ──────────────────────────────────────
+
+function LapTimeChart({ laps }: { laps: { lapNumber: number; timeMs: number }[] }) {
+  const W = 360;
+  const H = 180;
+  const PAD_L = 48;
+  const PAD_R = 12;
+  const PAD_T = 16;
+  const PAD_B = 28;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+
+  const times = laps.map((l) => l.timeMs);
+  const minTime = Math.min(...times);
+  const maxTime = Math.max(...times);
+  // Y axis: min lap → max lap × 2  (clamped so chart isn't absurd if all laps are similar)
+  const yMin = minTime;
+  const yMax = Math.max(maxTime, minTime * 2);
+
+  const xScale = (i: number) => PAD_L + (i / Math.max(laps.length - 1, 1)) * plotW;
+  const yScale = (ms: number) => PAD_T + plotH - ((ms - yMin) / (yMax - yMin || 1)) * plotH;
+
+  // Build polyline points
+  const points = laps.map((l, i) => `${xScale(i)},${yScale(l.timeMs)}`).join(" ");
+
+  // Y-axis ticks (5 lines)
+  const yTicks = Array.from({ length: 5 }, (_, i) => yMin + ((yMax - yMin) * i) / 4);
+
+  // X-axis: show every N laps so labels don't overlap
+  const xStep = Math.max(1, Math.ceil(laps.length / 8));
+
+  return (
+    <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-3">
+      <h3 className="text-xs font-semibold text-neutral-400 uppercase mb-2">Lap Times</h3>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 200 }}>
+        {/* Grid lines */}
+        {yTicks.map((t, i) => (
+          <g key={i}>
+            <line
+              x1={PAD_L} y1={yScale(t)} x2={W - PAD_R} y2={yScale(t)}
+              stroke="#333" strokeWidth="0.5"
+            />
+            <text x={PAD_L - 4} y={yScale(t) + 3} textAnchor="end" className="fill-neutral-600" fontSize="8">
+              {(t / 1000).toFixed(2)}s
+            </text>
+          </g>
+        ))}
+
+        {/* X-axis labels */}
+        {laps.map((l, i) =>
+          i % xStep === 0 ? (
+            <text key={i} x={xScale(i)} y={H - 6} textAnchor="middle" className="fill-neutral-600" fontSize="8">
+              {l.lapNumber}
+            </text>
+          ) : null,
+        )}
+
+        {/* Line */}
+        <polyline
+          points={points}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+
+        {/* Best lap marker */}
+        {(() => {
+          const bestIdx = times.indexOf(minTime);
+          return (
+            <circle
+              cx={xScale(bestIdx)}
+              cy={yScale(minTime)}
+              r="3"
+              className="fill-green-400"
+            />
+          );
+        })()}
+
+        {/* Data points */}
+        {laps.map((l, i) => (
+          <circle
+            key={i}
+            cx={xScale(i)}
+            cy={yScale(l.timeMs)}
+            r="2"
+            className="fill-blue-400"
+            opacity={0.6}
+          />
+        ))}
+      </svg>
     </div>
   );
 }
