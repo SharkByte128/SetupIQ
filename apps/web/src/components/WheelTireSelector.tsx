@@ -36,20 +36,18 @@ export function WheelTireSelector({ position, side, setup, onChange, extraTires 
           className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">— select —</option>
-          {libraryWheels.length > 0 && <optgroup label="Library">
-            {libraryWheels.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
-              </option>
-            ))}
-          </optgroup>}
-          {extraWheels.length > 0 && <optgroup label="Parts Bin">
-            {extraWheels.filter((w) => !libraryWheels.some((lw) => lw.id === w.id)).map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
-              </option>
-            ))}
-          </optgroup>}
+          {extraWheels.length > 0
+            ? extraWheels.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
+                </option>
+              ))
+            : libraryWheels.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
+                </option>
+              ))
+          }
         </select>
       </div>
 
@@ -62,20 +60,18 @@ export function WheelTireSelector({ position, side, setup, onChange, extraTires 
           className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">— select —</option>
-          {libraryTires.length > 0 && <optgroup label="Library">
-            {libraryTires.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
-              </option>
-            ))}
-          </optgroup>}
-          {extraTires.length > 0 && <optgroup label="Parts Bin">
-            {extraTires.filter((t) => !libraryTires.some((lt) => lt.id === t.id)).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
-              </option>
-            ))}
-          </optgroup>}
+          {extraTires.length > 0
+            ? extraTires.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
+                </option>
+              ))
+            : libraryTires.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
+                </option>
+              ))
+          }
         </select>
       </div>
 
