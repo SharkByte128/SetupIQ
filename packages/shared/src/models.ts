@@ -112,6 +112,7 @@ export interface SetupEntry {
 export interface WheelTireSetup {
   position: WheelPosition;
   side: "left" | "right";
+  widthMm?: number;
   wheelId?: UUID;
   tireId?: UUID;
   mount?: TireMount;

@@ -674,7 +674,10 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
                 const live = liveWts[key] ?? wts;
                 return (
                   <div key={key} className="rounded-lg bg-neutral-900 border border-neutral-800 p-2.5 hover:bg-neutral-800/50 transition-colors">
-                    <p className="text-xs font-semibold text-neutral-500 uppercase">{live.position} {live.side}</p>
+                    <p className="text-xs font-semibold text-neutral-500 uppercase">
+                      {live.position} {live.side}
+                      {live.widthMm && <span className="text-neutral-600 ml-1 normal-case">{live.widthMm}mm</span>}
+                    </p>
                     <p className="text-xs text-neutral-300 mt-1">
                       {live.wheelId ? wheelMap.get(live.wheelId)?.name ?? "—" : "—"}
                     </p>

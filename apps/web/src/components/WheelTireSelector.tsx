@@ -14,18 +14,48 @@ interface Props {
 
 const MOUNT_METHODS: TireMount["method"][] = ["glued", "taped"];
 const EDGE_GLUE: TireMount["edgeGlue"][] = ["outside", "inside", "both", "none"];
+const WIDTHS = [8.5, 11, 14];
 
 export function WheelTireSelector({ position, side, setup, onChange, extraTires = [], extraWheels = [] }: Props) {
   const libraryTires: TireComponent[] = position === "front" ? frontTires : rearTires;
   const libraryWheels: WheelComponent[] = position === "front" ? frontWheels : rearWheels;
 
   const base: WheelTireSetup = setup ?? { position, side };
+  const defaultWidth = position === "front" ? 8.5 : 11;
+  const selectedWidth = base.widthMm ?? defaultWidth;
+
+  // Filter tires and wheels by selected width
+  const filteredExtraTires = extraTires.filter((t) => !t.widthMm || t.widthMm === selectedWidth);
+  const filteredLibraryTires = libraryTires.filter((t) => !t.widthMm || t.widthMm === selectedWidth);
+  const filteredExtraWheels = extraWheels.filter((w) => !w.widthMm || w.widthMm === selectedWidth);
+  const filteredLibraryWheels = libraryWheels.filter((w) => !w.widthMm || w.widthMm === selectedWidth);
 
   return (
     <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-3 space-y-3">
       <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
         {position} {side}
       </h4>
+
+      {/* Width selector */}
+      <div className="space-y-1">
+        <label className="text-xs text-neutral-500">Width</label>
+        <div className="flex gap-1.5">
+          {WIDTHS.map((w) => (
+            <button
+              key={w}
+              type="button"
+              onClick={() => onChange({ ...base, widthMm: w, wheelId: undefined, tireId: undefined })}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                selectedWidth === w
+                  ? "bg-blue-600 text-white"
+                  : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+              }`}
+            >
+              {w}mm
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Wheel selector */}
       <div className="space-y-1">
@@ -36,13 +66,13 @@ export function WheelTireSelector({ position, side, setup, onChange, extraTires 
           className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">— select —</option>
-          {extraWheels.length > 0
-            ? extraWheels.map((w) => (
+          {filteredExtraWheels.length > 0
+            ? filteredExtraWheels.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
                 </option>
               ))
-            : libraryWheels.map((w) => (
+            : filteredLibraryWheels.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
                 </option>
@@ -60,13 +90,13 @@ export function WheelTireSelector({ position, side, setup, onChange, extraTires 
           className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">— select —</option>
-          {extraTires.length > 0
-            ? extraTires.map((t) => (
+          {filteredExtraTires.length > 0
+            ? filteredExtraTires.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} ({t.compound}){t.widthMm ? ` ${t.widthMm}mm` : ""}{t.color ? ` [${t.color}]` : ""}
                 </option>
               ))
-            : libraryTires.map((t) => (
+            : filteredLibraryTires.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} ({t.compound}){t.widthMm ? ` ${t.widthMm}mm` : ""}{t.color ? ` [${t.color}]` : ""}
                 </option>
