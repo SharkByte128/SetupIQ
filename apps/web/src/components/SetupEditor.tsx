@@ -123,30 +123,6 @@ export function SetupEditor({ car, existing, onSave, onCancel }: Props) {
       cats.get(cap.category)!.push(cap);
     }
     return cats;
-  }, [enrichedCapabilities !resolvedChassisId ||
-          p.compatibleChassisIds.length === 0 ||
-          p.compatibleChassisIds.includes(resolvedChassisId),
-        );
-      if (binParts.length === 0) return cap;
-      const existingValues = new Set((cap.options ?? []).map((o) => String(o.value)));
-      const extraOptions: CapabilityOption[] = binParts
-        .filter((p) => !existingValues.has(`partsbin-${p.id}`))
-        .map((p) => ({
-          label: p.name + (p.attributes.stiffness ? ` (${p.attributes.stiffness})` : ""),
-          value: `partsbin-${p.id}`,
-        }));
-      return { ...cap, options: [...extraOptions, ...(cap.options ?? [])] };
-    });
-  }, [car.capabilities, allParts, resolvedChassisId]);
-
-  // Group capabilities by category
-  const categories = useMemo(() => {
-    const cats = new Map<string, Capability[]>();
-    for (const cap of enrichedCapabilities) {
-      if (!cats.has(cap.category)) cats.set(cap.category, []);
-      cats.get(cap.category)!.push(cap);
-    }
-    return cats;
   }, [enrichedCapabilities]);
 
   const handleChange = (capId: string, value: string | number | boolean) => {
