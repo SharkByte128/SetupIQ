@@ -813,7 +813,7 @@ function InlinePick({
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map((opt) => {
-        const isDisabled = allowed !== null && !allowed.includes(opt.value);
+        const isDisabled = allowed !== null && !allowed.includes(opt.value) && !String(opt.value).startsWith("partsbin-");
         const isSelected = String(value) === String(opt.value);
         return (
           <button

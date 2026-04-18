@@ -76,7 +76,7 @@ function PickField({
       <label className="text-xs font-medium text-neutral-400">{capability.name}</label>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => {
-          const isDisabled = allowed !== null && !allowed.includes(opt.value);
+          const isDisabled = allowed !== null && !allowed.includes(opt.value) && !String(opt.value).startsWith("partsbin-");
           const isSelected = String(value) === String(opt.value);
           return (
             <button
