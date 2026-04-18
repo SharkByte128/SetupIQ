@@ -21,9 +21,10 @@ export function WheelTireSelector({ position, side, setup, onChange, extraTires 
   const defaultWidth = position === "front" ? 8.5 : 11;
   const selectedWidth = base.widthMm ?? defaultWidth;
 
-  // Filter strictly by width — tires come exclusively from parts bin
-  const filteredExtraTires = extraTires.filter((t) => t.widthMm === selectedWidth);
-  const filteredExtraWheels = extraWheels.filter((w) => w.widthMm === selectedWidth);
+  // Filter by width — tires come exclusively from parts bin
+  // widthMm === 0 means "not set" → show in all width categories so user can still select them
+  const filteredExtraTires = extraTires.filter((t) => t.widthMm === 0 || t.widthMm === selectedWidth);
+  const filteredExtraWheels = extraWheels.filter((w) => w.widthMm === 0 || w.widthMm === selectedWidth);
   const filteredLibraryWheels = allWheels.filter((w) => w.widthMm === selectedWidth);
 
   return (
@@ -89,7 +90,7 @@ export function WheelTireSelector({ position, side, setup, onChange, extraTires 
           {filteredExtraTires.length > 0
             ? filteredExtraTires.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name} ({t.compound}){t.widthMm ? ` ${t.widthMm}mm` : ""}{t.color ? ` [${t.color}]` : ""}
+                  {t.name} ({t.compound}){t.widthMm ? ` ${t.widthMm}mm` : " ⚠ no width"}{t.color ? ` [${t.color}]` : ""}
                 </option>
               ))
             : <option disabled>No tires in Parts Bin for {selectedWidth}mm</option>
