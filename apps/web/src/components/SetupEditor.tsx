@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { CarDefinition, SetupEntry, WheelTireSetup, SetupSnapshot, TireComponent, WheelPosition, Capability, CapabilityOption } from "@setupiq/shared";
-import { validateSetup, capabilityPartsBinMap, capabilityPartsBinMap } from "@setupiq/shared";
+import { validateSetup, capabilityPartsBinMap } from "@setupiq/shared";
 import { CapabilityField } from "./CapabilityField.js";
 import { WheelTireSelector } from "./WheelTireSelector.js";
 import { RichNotesEditor } from "./RichNotesEditor.js";
