@@ -1,5 +1,5 @@
 import type { WheelTireSetup, TireComponent, WheelComponent, TireMount, WheelPosition } from "@setupiq/shared";
-import { frontTires, rearTires, frontWheels, rearWheels } from "@setupiq/shared";
+import { allTires, allWheels } from "@setupiq/shared";
 
 interface Props {
   position: WheelPosition;
@@ -17,18 +17,15 @@ const EDGE_GLUE: TireMount["edgeGlue"][] = ["outside", "inside", "both", "none"]
 const WIDTHS = [8.5, 11, 14];
 
 export function WheelTireSelector({ position, side, setup, onChange, extraTires = [], extraWheels = [] }: Props) {
-  const libraryTires: TireComponent[] = position === "front" ? frontTires : rearTires;
-  const libraryWheels: WheelComponent[] = position === "front" ? frontWheels : rearWheels;
-
   const base: WheelTireSetup = setup ?? { position, side };
   const defaultWidth = position === "front" ? 8.5 : 11;
   const selectedWidth = base.widthMm ?? defaultWidth;
 
-  // Filter tires and wheels by selected width
-  const filteredExtraTires = extraTires.filter((t) => !t.widthMm || t.widthMm === selectedWidth);
-  const filteredLibraryTires = libraryTires.filter((t) => !t.widthMm || t.widthMm === selectedWidth);
-  const filteredExtraWheels = extraWheels.filter((w) => !w.widthMm || w.widthMm === selectedWidth);
-  const filteredLibraryWheels = libraryWheels.filter((w) => !w.widthMm || w.widthMm === selectedWidth);
+  // Filter tires and wheels purely by width — position no longer matters
+  const filteredExtraTires = extraTires.filter((t) => t.widthMm === selectedWidth);
+  const filteredLibraryTires = allTires.filter((t) => t.widthMm === selectedWidth);
+  const filteredExtraWheels = extraWheels.filter((w) => w.widthMm === selectedWidth);
+  const filteredLibraryWheels = allWheels.filter((w) => w.widthMm === selectedWidth);
 
   return (
     <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-3 space-y-3">
