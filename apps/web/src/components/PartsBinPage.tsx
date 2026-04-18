@@ -202,7 +202,17 @@ function useAllCategories(includeHidden = false): PartCategory[] {
     const overrideMap = new Map(customCats.filter(c => c.builtIn).map(c => [c.id, c]));
     const merged = partCategories.map((cat) => {
       const ov = overrideMap.get(cat.id);
-      if (ov) return { ...cat, name: ov.name, icon: ov.icon, description: ov.description, attributes: ov.attributes as PartAttribute[] };
+      if (ov) {
+        // Built-in attributes are authoritative (preserves keys like widthMm).
+        // Append override-only attributes the user added, skipping duplicates
+        // that match a built-in key or label.
+        const builtInKeys = new Set(cat.attributes.map(a => a.key));
+        const builtInLabels = new Set(cat.attributes.map(a => a.label.toLowerCase().trim()));
+        const extraAttrs = (ov.attributes as PartAttribute[]).filter(
+          a => !builtInKeys.has(a.key) && !builtInLabels.has(a.label.toLowerCase().trim()),
+        );
+        return { ...cat, name: ov.name, icon: ov.icon, description: ov.description, attributes: [...cat.attributes, ...extraAttrs] };
+      }
       return cat;
     });
     const custom = customCats
@@ -950,13 +960,15 @@ function TireColumnsView({
   onEdit: (p: LocalPart) => void;
   onClonePart: (p: LocalPart) => void;
 }) {
-  // Group by widthMm, then sort each group descending by shore
+  // Group by width, then sort each group descending by shore.
+  // Look for widthMm first, then fall back to width__mm_ (legacy key
+  // generated when users added the field via the category form editor).
   const columns = useMemo(() => {
     const buckets = new Map<string, LocalPart[]>();
     const otherParts: LocalPart[] = [];
 
     for (const part of parts) {
-      const w = part.attributes.widthMm;
+      const w = part.attributes.widthMm ?? part.attributes["width__mm_"];
       const wNum = w !== undefined && w !== "" ? Number(w) : NaN;
       const col = !isNaN(wNum) ? TIRE_WIDTH_COLUMNS.find(c => Number(c.key) === wNum) : null;
       if (col) {

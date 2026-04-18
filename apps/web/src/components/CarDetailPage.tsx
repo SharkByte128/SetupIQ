@@ -2707,7 +2707,7 @@ function SetupCoachChat({
         name: p.name,
         position: (p.categoryId === "front-tires" ? "front" : "rear") as TireComponent["position"],
         compound: (String(p.attributes.compound ?? "medium").toLowerCase()) as TireComponent["compound"],
-        widthMm: Number(p.attributes.widthMm) || 0,
+        widthMm: Number(p.attributes.widthMm ?? p.attributes["width__mm_"]) || 0,
         color: String(p.attributes.color ?? ""),
       }));
   }, [allParts, resolvedChassisId]);
