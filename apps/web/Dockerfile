@@ -18,7 +18,9 @@ RUN npm run build --workspace=apps/web
 
 # ── Build Caddy with Cloudflare DNS plugin ────────────────
 FROM caddy:2-builder-alpine AS caddy-builder
-RUN xcaddy build --with github.com/caddy-dns/cloudflare
+RUN GOPROXY=https://proxy.golang.org,direct \
+    xcaddy build \
+      --with github.com/caddy-dns/cloudflare
 
 # ── Serve with custom Caddy ───────────────────────────────
 FROM caddy:2-alpine
