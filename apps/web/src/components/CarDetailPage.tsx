@@ -940,7 +940,8 @@ function IssueDetail({
 type RunsView =
   | { kind: "list" }
   | { kind: "addRace" }
-  | { kind: "race-detail"; raceId: string };
+  | { kind: "race-detail"; raceId: string }
+  | { kind: "live-dashboard"; raceId: string };
 
 function computeLapStats(laps: { timeMs: number }[]) {
   if (laps.length === 0) return null;
@@ -987,6 +988,222 @@ function CarRunsTab({ carId }: { carId: string }) {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
 
+  // ─── Car-scoped NLT sync engine ────────────────────────
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastNewLapAtRef = useRef<number>(Date.now());
+  const lastLapTotalRef = useRef<number>(0);
+  const syncStartedAtRef = useRef<number>(Date.now());
+
+  // Timing match for this car
+  const timingNameRecord = useLiveQuery(() => localDb.carTimingNames.get(carId), [carId]);
+  const timingName = timingNameRecord?.timingName?.toLowerCase() ?? "";
+
+  // Latest setup snapshot for auto-assignment
+  const latestSnapshot = useLiveQuery(
+    () => localDb.setupSnapshots.where("carId").equals(carId).reverse().sortBy("updatedAt").then((r) => r[0]),
+    [carId],
+  );
+
+  // Track + feed URL state for sync
+  const tracks = useLiveQuery(() => localDb.tracks.toArray()) ?? [];
+  const [selectedTrackId, setSelectedTrackId] = useState(() => localStorage.getItem("nlt_last_track_id") ?? "");
+  const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
+  const feedUrl = selectedTrack?.timingFeedUrl;
+  const nltCommunityId = selectedTrack?.nltCommunityId;
+
+  // Race listing
+  interface CarNltRaceSummary { id: number; name: string; status: string; mode: string; startedAt: string | null; }
+  const [races, setRaces] = useState<CarNltRaceSummary[]>([]);
+  const [racesLoading, setRacesLoading] = useState(false);
+  const [raceNumber, setRaceNumber] = useState("");
+
+  // Fetch race list
+  useEffect(() => {
+    if (!feedUrl && !nltCommunityId) { setRaces([]); return; }
+    setRacesLoading(true);
+    const body: Record<string, unknown> = {};
+    if (nltCommunityId) body.communityId = nltCommunityId;
+    else body.feedUrl = feedUrl;
+    fetch(`${API_BASE}/api/nlt/races`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed");
+        return res.json() as Promise<{ races: CarNltRaceSummary[] }>;
+      })
+      .then((data) => { setRaces(data.races); setRaceNumber(""); })
+      .catch(() => setRaces([]))
+      .finally(() => setRacesLoading(false));
+  }, [feedUrl, nltCommunityId]);
+
+  const selectedRaceObj = races.find((r) => String(r.id) === raceNumber);
+  const isLiveRace = selectedRaceObj?.status === "active";
+
+  // Cleanup
+  useEffect(() => {
+    return () => { if (syncIntervalRef.current) clearInterval(syncIntervalRef.current); };
+  }, []);
+
+  // Build URL for the selected race
+  const buildSyncUrl = useCallback((): string | null => {
+    const trimmed = raceNumber.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("http")) return trimmed;
+    if (feedUrl) {
+      const base = feedUrl.endsWith("/") ? feedUrl : feedUrl + "/";
+      return base + trimmed;
+    }
+    if (/^\d+$/.test(trimmed)) return `https://nextleveltiming.com/races/${trimmed}`;
+    return null;
+  }, [raceNumber, feedUrl]);
+
+  /** Sync tick — upserts results for THIS car only */
+  const doCarSyncTick = useCallback(async (): Promise<boolean> => {
+    const url = buildSyncUrl();
+    if (!url) return false;
+    try {
+      const res = await fetch(`${API_BASE}/api/nlt/scrape`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json() as { eventName: string; community: string; className: string; roundType: string; date: string; position: number; totalEntries?: number; totalLaps: number; totalTimeMs: number; fastLapMs: number; laps: { lapNumber: number; timeMs: number }[] }[];
+      if (!data.length) return false;
+
+      // Find the entry matching this car's timing name
+      const match = timingName
+        ? data.find((d) => d.className.toLowerCase() === timingName)
+        : data[0]; // fallback to first entry if no timing name set
+      if (!match) return false;
+
+      let newTotal = match.totalLaps;
+      let hasNew = false;
+
+      const existingRows = await localDb.raceResults
+        .filter((r) => r.sourceUrl === url && r.carId === carId)
+        .toArray();
+      const existing = existingRows[0];
+
+      // Auto-assign latest setup to new laps
+      const lapsWithSetup = match.laps.map((l) => ({
+        ...l,
+        setupSnapshotId: latestSnapshot?.id,
+      }));
+
+      if (existing) {
+        if (existing.totalLaps !== match.totalLaps || existing.fastLapMs !== match.fastLapMs) {
+          await localDb.raceResults.update(existing.id, {
+            totalLaps: match.totalLaps,
+            totalTimeMs: match.totalTimeMs,
+            fastLapMs: match.fastLapMs,
+            avgLapMs: match.totalLaps > 0 ? Math.round(match.totalTimeMs / match.totalLaps) : undefined,
+            laps: lapsWithSetup,
+            position: match.position,
+            _dirty: 1,
+          });
+          hasNew = true;
+        }
+      } else {
+        await localDb.raceResults.add({
+          id: crypto.randomUUID(),
+          userId: "local",
+          carId,
+          eventName: match.eventName,
+          community: match.community || undefined,
+          className: match.className,
+          roundType: match.roundType,
+          date: match.date,
+          position: match.position,
+          totalEntries: match.totalEntries,
+          totalLaps: match.totalLaps,
+          totalTimeMs: match.totalTimeMs,
+          fastLapMs: match.fastLapMs,
+          avgLapMs: match.totalLaps > 0 ? Math.round(match.totalTimeMs / match.totalLaps) : undefined,
+          laps: lapsWithSetup,
+          sourceUrl: url,
+          setupSnapshotId: latestSnapshot?.id,
+          hidden: 0,
+          createdAt: new Date().toISOString(),
+          _dirty: 1,
+        });
+        hasNew = true;
+      }
+
+      if (newTotal > lastLapTotalRef.current) {
+        lastLapTotalRef.current = newTotal;
+        lastNewLapAtRef.current = Date.now();
+      }
+      return hasNew;
+    } catch {
+      return false;
+    }
+  }, [buildSyncUrl, timingName, carId, latestSnapshot?.id]);
+
+  const stopCarSync = useCallback(() => {
+    if (syncIntervalRef.current) { clearInterval(syncIntervalRef.current); syncIntervalRef.current = null; }
+    setIsSyncing(false);
+    setIsPaused(false);
+  }, []);
+
+  const startCarSync = useCallback(async () => {
+    const url = buildSyncUrl();
+    if (!url) return;
+    if (selectedTrackId) localStorage.setItem("nlt_last_track_id", selectedTrackId);
+    setIsSyncing(true);
+    setIsPaused(false);
+    lastNewLapAtRef.current = Date.now();
+    lastLapTotalRef.current = 0;
+    syncStartedAtRef.current = Date.now();
+    setSyncStatus(`Started · ${new Date().toLocaleTimeString()}`);
+
+    await doCarSyncTick();
+    setSyncStatus(`Last check: ${new Date().toLocaleTimeString()}`);
+
+    // After first tick, find the created/updated record and navigate to live dashboard
+    const foundRows = await localDb.raceResults
+      .filter((r) => r.sourceUrl === url && r.carId === carId)
+      .toArray();
+    if (foundRows[0]) {
+      setView({ kind: "live-dashboard", raceId: foundRows[0].id });
+    }
+
+    syncIntervalRef.current = setInterval(async () => {
+      const now = Date.now();
+      const idleMins = (now - lastNewLapAtRef.current) / 60000;
+      const totalHrs = (now - syncStartedAtRef.current) / 3600000;
+
+      if (totalHrs >= 1 && idleMins >= 60) {
+        stopCarSync();
+        setSyncStatus("Auto-stopped · no activity in 1 hour");
+        return;
+      }
+
+      if (idleMins >= 5) {
+        setIsPaused(true);
+        setSyncStatus(`Paused · no new laps in ${Math.floor(idleMins)}min`);
+        if (idleMins >= 10) {
+          setIsPaused(false);
+          lastNewLapAtRef.current = now;
+          await doCarSyncTick();
+          setSyncStatus(`Resumed · ${new Date().toLocaleTimeString()}`);
+        }
+        return;
+      }
+
+      setIsPaused(false);
+      await doCarSyncTick();
+      setSyncStatus(`Last check: ${new Date().toLocaleTimeString()}`);
+    }, 8000);
+  }, [buildSyncUrl, selectedTrackId, doCarSyncTick, stopCarSync, carId]);
+
+  // ─── End sync engine ──────────────────────────────────
+
   const raceResults = useLiveQuery(
     () => localDb.raceResults.where("carId").equals(carId).reverse().sortBy("date")
       .then((rows) => showHidden ? rows : rows.filter((r) => !r.hidden)),
@@ -1009,8 +1226,7 @@ function CarRunsTab({ carId }: { carId: string }) {
     [carId],
   );
 
-  // Load min/max lap filter from timing match
-  const timingNameRecord = useLiveQuery(() => localDb.carTimingNames.get(carId), [carId]);
+  // Load min/max lap filter from timing match (timingNameRecord declared above in sync engine)
   const minLapMs = timingNameRecord?.minLapMs;
   const maxLapMs = timingNameRecord?.maxLapMs;
 
@@ -1032,6 +1248,21 @@ function CarRunsTab({ carId }: { carId: string }) {
     const race = raceResults.find((r) => r.id === view.raceId);
     if (!race) return <p className="px-4 py-6 text-sm text-neutral-500">Race not found.</p>;
     return <RaceRunDetail race={race} carId={carId} onBack={() => setView({ kind: "list" })} />;
+  }
+
+  if (view.kind === "live-dashboard") {
+    return (
+      <CarLiveDashboard
+        resultId={view.raceId}
+        carId={carId}
+        isSyncing={isSyncing}
+        isPaused={isPaused}
+        syncStatus={syncStatus}
+        onBack={() => { stopCarSync(); setView({ kind: "list" }); }}
+        minLapMs={minLapMs}
+        maxLapMs={maxLapMs}
+      />
+    );
   }
 
   const hasRaces = raceResults.length > 0;
@@ -1063,7 +1294,75 @@ function CarRunsTab({ carId }: { carId: string }) {
         </div>
       </div>
 
-      {/* NLT Sync */}
+      {/* NLT Live Sync */}
+      <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-3 space-y-2">
+        <h4 className="text-[10px] font-semibold text-neutral-500 uppercase">Live Timing Sync</h4>
+        <div className="flex flex-col gap-2">
+          {/* Track selector */}
+          <select
+            value={selectedTrackId}
+            onChange={(e) => setSelectedTrackId(e.target.value)}
+            className="w-full rounded-md bg-neutral-800 border border-neutral-700 text-xs text-neutral-200 px-2 py-1.5"
+          >
+            <option value="">Select track…</option>
+            {tracks.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+
+          {/* Race selector */}
+          {(feedUrl || nltCommunityId) && (
+            racesLoading ? (
+              <p className="text-[10px] text-neutral-500">Loading races…</p>
+            ) : races.length > 0 ? (
+              <select
+                value={raceNumber}
+                onChange={(e) => setRaceNumber(e.target.value)}
+                className="w-full rounded-md bg-neutral-800 border border-neutral-700 text-xs text-neutral-200 px-2 py-1.5"
+              >
+                <option value="">Select race…</option>
+                {races.map((r) => (
+                  <option key={r.id} value={String(r.id)}>
+                    {r.name} {r.status === "active" ? "🔴" : ""}
+                  </option>
+                ))}
+              </select>
+            ) : null
+          )}
+
+          {/* Timing name status */}
+          {timingName && (
+            <p className="text-[10px] text-neutral-500">Auto-filtering to: <span className="text-neutral-300 font-medium">{timingName}</span></p>
+          )}
+
+          {/* Start / Stop */}
+          <div className="flex gap-2">
+            {!isSyncing ? (
+              <button
+                onClick={startCarSync}
+                disabled={!raceNumber}
+                className="rounded-md bg-green-700 text-white px-3 py-1 text-xs font-medium hover:bg-green-600 disabled:opacity-40"
+              >
+                {isLiveRace ? "Start Live Sync" : "Import"}
+              </button>
+            ) : (
+              <button
+                onClick={stopCarSync}
+                className="rounded-md bg-red-700 text-white px-3 py-1 text-xs font-medium hover:bg-red-600"
+              >
+                Stop Sync
+              </button>
+            )}
+          </div>
+
+          {/* Sync status */}
+          {syncStatus && (
+            <p className={`text-[10px] ${isPaused ? "text-yellow-400" : "text-neutral-500"}`}>{syncStatus}</p>
+          )}
+        </div>
+      </div>
+
+      {/* NLT Timing Match Config */}
       <TimingToCarMatch carId={carId} />
 
       {!hasRaces && !hasSessions && (
@@ -2238,6 +2537,230 @@ function RaceRunDetail({
 
       {race.notes && <p className="text-xs text-neutral-400">{race.notes}</p>}
     </div>
+  );
+}
+
+// ─── Car Live Dashboard ──────────────────────────────────────
+
+function CarLiveDashboard({
+  resultId,
+  carId,
+  isSyncing,
+  isPaused,
+  syncStatus,
+  onBack,
+  minLapMs,
+  maxLapMs,
+}: {
+  resultId: string;
+  carId: string;
+  isSyncing: boolean;
+  isPaused: boolean;
+  syncStatus: string | null;
+  onBack: () => void;
+  minLapMs?: number;
+  maxLapMs?: number;
+}) {
+  const result = useLiveQuery(() => localDb.raceResults.get(resultId), [resultId]);
+
+  const GAP_MS = 60000;
+  const allLaps = result?.laps ?? [];
+
+  const kpiLaps = useMemo(() => allLaps.filter((l) => {
+    if (l.hidden) return false;
+    if (l.timeMs >= GAP_MS) return false;
+    if (minLapMs != null && l.timeMs < minLapMs) return false;
+    if (maxLapMs != null && l.timeMs > maxLapMs) return false;
+    return true;
+  }), [allLaps, minLapMs, maxLapMs]);
+
+  const bestMs = kpiLaps.length > 0 ? Math.min(...kpiLaps.map((l) => l.timeMs)) : 0;
+  const avgMs = kpiLaps.length > 0
+    ? kpiLaps.reduce((t, l) => t + l.timeMs, 0) / kpiLaps.length
+    : 0;
+  const worstMs = kpiLaps.length > 0 ? Math.max(...kpiLaps.map((l) => l.timeMs)) : 0;
+  const stdDev = useMemo(() => {
+    if (kpiLaps.length < 2) return 0;
+    const mean = avgMs;
+    const variance = kpiLaps.reduce((t, l) => t + (l.timeMs - mean) ** 2, 0) / kpiLaps.length;
+    return Math.sqrt(variance);
+  }, [kpiLaps, avgMs]);
+
+  const isIgnored = (l: { timeMs: number; hidden?: boolean }) => {
+    if (l.hidden) return true;
+    if (l.timeMs >= GAP_MS) return true;
+    if (minLapMs != null && l.timeMs < minLapMs) return true;
+    if (maxLapMs != null && l.timeMs > maxLapMs) return true;
+    return false;
+  };
+
+  const car = getCarById(carId);
+
+  if (!result) return <p className="text-center text-neutral-500 text-sm py-8">Loading…</p>;
+
+  return (
+    <div className="px-4 py-4 space-y-4">
+      <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">← Back to Runs</button>
+
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold text-neutral-200">{result.eventName}</h2>
+          {isSyncing && (
+            <span className={`text-xs ${isPaused ? "text-amber-400" : "text-red-400 animate-pulse"}`}>
+              {isPaused ? "⏸ Paused" : "● LIVE"}
+            </span>
+          )}
+        </div>
+        {isSyncing && syncStatus && (
+          <p className={`text-[10px] mt-0.5 ${isPaused ? "text-amber-400" : "text-green-400"}`}>{syncStatus}</p>
+        )}
+        <div className="flex gap-3 text-xs text-neutral-400 mt-1">
+          <span>{result.className}</span>
+          <span>{result.roundType}</span>
+          {car && <span>{car.name}</span>}
+        </div>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-4 gap-2">
+        <StatBox label="Position" value={`P${result.position}${result.totalEntries ? `/${result.totalEntries}` : ""}`} />
+        <StatBox label="Laps" value={String(kpiLaps.length)} />
+        <StatBox label="Fast Lap" value={bestMs > 0 ? fmt(bestMs) : "–"} highlight />
+        <StatBox label="Avg Lap" value={avgMs > 0 ? fmt(avgMs) : "–"} />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <StatBox label="Worst" value={worstMs > 0 ? fmt(worstMs) : "–"} />
+        <StatBox label="Std Dev" value={stdDev > 0 ? fmt(stdDev) : "–"} />
+        <StatBox label="Total Time" value={fmtTotal(kpiLaps.reduce((t, l) => t + l.timeMs, 0))} />
+      </div>
+
+      {/* Line chart */}
+      {kpiLaps.length >= 2 && <CarLapTimeChart laps={kpiLaps} />}
+
+      {/* Lap table — shows ALL laps including ignored */}
+      {allLaps.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase">
+            All Laps <span className="text-neutral-600 font-normal">({allLaps.length} total, {allLaps.length - kpiLaps.length} ignored)</span>
+          </h3>
+          <div className="max-h-80 overflow-y-auto space-y-0.5">
+            {allLaps.map((lap) => {
+              const ignored = isIgnored(lap);
+              const isBest = lap.timeMs === bestMs && !ignored;
+              return (
+                <div
+                  key={lap.lapNumber}
+                  className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
+                    ignored
+                      ? "bg-neutral-900/30 text-neutral-600"
+                      : isBest
+                        ? "bg-green-950/40 border border-green-800/50 text-green-300"
+                        : "bg-neutral-900/50 text-neutral-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-500 w-8">#{lap.lapNumber}</span>
+                    {ignored && <span className="text-[9px] text-neutral-600 italic">ignored</span>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`font-mono ${ignored ? "line-through" : ""}`}>
+                      {fmt(lap.timeMs)}
+                    </span>
+                    {!ignored && bestMs > 0 && lap.timeMs !== bestMs && (
+                      <span className="text-[10px] text-neutral-600">
+                        +{((lap.timeMs - bestMs) / 1000).toFixed(3)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {result.sourceUrl && (
+        <a
+          href={result.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-400 hover:text-blue-300 underline"
+        >
+          View on Next Level Timing →
+        </a>
+      )}
+    </div>
+  );
+}
+
+// ─── Car Lap Time SVG Chart ──────────────────────────────────
+
+function CarLapTimeChart({ laps }: { laps: { lapNumber: number; timeMs: number }[] }) {
+  const W = 360;
+  const H = 180;
+  const PAD_L = 48;
+  const PAD_R = 12;
+  const PAD_T = 16;
+  const PAD_B = 28;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+
+  const times = laps.map((l) => l.timeMs);
+  const minTime = Math.min(...times);
+  const maxTime = Math.max(...times);
+  const yMin = minTime;
+  const yMax = Math.max(maxTime, minTime * 2);
+
+  const xScale = (i: number) => PAD_L + (i / Math.max(laps.length - 1, 1)) * plotW;
+  const yScale = (ms: number) => PAD_T + plotH - ((ms - yMin) / (yMax - yMin || 1)) * plotH;
+
+  const points = laps.map((l, i) => `${xScale(i)},${yScale(l.timeMs)}`).join(" ");
+
+  const yTicks = 5;
+  const yStep = (yMax - yMin) / (yTicks - 1);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto rounded-lg bg-neutral-900 border border-neutral-800">
+      {/* Grid lines + Y labels */}
+      {Array.from({ length: yTicks }, (_, i) => {
+        const ms = yMin + yStep * i;
+        const y = yScale(ms);
+        return (
+          <Fragment key={i}>
+            <line x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="#333" strokeWidth="0.5" />
+            <text x={PAD_L - 4} y={y + 3} textAnchor="end" fill="#666" fontSize="8">
+              {(ms / 1000).toFixed(2)}
+            </text>
+          </Fragment>
+        );
+      })}
+
+      {/* Data line */}
+      <polyline fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round" points={points} />
+
+      {/* Data dots */}
+      {laps.map((l, i) => (
+        <circle key={l.lapNumber} cx={xScale(i)} cy={yScale(l.timeMs)} r="2.5" fill={l.timeMs === minTime ? "#22c55e" : "#3b82f6"} />
+      ))}
+
+      {/* X labels — first, last, middle */}
+      {laps.length > 0 && (
+        <>
+          <text x={xScale(0)} y={H - 4} textAnchor="middle" fill="#666" fontSize="8">
+            #{laps[0].lapNumber}
+          </text>
+          {laps.length > 2 && (
+            <text x={xScale(Math.floor(laps.length / 2))} y={H - 4} textAnchor="middle" fill="#666" fontSize="8">
+              #{laps[Math.floor(laps.length / 2)].lapNumber}
+            </text>
+          )}
+          <text x={xScale(laps.length - 1)} y={H - 4} textAnchor="middle" fill="#666" fontSize="8">
+            #{laps[laps.length - 1].lapNumber}
+          </text>
+        </>
+      )}
+    </svg>
   );
 }
 
