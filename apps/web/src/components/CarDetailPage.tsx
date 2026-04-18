@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getCarById, getChassisPlatformById, chassisPlatforms, allTires, allWheels } from "@setupiq/shared";
+import type { TireComponent } from "@setupiq/shared";
 import { localDb, recordDeletion, recordDeletions, type LocalRunSession, type LocalRunSegment, type LocalRaceResult, type LocalSetupSnapshot } from "../db/local-db.js";
 import { useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { SetupsPage } from "./SetupsPage.js";
@@ -2552,6 +2553,7 @@ function buildSystemPrompt(
   snapshot: LocalSetupSnapshot,
   runStats: ReturnType<typeof computeLapStats>,
   lapRanges: string,
+  partsBinTires: TireComponent[],
 ): string {
   const carInfo = car
     ? `Car: ${car.name} (${car.manufacturer}, ${car.scale} scale, ${car.driveType})`
@@ -2582,20 +2584,25 @@ function buildSystemPrompt(
     return `  ${cap.name} (${cap.id}): ${valDisplay}${optionsStr}`;
   });
 
-  // Build wheel/tire setup section
+  // Build wheel/tire setup section — check parts bin tires first, then library
   const wtLines: string[] = [];
   for (const wt of snapshot.wheelTireSetups ?? []) {
     const pos = `${wt.side} ${wt.position}`;
-    const tire = wt.tireId ? allTires.find((t) => t.id === wt.tireId) : undefined;
+    const tire = wt.tireId
+      ? (partsBinTires.find((t) => t.id === wt.tireId) ?? allTires.find((t) => t.id === wt.tireId))
+      : undefined;
     const wheel = wt.wheelId ? allWheels.find((w) => w.id === wt.wheelId) : undefined;
-    const tireName = tire ? `${tire.name} (${tire.color ?? tire.compound}, ${tire.widthMm}mm)` : wt.tireId ?? "none";
+    const tireName = tire ? `${tire.name} (${tire.color ?? tire.compound}, ${tire.widthMm}mm) [id: ${tire.id}]` : wt.tireId ?? "none";
     const wheelName = wheel ? `${wheel.name} (offset ${wheel.offset >= 0 ? "+" : ""}${wheel.offset})` : wt.wheelId ?? "none";
     const mountStr = wt.mount ? `, mount: ${wt.mount.method}${wt.mount.edgeGlue !== "none" ? ` / edge-glue: ${wt.mount.edgeGlue}` : ""}` : "";
     wtLines.push(`  ${pos}: tire=${tireName}, wheel=${wheelName}${mountStr}`);
   }
 
-  // Available tire/wheel inventory
-  const tireInventory = allTires.map((t) => `  ${t.name} — ${t.position}, ${t.compound}, ${t.widthMm}mm, color: ${t.color ?? "N/A"}`).join("\n");
+  // Available tire/wheel inventory — parts bin tires are primary, library is fallback
+  const inventoryTires = partsBinTires.length > 0 ? partsBinTires : allTires;
+  const tireInventory = inventoryTires.map((t) =>
+    `  ${t.name} [id: ${t.id}] — ${t.position}, ${t.compound}, ${t.widthMm}mm, color: ${t.color ?? "N/A"}`
+  ).join("\n");
   const wheelInventory = allWheels.map((w) => `  ${w.name} — ${w.position}, ${w.widthMm}mm, offset ${w.offset >= 0 ? "+" : ""}${w.offset}`).join("\n");
 
   const statsText = runStats
@@ -2631,8 +2638,10 @@ GUIDELINES:
 - Ask clarifying questions about how the car feels (understeer, oversteer, traction, etc.) when needed.
 - Explain WHY you recommend a change — what effect it will have.
 - When you have enough information to suggest a setup change, include a JSON block that specifies the changes.
-- Format setup changes as: \`\`\`setup-change\n{"changes": [{"capabilityId": "...", "value": "..."}], "name": "new setup name"}\n\`\`\`
+- Format setup changes as: \`\`\`setup-change\n{"changes": [{"capabilityId": "...", "value": "..."}], "wheelTireChanges": [{"position": "front|rear", "side": "left|right", "tireId": "..."}], "name": "new setup name"}\n\`\`\`
 - The driver can then apply these changes to create a new setup.
+- When suggesting tire changes, use the exact tire id from the Available Tires list above. Include all four corners if changing tires (typically both fronts get the same tire, and both rears get the same tire).
+- "wheelTireChanges" is optional — only include it when suggesting a tire swap. "changes" is optional too — only include it for capability changes.
 - Be concise and practical. This is track-side coaching, not a textbook.
 - Consider the relationship between settings — e.g. stiffer springs may require damper adjustment.
 - Tires are color-coded. The driver may refer to tires by color (e.g. "purple wheels" or "purple tires" mean the same thing). Match color references to the tire/wheel inventory above.
@@ -2660,6 +2669,35 @@ function SetupCoachChat({
   // Load the setup snapshot
   const snapshot = useLiveQuery(() => localDb.setupSnapshots.get(setupSnapshotId), [setupSnapshotId]);
   const car = getCarById(carId);
+
+  // Parts bin tires for AI tire suggestions
+  const chassisMap: Record<string, string> = {
+    "car-mr03-rwd": "chassis-kyosho-mr03",
+    "car-mrx-me": "chassis-atomic-mrx",
+    "car-rx28": "chassis-reflex-rx28",
+    "car-evo2-5600kv": "chassis-kyosho-mr04-evo2",
+  };
+  const resolvedChassisId = chassisMap[carId] ?? null;
+  const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
+  const partsBinTires = useMemo(() => {
+    return allParts
+      .filter((p) => p.categoryId === "front-tires" || p.categoryId === "rear-tires")
+      .filter((p) =>
+        !resolvedChassisId ||
+        p.compatibleChassisIds.length === 0 ||
+        p.compatibleChassisIds.includes(resolvedChassisId),
+      )
+      .map((p): TireComponent => ({
+        id: `partsbin-${p.id}`,
+        type: "tire",
+        brand: "",
+        name: p.name,
+        position: (p.categoryId === "front-tires" ? "front" : "rear") as TireComponent["position"],
+        compound: (String(p.attributes.compound ?? "medium").toLowerCase()) as TireComponent["compound"],
+        widthMm: Number(p.attributes.widthMm) || 0,
+        color: String(p.attributes.color ?? ""),
+      }));
+  }, [allParts, resolvedChassisId]);
 
   // Load or create the chat record for this (race + setup) combo
   const chatRecord = useLiveQuery(
@@ -2704,7 +2742,7 @@ function SetupCoachChat({
     }
 
     // Build Gemini request
-    const systemPrompt = buildSystemPrompt(car, snapshot, runStats, lapRanges);
+    const systemPrompt = buildSystemPrompt(car, snapshot, runStats, lapRanges, partsBinTires);
     const contents = updatedMessages.map((m) => ({
       role: m.role === "user" ? "user" : "model",
       parts: [{ text: m.text }],
@@ -2748,7 +2786,7 @@ function SetupCoachChat({
     } finally {
       setSending(false);
     }
-  }, [input, snapshot, sending, messages, chatRecord, raceResultId, setupSnapshotId, carId, car, runStats, lapRanges]);
+  }, [input, snapshot, sending, messages, chatRecord, raceResultId, setupSnapshotId, carId, car, runStats, lapRanges, partsBinTires]);
 
   /** Parse a setup-change JSON block from AI response and create a new setup snapshot. */
   const applySetupChange = useCallback(async (aiText: string) => {
@@ -2757,11 +2795,43 @@ function SetupCoachChat({
     if (!match) return;
     try {
       setCreatingSetup(true);
-      const parsed = JSON.parse(match[1]) as { changes: { capabilityId: string; value: string | number | boolean }[]; name?: string };
-      const newEntries = snapshot.entries.map((e) => {
-        const change = parsed.changes.find((c) => c.capabilityId === e.capabilityId);
-        return change ? { ...e, value: change.value } : e;
-      });
+      const parsed = JSON.parse(match[1]) as {
+        changes?: { capabilityId: string; value: string | number | boolean }[];
+        wheelTireChanges?: { position: string; side: string; tireId?: string; wheelId?: string }[];
+        name?: string;
+      };
+
+      // Apply capability changes
+      const newEntries = (parsed.changes && parsed.changes.length > 0)
+        ? snapshot.entries.map((e) => {
+            const change = parsed.changes!.find((c) => c.capabilityId === e.capabilityId);
+            return change ? { ...e, value: change.value } : e;
+          })
+        : [...snapshot.entries];
+
+      // Apply wheel/tire changes
+      let newWts = [...(snapshot.wheelTireSetups ?? [])];
+      if (parsed.wheelTireChanges && parsed.wheelTireChanges.length > 0) {
+        for (const wtc of parsed.wheelTireChanges) {
+          const idx = newWts.findIndex((w) => w.position === wtc.position && w.side === wtc.side);
+          if (idx >= 0) {
+            newWts[idx] = {
+              ...newWts[idx],
+              ...(wtc.tireId !== undefined ? { tireId: wtc.tireId } : {}),
+              ...(wtc.wheelId !== undefined ? { wheelId: wtc.wheelId } : {}),
+            };
+          } else {
+            // Corner didn't exist yet — create it
+            newWts.push({
+              position: wtc.position as "front" | "rear",
+              side: wtc.side as "left" | "right",
+              ...(wtc.tireId !== undefined ? { tireId: wtc.tireId } : {}),
+              ...(wtc.wheelId !== undefined ? { wheelId: wtc.wheelId } : {}),
+            });
+          }
+        }
+      }
+
       const now = new Date().toISOString();
       const newId = crypto.randomUUID();
       await localDb.setupSnapshots.add({
@@ -2769,6 +2839,7 @@ function SetupCoachChat({
         id: newId,
         name: parsed.name ?? `${snapshot.name} (AI)`,
         entries: newEntries,
+        wheelTireSetups: newWts,
         createdAt: now,
         updatedAt: now,
         _dirty: 1 as const,
