@@ -6,14 +6,18 @@ interface Props {
   side: "left" | "right";
   setup: WheelTireSetup | undefined;
   onChange: (setup: WheelTireSetup) => void;
+  /** Extra tires from the parts bin inventory (merged with library tires) */
+  extraTires?: TireComponent[];
+  /** Extra wheels from the parts bin inventory (merged with library wheels) */
+  extraWheels?: WheelComponent[];
 }
 
 const MOUNT_METHODS: TireMount["method"][] = ["glued", "taped"];
 const EDGE_GLUE: TireMount["edgeGlue"][] = ["outside", "inside", "both", "none"];
 
-export function WheelTireSelector({ position, side, setup, onChange }: Props) {
-  const tires: TireComponent[] = position === "front" ? frontTires : rearTires;
-  const wheels: WheelComponent[] = position === "front" ? frontWheels : rearWheels;
+export function WheelTireSelector({ position, side, setup, onChange, extraTires = [], extraWheels = [] }: Props) {
+  const libraryTires: TireComponent[] = position === "front" ? frontTires : rearTires;
+  const libraryWheels: WheelComponent[] = position === "front" ? frontWheels : rearWheels;
 
   const base: WheelTireSetup = setup ?? { position, side };
 
@@ -32,11 +36,20 @@ export function WheelTireSelector({ position, side, setup, onChange }: Props) {
           className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">— select —</option>
-          {wheels.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
-            </option>
-          ))}
+          {libraryWheels.length > 0 && <optgroup label="Library">
+            {libraryWheels.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
+              </option>
+            ))}
+          </optgroup>}
+          {extraWheels.length > 0 && <optgroup label="Parts Bin">
+            {extraWheels.filter((w) => !libraryWheels.some((lw) => lw.id === w.id)).map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name} (offset {w.offset >= 0 ? "+" : ""}{w.offset})
+              </option>
+            ))}
+          </optgroup>}
         </select>
       </div>
 
@@ -49,11 +62,20 @@ export function WheelTireSelector({ position, side, setup, onChange }: Props) {
           className="w-full rounded bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-xs text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">— select —</option>
-          {tires.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
-            </option>
-          ))}
+          {libraryTires.length > 0 && <optgroup label="Library">
+            {libraryTires.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
+              </option>
+            ))}
+          </optgroup>}
+          {extraTires.length > 0 && <optgroup label="Parts Bin">
+            {extraTires.filter((t) => !libraryTires.some((lt) => lt.id === t.id)).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.compound}){t.color ? ` [${t.color}]` : ""}
+              </option>
+            ))}
+          </optgroup>}
         </select>
       </div>
 

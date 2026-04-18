@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
-import type { CarDefinition, SetupEntry, WheelTireSetup, SetupSnapshot } from "@setupiq/shared";
+import { useLiveQuery } from "dexie-react-hooks";
+import type { CarDefinition, SetupEntry, WheelTireSetup, SetupSnapshot, TireComponent, WheelPosition } from "@setupiq/shared";
 import { validateSetup } from "@setupiq/shared";
 import { CapabilityField } from "./CapabilityField.js";
 import { WheelTireSelector } from "./WheelTireSelector.js";
 import { RichNotesEditor } from "./RichNotesEditor.js";
+import { localDb } from "../db/local-db.js";
 
 interface Props {
   car: CarDefinition;
@@ -13,9 +15,44 @@ interface Props {
   onCancel: () => void;
 }
 
+/** Map predefined car IDs to chassis platform IDs for parts filtering. */
+const predefinedChassisMap: Record<string, string> = {
+  "car-mr03-rwd": "chassis-kyosho-mr03",
+  "car-mrx-me": "chassis-atomic-mrx",
+  "car-rx28": "chassis-reflex-rx28",
+  "car-evo2-5600kv": "chassis-kyosho-mr04-evo2",
+};
+
 export function SetupEditor({ car, existing, onSave, onCancel }: Props) {
   const [name, setName] = useState(existing?.name ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
+
+  // Parts bin tires for WheelTireSelector
+  const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
+  const resolvedChassisId = predefinedChassisMap[car.id] ?? null;
+
+  const partsBinTires = useMemo(() => {
+    return allParts
+      .filter((p) => p.categoryId === "front-tires" || p.categoryId === "rear-tires")
+      .filter((p) =>
+        !resolvedChassisId ||
+        p.compatibleChassisIds.length === 0 ||
+        p.compatibleChassisIds.includes(resolvedChassisId),
+      )
+      .map((p): TireComponent => ({
+        id: `partsbin-${p.id}`,
+        type: "tire",
+        brand: "",
+        name: p.name,
+        position: (p.categoryId === "front-tires" ? "front" : "rear") as WheelPosition,
+        compound: (String(p.attributes.compound ?? "medium").toLowerCase()) as TireComponent["compound"],
+        widthMm: Number(p.attributes.widthMm) || 0,
+        color: String(p.attributes.color ?? ""),
+      }));
+  }, [allParts, resolvedChassisId]);
+
+  const partsBinFrontTires = useMemo(() => partsBinTires.filter((t) => t.position === "front"), [partsBinTires]);
+  const partsBinRearTires = useMemo(() => partsBinTires.filter((t) => t.position === "rear"), [partsBinTires]);
 
   // Build initial values from existing or defaults
   const initEntries = useMemo(() => {
@@ -124,10 +161,10 @@ export function SetupEditor({ car, existing, onSave, onCancel }: Props) {
           Wheels & Tires
         </h3>
         <div className="grid grid-cols-2 gap-3">
-          <WheelTireSelector position="front" side="left" setup={wheelTire["front-left"]} onChange={handleWheelTire} />
-          <WheelTireSelector position="front" side="right" setup={wheelTire["front-right"]} onChange={handleWheelTire} />
-          <WheelTireSelector position="rear" side="left" setup={wheelTire["rear-left"]} onChange={handleWheelTire} />
-          <WheelTireSelector position="rear" side="right" setup={wheelTire["rear-right"]} onChange={handleWheelTire} />
+          <WheelTireSelector position="front" side="left" setup={wheelTire["front-left"]} onChange={handleWheelTire} extraTires={partsBinFrontTires} />
+          <WheelTireSelector position="front" side="right" setup={wheelTire["front-right"]} onChange={handleWheelTire} extraTires={partsBinFrontTires} />
+          <WheelTireSelector position="rear" side="left" setup={wheelTire["rear-left"]} onChange={handleWheelTire} extraTires={partsBinRearTires} />
+          <WheelTireSelector position="rear" side="right" setup={wheelTire["rear-right"]} onChange={handleWheelTire} extraTires={partsBinRearTires} />
         </div>
       </section>
 

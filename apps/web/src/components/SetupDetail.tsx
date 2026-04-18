@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import type { SetupSnapshot, CarDefinition, SetupEntry, SetupSection, Capability, WheelTireSetup } from "@setupiq/shared";
+import type { SetupSnapshot, CarDefinition, SetupEntry, SetupSection, Capability, WheelTireSetup, TireComponent, WheelPosition } from "@setupiq/shared";
 import { allTires, allWheels, getAllowedValues, partCategories } from "@setupiq/shared";
 import { exportSetupCsv, downloadCsv } from "../utils/export.js";
 import { WheelTireSelector } from "./WheelTireSelector.js";
@@ -49,6 +49,30 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
 
   // Fetch user's parts from the Parts Bin
   const allParts = useLiveQuery(() => localDb.parts.toArray()) ?? [];
+
+  // Convert parts-bin tires into TireComponent format for WheelTireSelector
+  const partsBinTires = useMemo(() => {
+    return allParts
+      .filter((p) => p.categoryId === "front-tires" || p.categoryId === "rear-tires")
+      .filter((p) =>
+        !resolvedChassisId ||
+        p.compatibleChassisIds.length === 0 ||
+        p.compatibleChassisIds.includes(resolvedChassisId),
+      )
+      .map((p): TireComponent => ({
+        id: `partsbin-${p.id}`,
+        type: "tire",
+        brand: "", // vendor resolved below if needed
+        name: p.name,
+        position: (p.categoryId === "front-tires" ? "front" : "rear") as WheelPosition,
+        compound: (String(p.attributes.compound ?? "medium").toLowerCase()) as TireComponent["compound"],
+        widthMm: Number(p.attributes.widthMm) || 0,
+        color: String(p.attributes.color ?? ""),
+      }));
+  }, [allParts, resolvedChassisId]);
+
+  const partsBinFrontTires = useMemo(() => partsBinTires.filter((t) => t.position === "front"), [partsBinTires]);
+  const partsBinRearTires = useMemo(() => partsBinTires.filter((t) => t.position === "rear"), [partsBinTires]);
 
   // Live entries state for inline editing
   const [liveEntries, setLiveEntries] = useState<SetupEntry[]>(() => [...setup.entries]);
@@ -609,10 +633,10 @@ export function SetupDetail({ setup, car, chassisId: chassisIdProp, allSetups, o
         {expandedSection === "wheels" ? (
           <div>
             <div className="grid grid-cols-2 gap-3">
-              <WheelTireSelector position="front" side="left" setup={liveWts["front-left"]} onChange={handleWheelTireChange} />
-              <WheelTireSelector position="front" side="right" setup={liveWts["front-right"]} onChange={handleWheelTireChange} />
-              <WheelTireSelector position="rear" side="left" setup={liveWts["rear-left"]} onChange={handleWheelTireChange} />
-              <WheelTireSelector position="rear" side="right" setup={liveWts["rear-right"]} onChange={handleWheelTireChange} />
+              <WheelTireSelector position="front" side="left" setup={liveWts["front-left"]} onChange={handleWheelTireChange} extraTires={partsBinFrontTires} />
+              <WheelTireSelector position="front" side="right" setup={liveWts["front-right"]} onChange={handleWheelTireChange} extraTires={partsBinFrontTires} />
+              <WheelTireSelector position="rear" side="left" setup={liveWts["rear-left"]} onChange={handleWheelTireChange} extraTires={partsBinRearTires} />
+              <WheelTireSelector position="rear" side="right" setup={liveWts["rear-right"]} onChange={handleWheelTireChange} extraTires={partsBinRearTires} />
             </div>
             <button
               onClick={() => setExpandedSection(null)}
