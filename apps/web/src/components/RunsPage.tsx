@@ -8,6 +8,7 @@ import { useRunSessions } from "../hooks/use-run-sessions.js";
 import { useHideDemoData, useShowHiddenRuns } from "../hooks/use-demo-filter.js";
 import { DriverFeedbackForm } from "./DriverFeedbackForm.js";
 import { RecommendationsPanel } from "./RecommendationsPanel.js";
+import { SetupPerformanceLab } from "./SetupPerformanceLab.js";
 import { exportSessionCsv, downloadCsv } from "../utils/export.js";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
@@ -321,6 +322,13 @@ function AnalyticsDashboard({
           </div>
         </div>
       )}
+
+      {/* Setup Performance Lab — best setup per car/track + what to try next */}
+      <SetupPerformanceLab
+        sessions={sessions}
+        raceResults={raceResults}
+        filterRaceLaps={filterRaceLaps}
+      />
 
       {/* Unified timeline */}
       {timeline.length === 0 ? (
