@@ -2230,10 +2230,10 @@ function PartDetail({
           )}
         </div>
 
-        {/* Restocking Links */}
-        {(part.restockLinks ?? []).length > 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
-            <p className="text-xs text-neutral-500 mb-2">Restocking</p>
+        {/* Restocking */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
+          <p className="text-xs text-neutral-500 mb-2">Restocking</p>
+          {(part.restockLinks ?? []).length > 0 ? (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-800">
@@ -2258,8 +2258,10 @@ function PartDetail({
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
+          ) : (
+            <p className="text-xs text-neutral-600">No restocking links — add them via Edit</p>
+          )}
+        </div>
       </div>
 
       {/* Hidden file inputs */}
