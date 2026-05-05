@@ -197,6 +197,8 @@ export interface LocalPart {
   sortOrder?: number;
   /** Link to server-side catalog part (null = manual / unlinked) */
   catalogPartId?: string;
+  /** Restocking purchase links */
+  restockLinks?: Array<{ id: string; vendorName: string; url: string; notes?: string }>;
   createdAt: string;
   updatedAt: string;
   _dirty: 0 | 1;

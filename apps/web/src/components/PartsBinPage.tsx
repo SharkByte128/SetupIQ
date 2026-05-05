@@ -1641,6 +1641,12 @@ function AddPartForm({
   const [attrs, setAttrs] = useState<Record<string, string | number>>(
     editPart?.attributes ?? {},
   );
+  const [restockLinks, setRestockLinks] = useState<Array<{ id: string; vendorName: string; url: string; notes?: string }>>(
+    editPart?.restockLinks ?? [],
+  );
+  const [newRestockVendor, setNewRestockVendor] = useState("");
+  const [newRestockUrl, setNewRestockUrl] = useState("");
+  const [newRestockNotes, setNewRestockNotes] = useState("");
 
   // Resolve the current category from allCategories for correct attrs
   const resolvedCategory = allCategories.find(c => c.id === selectedCategoryId) ?? category;
@@ -1676,6 +1682,7 @@ function AddPartForm({
       compatibleChassisIds: selectedChassis,
       attributes: attrs,
       notes: notes.trim() || undefined,
+      restockLinks: restockLinks.length > 0 ? restockLinks : undefined,
       createdAt: editPart?.createdAt ?? now,
       updatedAt: now,
       _dirty: 1 as const,
@@ -1683,6 +1690,21 @@ function AddPartForm({
 
     await localDb.parts.put(part);
     onSaved(part);
+  };
+
+  const addRestockLink = () => {
+    if (!newRestockVendor.trim() || !newRestockUrl.trim()) return;
+    setRestockLinks(prev => [
+      ...prev,
+      { id: uuid(), vendorName: newRestockVendor.trim(), url: newRestockUrl.trim(), notes: newRestockNotes.trim() || undefined },
+    ]);
+    setNewRestockVendor("");
+    setNewRestockUrl("");
+    setNewRestockNotes("");
+  };
+
+  const removeRestockLink = (id: string) => {
+    setRestockLinks(prev => prev.filter(l => l.id !== id));
   };
 
   const inputClass =
@@ -1845,6 +1867,61 @@ function AddPartForm({
             placeholder="Any additional notes..."
             minHeight={80}
           />
+        </div>
+
+        {/* Restocking Links */}
+        <div>
+          <label className="text-xs text-neutral-400 mb-2 block">Restocking Links</label>
+          {restockLinks.length > 0 && (
+            <div className="flex flex-col gap-2 mb-3">
+              {restockLinks.map((link) => (
+                <div key={link.id} className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-blue-400 truncate">{link.vendorName}</p>
+                    <p className="text-[10px] text-neutral-500 truncate">{link.url}</p>
+                    {link.notes && <p className="text-[10px] text-neutral-500">{link.notes}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeRestockLink(link.id)}
+                    className="text-red-400 text-xs hover:text-red-300 flex-shrink-0"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex flex-col gap-2">
+            <p className="text-[10px] text-neutral-500 mb-1">Add a store link</p>
+            <input
+              className={inputClass}
+              placeholder="Vendor / Store name"
+              value={newRestockVendor}
+              onChange={(e) => setNewRestockVendor(e.target.value)}
+            />
+            <input
+              className={inputClass}
+              placeholder="Store URL (https://...)"
+              value={newRestockUrl}
+              onChange={(e) => setNewRestockUrl(e.target.value)}
+              type="url"
+            />
+            <input
+              className={inputClass}
+              placeholder="Notes (optional, e.g. item #, color)"
+              value={newRestockNotes}
+              onChange={(e) => setNewRestockNotes(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={addRestockLink}
+              disabled={!newRestockVendor.trim() || !newRestockUrl.trim()}
+              className="self-start bg-neutral-700 hover:bg-neutral-600 disabled:opacity-40 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              + Add Link
+            </button>
+          </div>
         </div>
 
         {/* Actions */}
@@ -2152,6 +2229,37 @@ function PartDetail({
             <p className="text-xs text-neutral-600">No documents yet</p>
           )}
         </div>
+
+        {/* Restocking Links */}
+        {(part.restockLinks ?? []).length > 0 && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3">
+            <p className="text-xs text-neutral-500 mb-2">Restocking</p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-800">
+                  <th className="text-left text-[10px] text-neutral-500 font-medium pb-1.5 pr-3">Vendor</th>
+                  <th className="text-left text-[10px] text-neutral-500 font-medium pb-1.5">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-800">
+                {(part.restockLinks ?? []).map((link) => (
+                  <tr key={link.id}>
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      <button
+                        onClick={() => window.open(link.url, "_blank", "noopener,noreferrer")}
+                        className="text-blue-400 hover:text-blue-300 hover:underline text-sm font-medium transition-colors text-left"
+                        title={link.url}
+                      >
+                        🛒 {link.vendorName}
+                      </button>
+                    </td>
+                    <td className="py-2 text-neutral-400 text-xs">{link.notes ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Hidden file inputs */}
