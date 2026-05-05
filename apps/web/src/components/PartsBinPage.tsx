@@ -1983,12 +1983,16 @@ function AddPartForm({
 // ── Part Detail ───────────────────────────────────────────────
 
 function PartDetail({
-  part,
+  part: partProp,
   onEdit,
 }: {
   part: LocalPart;
   onEdit: () => void;
 }) {
+  // Live query so the detail page always reflects the latest saved data
+  const livePart = useLiveQuery(() => localDb.parts.get(partProp.id), [partProp.id]);
+  const part = livePart ?? partProp;
+
   const allCategories = useAllCategories();
   const allVendors = useAllVendors();
   const vendor = allVendors.find(v => v.id === part.vendorId);
